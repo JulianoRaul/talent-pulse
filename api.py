@@ -20,20 +20,30 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "chave_secreta_talent_pulse_
 # ==========================================
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
+from urllib.parse import urlparse
+
 def get_db_connection():
     if DATABASE_URL:
         url_conexao = DATABASE_URL
-        # Garante que começa com postgresql:// para conformidade
         if url_conexao.startswith("postgres://"):
             url_conexao = url_conexao.replace("postgres://", "postgresql://", 1)
         
-        # O psycopg2 puro às vezes falha ao parsear URLs complexas na nuvem diretamente como string simples.
-        # Passar através do encapsulamento parse_dsn ou diretamente garante o tratamento correto pela lib.
-        try:
-            return psycopg2.connect(url_conexao)
-        except psycopg2.ProgrammingError:
-            # Fallback caso a string exija parsing explícito de parâmetros
-            return psycopg2.connect(dsn=url_conexao)
+        # Desestrutura a URL de forma segura para evitar erros de DSN do psycopg2
+        result = urlparse(url_conexao)
+        username = result.username
+        password = result.password
+        database = result.path[1:]
+        hostname = result.hostname
+        port = result.port
+        
+        # Conecta passando cada parâmetro explicitamente decodificado
+        return psycopg2.connect(
+            database=database,
+            user=username,
+            password=password,
+            host=hostname,
+            port=port
+        )
     else:
         return psycopg2.connect("dbname=talent_pulse user=postgres password=postgres host=localhost")
 
