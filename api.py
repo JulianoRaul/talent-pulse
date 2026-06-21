@@ -2,7 +2,6 @@ import os
 import sys
 import unicodedata
 from flask import Flask, render_template, request, redirect, url_for, flash, Response, jsonify
-from flask_sqlalchemy import SQLAlchemy
 from google import genai
 from google.genai import types
 from pydantic import BaseModel
@@ -21,24 +20,22 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "chave_secreta_talent_pulse_
 # ==========================================
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
-# Correção essencial para a nuvem da Render e SQLAlchemy/Psycopg2:
+# Correção essencial para a nuvem da Render e Psycopg2:
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# Garante que o SSL seja exigido caso esteja conectando ao banco de dados em produção
 def get_db_connection():
     if DATABASE_URL:
+        url_conexao = DATABASE_URL
         if "sslmode=" not in DATABASE_URL:
             separator = "&" if "?" in DATABASE_URL else "?"
             url_conexao = f"{DATABASE_URL}{separator}sslmode=require"
-        else:
-            url_conexao = DATABASE_URL
         return psycopg2.connect(url_conexao)
     else:
         return psycopg2.connect("dbname=talent_pulse user=postgres password=postgres host=localhost")
 
 # ==========================================
-# 🧬 MODELOS E INICIALIZAÇÃO DO BANCO
+# 🧬 INICIALIZAÇÃO DO BANCO (TABELAS)
 # ==========================================
 def init_db():
     print("-> Verificando/Criando tabelas no PostgreSQL na nuvem...")
@@ -65,37 +62,22 @@ def init_db():
     except Exception as e:
         print(f"Erro ao inicializar o banco de dados: {e}")
 
-# Chamar a inicialização para rodar assim que o servidor ligar
+# Chamar a inicialização assim que o servidor ligar
 init_db()
 
-app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
-
-class Candidato(db.Model):
-    __tablename__ = 'curriculos'
-    id = db.Column(db.Integer, primary_key=True)
-    nome_arquivo = db.Column(db.String(250), nullable=False)
-    conteudo = db.Column(db.Text, nullable=False)
-    nome_candidato = db.Column(db.String(150), nullable=True)
-    idade = db.Column(db.String(50), nullable=True)
-    sexo = db.Column(db.String(50), nullable=True)
-    localizacao = db.Column(db.String(250), nullable=True)
-    formacao = db.Column(db.Text, nullable=True)
-    cursos = db.Column(db.Text, nullable=True)
-    habilidades = db.Column(db.Text, nullable=True)
-    arquivo_binario = db.Column(db.Text, nullable=True)
-
-    def to_dict(self):
+# Classe utilitária apenas para manter compatibilidade com o formato de dicionário
+class Candidato:
+    @staticmethod
+    def to_dict(item):
         return {
-            "id": self.id,
-            "nome": self.nome_candidato or "Documento Digitalizado (Imagem/Scan)",
-            "idade": self.idade or "Não informado",
-            "sexo": self.sexo or "Não informado",
-            "localizacao": self.localizacao or "OCE Necessário",
-            "formacao": self.formacao or "Este currículo foi enviado como imagem ou scanner...",
-            "cursos": self.cursos or "Apenas arquivos PDF ou Word são permitidos!",
-            "habilidades": self.habilidades or "Imagem"
+            "id": item.get('id'),
+            "nome": item.get('nome_candidato') or "Documento Digitalizado (Imagem/Scan)",
+            "idade": item.get('idade') or "Não informado",
+            "sexo": item.get('sexo') or "Não informado",
+            "localizacao": item.get('localizacao') or "OCE Necessário",
+            "formacao": item.get('formacao') or "Este currículo foi enviado como imagem ou scanner...",
+            "cursos": item.get('cursos') or "Apenas arquivos PDF ou Word são permitidos!",
+            "habilidades": item.get('habilidades') or "Imagem"
         }
 
 # ==========================================
@@ -138,10 +120,10 @@ def extrair_texto_docx(arquivo_storage):
 def obter_variacoes_busca(termo):
     termo_limpo = remover_acentos(termo)
     mapeamento_rh = {
-        "analista": ["analis", "analit", "analista", "analista", "analit"],
-        "gestao": ["gesto", "gerenc", "gestor", "gesto", "gerenc", "gerente", "gesto"],
-        "desenvolvedor": ["desenvol", "dev", "program", "programador", "desenvol", "desenvolv", "dev"],
-        "tecnico": ["tecnic", "coordenador", "coorden", "superv", "supervisor", "superv", "coorden"]
+        "analista": ["analis", "analit", "analista"],
+        "gestao": ["gesto", "gerenc", "gestor", "gerente"],
+        "desenvolvedor": ["desenvol", "dev", "program", "programador"],
+        "tecnico": ["tecnic", "coordenador", "coorden", "superv", "supervisor"]
     }
     if termo_limpo in mapeamento_rh:
         return mapeamento_rh[termo_limpo]
@@ -151,7 +133,11 @@ def obter_variacoes_busca(termo):
 
 def estruturar_curriculo_com_ia(texto_bruto):
     if not texto_bruto or not texto_bruto.strip():
-        return None
+        return {
+            "nome": "Nome provisório", "idade": "Não Informado", "sexo": "Não Informado",
+            "localizacao": "Manual necessário", "formacao": "Texto vazio.",
+            "cursos": "Nenhum", "habilidades": "Nenhuma"
+        }
     
     texto_limitado = texto_bruto.strip()[:18000]
     prompt_base = """
@@ -198,7 +184,7 @@ def index():
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute("SELECT id, nome_arquivo, conteudo, nome_candidato, idade, sexo, localizacao, formacao, cursos, habilidades FROM curriculos")
+                cursor.execute("SELECT id, nome_arquivo, conteudo, nome_candidato, idade, sexo, localizacao, formacao, cursos, habilidades FROM curriculos ORDER BY id DESC")
                 todos_candidatos = cursor.fetchall()
                 
                 for item in todos_candidatos:
@@ -239,9 +225,10 @@ def listar_candidatos():
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute("SELECT * FROM curriculos")
+                cursor.execute("SELECT id, nome_arquivo, nome_candidato, idade, sexo, localizacao, formacao, cursos, habilidades FROM curriculos ORDER BY id DESC")
                 candidatos = cursor.fetchall()
-                return jsonify(candidatos)
+                lista_formatada = [Candidato.to_dict(c) for c in candidatos]
+                return jsonify(lista_formatada)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
