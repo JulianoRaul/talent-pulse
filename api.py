@@ -21,28 +21,40 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "chave_secreta_talent_pulse_
 # ==========================================
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
+import re
+
 def get_db_connection():
     if DATABASE_URL:
-        # Resolve o problema de prefixo antigo do postgres se houver
         url_conexao = DATABASE_URL
         if url_conexao.startswith("postgres://"):
             url_conexao = url_conexao.replace("postgres://", "postgresql://", 1)
         
-        # Mapeia e desestrutura a URL incluindo query strings de segurança (como sslmode)
-        db_info = dj_database_url.config(default=url_conexao, conn_max_age=600)
-        
-        # Adapta as chaves mapeadas para os parâmetros exatos do psycopg2
-        return psycopg2.connect(
-            database=db_info['NAME'],
-            user=db_info['USER'],
-            password=db_info['PASSWORD'],
-            host=db_info['HOST'],
-            port=db_info['PORT'],
-            sslmode=db_info.get('OPTIONS', {}).get('sslmode', 'require')
-        )
+        try:
+            # Expressão regular cirúrgica para extrair: user, password, host, port e database
+            # Ignora completamente qualquer query string ou parâmetro extra no final da URL
+            padrao = r"postgresql://([^:]+):([^@]+)@([^:/]+):?(\d+)?/(.+)?"
+            match = re.match(padrao, url_conexao.split('?')[0])
+            
+            if match:
+                username, password, hostname, port, database = match.groups()
+                # Se a porta não veio na URL, usa a padrão do Postgres (5432)
+                port = port if port else 5432
+                
+                return psycopg2.connect(
+                    database=database,
+                    user=username,
+                    password=password,
+                    host=hostname,
+                    port=port,
+                    sslmode='require'  # Força o SSL exigido pela Render
+                )
+        except Exception as e:
+            print(f"Erro no parse manual da URL: {e}")
+            
+        # Fallback caso a regex falhe em algum cenário extremo
+        return psycopg2.connect(url_conexao)
     else:
         return psycopg2.connect("dbname=talent_pulse user=postgres password=postgres host=localhost")
-
 # ==========================================
 # 🧬 INICIALIZAÇÃO DO BANCO (TABELAS)
 # ==========================================
