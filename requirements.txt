@@ -6,3 +6,4 @@ google-genai
 pydantic
 psycopg2-binary
 gunicorn
+dj-database-url==2.1.0
