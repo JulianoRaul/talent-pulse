@@ -86,10 +86,14 @@ class Candidato(db.Model):
     habilidades = db.Column(db.Text, nullable=True)
     arquivo_binario = db.Column(db.Text, nullable=True)
 
-    def to_dict(self):
+   def to_dict(self):
         return {
             "id": self.id,
             "nome": self.nome_candidato or "Documento Digitalizado (Imagem/Scan)",
             "idade": self.idade or "Não informado",
             "sexo": self.sexo or "Não informado",
-            "localizacao": self.localizacao or "
+            "localizacao": self.localizacao or "OCE Necessário",
+            "formacao": self.formacao or "Este currículo foi enviado como imagem ou scanner...",
+            "cursos": self.cursos or "Apenas arquivos PDF ou Word são permitidos!",
+            "habilidades": self.habilidades or "Imagem"
+        }
