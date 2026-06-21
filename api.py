@@ -30,7 +30,8 @@ def get_db_connection():
         if "sslmode=" not in DATABASE_URL:
             separator = "&" if "?" in DATABASE_URL else "?"
             url_conexao = f"{DATABASE_URL}{separator}sslmode=require"
-        return psycopg2.connect(url_conexao)
+        # Força o psycopg2 a ler como uma URL de conexão padrão
+        return psycopg2.connect(dsn=url_conexao)
     else:
         return psycopg2.connect("dbname=talent_pulse user=postgres password=postgres host=localhost")
 
