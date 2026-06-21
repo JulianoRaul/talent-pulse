@@ -165,6 +165,7 @@ def estruturar_curriculo_com_ia(texto_bruto):
     Importante: Retorne strings simples e curtas para cada campo. Se não encontrar uma informação de forma explícita, preencha o campo como 'Não informado'.
     """
     
+    # Tentativa usando o formato estruturado adaptável
     try:
         response = client.models.generate_content(
             model='gemini-2.5-flash',
@@ -179,31 +180,28 @@ def estruturar_curriculo_com_ia(texto_bruto):
             import json
             return json.loads(response.text)
     except Exception as e:
-        print(f"Tentativa 1 (Estruturada) Falhou: {e}")
+        print(f"Tentativa 1 (Estruturada) Falhou, tentando formato direto: {e}")
         
-    # Fallback caso a saída estruturada falhe
+    # Fallback Robusto: Se o .models falhar por versão, usa a chamada direta compatível
     try:
-        prompt_fallback = "Retorne a resposta estritamente no formato JSON válido usando as chaves: 'nome', 'idade', 'sexo', 'localizacao', 'formacao', 'cursos', 'habilidades'."
-        response_fallback = client.models.generate_content(
+        response_fallback = client.generate_content(
             model='gemini-2.5-flash',
-            contents=prompt_fallback + f"\nTexto:\n{texto_limitado}",
-            config=types.GenerateContentConfig(temperature=0.2)
+            contents=prompt_base + f"\nRetorne em formato JSON válido usando as chaves: 'nome', 'idade', 'sexo', 'localizacao', 'formacao', 'cursos', 'habilidades'.\nTexto do Currículo:\n{texto_limitado}"
         )
         texto_resposta = response_fallback.text.strip() if response_fallback.text else ""
+        import json
         if "{" in texto_resposta:
-            import json
-            partes = texto_resposta.split("{")
-            for parte in partes:
-                parte_limpa = parte.strip()
-                if parte_limpa.startswith('"nome"') or parte_limpa.startswith("'nome'"):
-                    return json.loads("{" + parte_limpa.split("}")[0] + "}")
+            # Extrai o JSON de dentro de possíveis blocos de markdown ```json
+            inicio = texto_resposta.find("{")
+            fim = texto_resposta.rfind("}") + 1
+            return json.loads(texto_resposta[inicio:fim])
     except Exception as e:
-        print(f"Fallback falhou: {e}")
+        print(f"Todos os métodos de IA falharam: {e}")
         
     return {
         "nome": "Nome provisório", "idade": "Não Informado", "sexo": "Não Informado",
         "localizacao": "Manual necessário", "formacao": "Estrutura complexa de leitura.",
-        "cursos": "Consulte o arquivo original clicando no botão (+)", "habilidades": "Análise Manual"
+        "cursos": "Consulte o arquivo original", "habilidades": "Análise Manual"
     }
 
 # ==========================================
