@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TalentPulse — Extração Inteligente de Currículos</title>
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen">
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        
+        <header class="flex items-center justify-between border-b border-slate-200 pb-6 mb-8">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-[#1a1a40] rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm">
+                    TP
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-[#1a1a40] tracking-tight">Talent<span class="text-emerald-600">Pulse</span></h1>
+                    <p class="text-xs text-slate-500 font-medium tracking-wider uppercase">Extração Inteligente de Currículos</p>
+                </div>
+            </div>
+            <div class="bg-blue-50 text-blue-700 px-4 py-2 rounded-full text-sm font-semibold border border-blue-100">
+                Candidatos Triados: <span id="contador-candidatos">{{ candidatos|length }}</span>
+            </div>
+        </header>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center gap-2 text-sm font-medium shadow-sm animate-fade-in">
+                        <svg class="w-5 h-5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span>{{ message }}</span>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <div class="lg:col-span-4">
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm sticky top-6">
+                    <h2 class="text-sm font-bold text-[#1a1a40] uppercase tracking-wider mb-1">Upload Automatizado</h2>
+                    <p class="text-xs text-slate-500 mb-6">Arraste ou selecione o arquivo. A IA lerá o documento e preencherá tudo sozinha no banco.</p>
+                    
+                    <form action="{{ url_for('upload') }}" method="POST" enctype="multipart/form-data" id="upload-form">
+                        <label class="border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50 hover:bg-emerald-50/30 rounded-2xl p-8 flex flex-col items-center justify-center gap-4 cursor-pointer transition-all group">
+                            <div class="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm border border-slate-100 group-hover:scale-110 transition-transform">
+                                <svg class="w-6 h-6 text-slate-400 group-hover:text-emerald-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-sm font-semibold text-slate-700">Selecione o Currículo</p>
+                                <p class="text-xs text-slate-400 mt-1">PDF ou DOCX</p>
+                            </div>
+                            <input type="file" name="arquivo" class="hidden" onchange="document.getElementById('upload-form').submit();">
+                        </label>
+                    </form>
+                </div>
+            </div>
+
+            <div class="lg:col-span-8 flex flex-col gap-6">
+                
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <form method="GET" action="{{ url_for('index') }}" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="md:col-span-2">
+                            <input type="text" name="busca" value="{{ filtros.busca }}" placeholder="Buscar por competência, nome, palavra-chave..." class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500 transition-colors">
+                        </div>
+                        <div>
+                            <input type="text" name="localizacao" value="{{ filtros.localizacao }}" placeholder="Localização (ex: Porto Alegre)" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500 transition-colors">
+                        </div>
+                        <div>
+                            <select name="sexo" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500 transition-colors">
+                                <option value="">Gênero: Todos</option>
+                                <option value="Masculino" {% if filtros.sexo == 'Masculino' %}selected{% endif %}>Masculino</option>
+                                <option value="Feminino" {% if filtros.sexo == 'Feminino' %}selected{% endif %}>Feminino</option>
+                                <option value="Não informado" {% if filtros.sexo == 'Não informado' %}selected{% endif %}>Não informado</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2 flex justify-end gap-3 mt-2">
+                            <a href="{{ url_for('index') }}" class="px-5 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors flex items-center justify-center">Limpar</a>
+                            <button type="submit" class="px-5 py-2 text-sm font-semibold text-white bg-[#1a1a40] hover:bg-[#242459] rounded-xl shadow-sm transition-colors">Filtrar Perfis</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="flex flex-col gap-4">
+                    {% if candidatos %}
+                        {% for candidato in candidatos %}
+                            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-4 hover:border-slate-300 transition-all">
+                                
+                                <div class="flex items-start justify-between gap-4">
+                                    <div>
+                                        <h3 class="text-lg font-bold text-[#1a1a40]">{{ candidato.nome_candidato }}</h3>
+                                        <div class="flex items-center gap-1 text-xs text-slate-400 mt-1 font-medium">
+                                            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path></svg>
+                                            <span>{{ candidato.localizacao }}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <span class="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-semibold">{{ candidato.idade }}</span>
+                                        <span class="px-2.5 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-semibold">{{ candidato.sexo }}</span>
+                                        
+                                        <a href="{{ url_for('ver_curriculo', id_candidato=candidato.id) }}" target="_blank" class="w-8 h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center font-bold shadow-sm transition-colors" title="Visualizar arquivo original">
+                                            +
+                                        </a>
+                                        
+                                        <form action="{{ url_for('deletar_candidato', id_candidato=candidato.id) }}" method="POST" onsubmit="return confirm('Tem certeza que deseja remover este candidato?');">
+                                            <button type="submit" class="w-8 h-8 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center font-bold shadow-sm transition-colors" title="Remover registro">
+                                                -
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-b border-slate-100 py-4 text-xs">
+                                    <div>
+                                        <h4 class="font-semibold text-slate-400 uppercase tracking-wider mb-1">Escolaridade:</h4>
+                                        <p class="text-slate-700 leading-relaxed font-medium">{{ candidato.formacao }}</p>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-semibold text-slate-400 uppercase tracking-wider mb-1">Cursos Complementares:</h4>
+                                        <p class="text-slate-700 leading-relaxed font-medium">{{ candidato.cursos }}</p>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Keywords de Competências:</h4>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        {% if candidato.habilidades and candidato.habilidades != "Não informado" %}
+                                            {% for hab in candidato.habilidades.split(',') %}
+                                                {% if hab.strip() %}
+                                                    <span class="px-2 py-1 bg-emerald-50 text-emerald-700 rounded-md text-[11px] font-bold border border-emerald-100/60 uppercase tracking-wide">
+                                                        {{ hab.strip() }}
+                                                    </span>
+                                                {% endif %}
+                                            {% endfor %}
+                                        {% else %}
+                                            <span class="px-2 py-1 bg-slate-100 text-slate-400 rounded-md text-[11px] font-semibold uppercase tracking-wide">
+                                                NÃO INFORMADO
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="bg-white p-12 rounded-2xl border border-slate-200 shadow-sm text-center flex flex-col items-center justify-center gap-3">
+                            <svg class="w-10 h-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0a2 2 0 01-2 2H6a2 2 0 01-2-2m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5a2 2 0 01-2-2m16 0h-2M4 13H6"></path></svg>
+                            <p class="text-sm font-semibold text-slate-600">Nenhum candidato cadastrado ou compatível com os filtros.</p>
+                        </div>
+                    {% endif %}
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</body>
+</html>

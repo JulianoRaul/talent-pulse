@@ -1,0 +1,6 @@
+Flask==3.0.2
+pypdf==4.1.0
+docx2txt==0.8
+google-genai==0.1.1
+pydantic==2.6.4
+psycopg2-binary==2.9.9
