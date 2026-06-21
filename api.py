@@ -20,18 +20,13 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "chave_secreta_talent_pulse_
 # ==========================================
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
-# Correção essencial para a nuvem da Render e Psycopg2:
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-
 def get_db_connection():
     if DATABASE_URL:
         url_conexao = DATABASE_URL
-        if "sslmode=" not in DATABASE_URL:
-            separator = "&" if "?" in DATABASE_URL else "?"
-            url_conexao = f"{DATABASE_URL}{separator}sslmode=require"
-        # Força o psycopg2 a ler como uma URL de conexão padrão
-        return psycopg2.connect(dsn=url_conexao)
+        # Garante o protocolo correto exigido pelo driver
+        if url_conexao.startswith("postgres://"):
+            url_conexao = url_conexao.replace("postgres://", "postgresql://", 1)
+        return psycopg2.connect(url_conexao)
     else:
         return psycopg2.connect("dbname=talent_pulse user=postgres password=postgres host=localhost")
 
@@ -66,7 +61,7 @@ def init_db():
 # Chamar a inicialização assim que o servidor ligar
 init_db()
 
-# Classe utilitária apenas para manter compatibilidade com o formato de dicionário
+# Classe utilitária para formatação de dados
 class Candidato:
     @staticmethod
     def to_dict(item):
@@ -217,7 +212,8 @@ def index():
     except Exception as e:
         print(f"Erro ao buscar dados: {e}")
         
-    return render_template('index.html', candidatos=resultados_finais, filtros_ativos={
+    # Correção crucial aqui: mudado de 'filtros_ativos' para 'filtros' para bater com o index.html
+    return render_template('index.html', candidatos=resultados_finais, filtros={
         'busca': busca_geral, 'sexo': f_sexo, 'formacao': f_formacao, 'localizacao': f_localizacao
     })
 
