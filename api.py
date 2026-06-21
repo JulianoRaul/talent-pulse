@@ -23,9 +23,17 @@ DATABASE_URL = os.environ.get('DATABASE_URL')
 def get_db_connection():
     if DATABASE_URL:
         url_conexao = DATABASE_URL
+        # Garante que começa com postgresql:// para conformidade
         if url_conexao.startswith("postgres://"):
             url_conexao = url_conexao.replace("postgres://", "postgresql://", 1)
-        return psycopg2.connect(url_conexao)
+        
+        # O psycopg2 puro às vezes falha ao parsear URLs complexas na nuvem diretamente como string simples.
+        # Passar através do encapsulamento parse_dsn ou diretamente garante o tratamento correto pela lib.
+        try:
+            return psycopg2.connect(url_conexao)
+        except psycopg2.ProgrammingError:
+            # Fallback caso a string exija parsing explícito de parâmetros
+            return psycopg2.connect(dsn=url_conexao)
     else:
         return psycopg2.connect("dbname=talent_pulse user=postgres password=postgres host=localhost")
 
