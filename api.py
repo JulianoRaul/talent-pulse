@@ -23,7 +23,6 @@ DATABASE_URL = os.environ.get('DATABASE_URL')
 def get_db_connection():
     if DATABASE_URL:
         url_conexao = DATABASE_URL
-        # Garante o protocolo correto exigido pelo driver
         if url_conexao.startswith("postgres://"):
             url_conexao = url_conexao.replace("postgres://", "postgresql://", 1)
         return psycopg2.connect(url_conexao)
@@ -58,10 +57,8 @@ def init_db():
     except Exception as e:
         print(f"Erro ao inicializar o banco de dados: {e}")
 
-# Chamar a inicialização assim que o servidor ligar
 init_db()
 
-# Classe utilitária para formatação de dados
 class Candidato:
     @staticmethod
     def to_dict(item):
@@ -100,6 +97,12 @@ def remover_acentos(texto):
     texto_normalizado = unicodedata.normalize('NFKD', texto)
     return "".join([c for c in texto_normalizado if not unicodedata.combining(c)]).lower()
 
+def limpar_caracteres_invalidos(texto):
+    """Remove caracteres nulos que quebram o banco PostgreSQL"""
+    if not texto:
+        return ""
+    return texto.replace('\x00', '').replace('\u0000', '')
+
 def extrair_texto_pdf(arquivo_storage):
     texto = ""
     try:
@@ -108,10 +111,11 @@ def extrair_texto_pdf(arquivo_storage):
             texto += pagina.extract_text() or ""
     except Exception as e:
         print(f"Erro ao ler arquivo em memória: {e}")
-    return texto
+    return limpar_caracteres_invalidos(texto)
 
 def extrair_texto_docx(arquivo_storage):
-    return docx2txt.process(arquivo_storage)
+    texto = docx2txt.process(arquivo_storage)
+    return limpar_caracteres_invalidos(texto)
 
 def obter_variacoes_busca(termo):
     termo_limpo = remover_acentos(termo)
@@ -154,7 +158,9 @@ def estruturar_curriculo_com_ia(texto_bruto):
         if "{" in texto_resposta:
             inicio = texto_resposta.find("{")
             fim = texto_resposta.rfind("}") + 1
-            return json.loads(texto_resposta[inicio:fim])
+            dados = json.loads(texto_resposta[inicio:fim])
+            # Sanitiza os dados vindos da IA para evitar quebras no banco
+            return {k: limpar_caracteres_invalidos(str(v)) for k, v in dados.items()}
             
     except Exception as e:
         print(f"Erro na geração de conteúdo do Gemini: {e}")
@@ -212,7 +218,6 @@ def index():
     except Exception as e:
         print(f"Erro ao buscar dados: {e}")
         
-    # Correção crucial aqui: mudado de 'filtros_ativos' para 'filtros' para bater com o index.html
     return render_template('index.html', candidatos=resultados_finais, filtros={
         'busca': busca_geral, 'sexo': f_sexo, 'formacao': f_formacao, 'localizacao': f_localizacao
     })
@@ -263,14 +268,22 @@ def upload():
                     INSERT INTO curriculos (nome_arquivo, conteudo, nome_candidato, idade, sexo, localizacao, formacao, cursos, habilidades, arquivo_binario)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
-                    arquivo.filename, texto_extraido, dados_ia.get('nome'), dados_ia.get('idade'),
-                    dados_ia.get('sexo'), dados_ia.get('localizacao'), dados_ia.get('formacao'),
-                    dados_ia.get('cursos'), dados_ia.get('habilidades'), string_base64
+                    limpar_caracteres_invalidos(arquivo.filename),
+                    texto_extraido,
+                    dados_ia.get('nome', 'Nome provisório'),
+                    dados_ia.get('idade', 'Não informado'),
+                    dados_ia.get('sexo', 'Não informado'),
+                    dados_ia.get('localizacao', 'Manual necessário'),
+                    dados_ia.get('formacao', 'Não informado'),
+                    dados_ia.get('cursos', 'Não informado'),
+                    dados_ia.get('habilidades', 'Não informado'),
+                    string_base64
                 ))
                 conn.commit()
                 
         flash(f"Candidato '{dados_ia.get('nome')}' cadastrado com sucesso!")
     except Exception as e:
+        print(f"Erro crítico no upload: {e}")
         flash(f"Erro ao processar arquivo: {e}")
         
     return redirect(url_for('index'))
@@ -311,9 +324,6 @@ def deletar_candidato(id_candidato):
         flash(f"Erro ao deletar: {e}")
     return redirect(url_for('index'))
 
-# ==========================================
-# 🚀 INICIALIZAÇÃO DO SERVIDOR
-# ==========================================
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
