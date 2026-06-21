@@ -11,6 +11,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import io
 import base64
+import dj_database_url
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "chave_secreta_talent_pulse_a1")
@@ -20,29 +21,24 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "chave_secreta_talent_pulse_
 # ==========================================
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
-from urllib.parse import urlparse
-
 def get_db_connection():
     if DATABASE_URL:
+        # Resolve o problema de prefixo antigo do postgres se houver
         url_conexao = DATABASE_URL
         if url_conexao.startswith("postgres://"):
             url_conexao = url_conexao.replace("postgres://", "postgresql://", 1)
         
-        # Desestrutura a URL de forma segura para evitar erros de DSN do psycopg2
-        result = urlparse(url_conexao)
-        username = result.username
-        password = result.password
-        database = result.path[1:]
-        hostname = result.hostname
-        port = result.port
+        # Mapeia e desestrutura a URL incluindo query strings de segurança (como sslmode)
+        db_info = dj_database_url.config(default=url_conexao, conn_max_age=600)
         
-        # Conecta passando cada parâmetro explicitamente decodificado
+        # Adapta as chaves mapeadas para os parâmetros exatos do psycopg2
         return psycopg2.connect(
-            database=database,
-            user=username,
-            password=password,
-            host=hostname,
-            port=port
+            database=db_info['NAME'],
+            user=db_info['USER'],
+            password=db_info['PASSWORD'],
+            host=db_info['HOST'],
+            port=db_info['PORT'],
+            sslmode=db_info.get('OPTIONS', {}).get('sslmode', 'require')
         )
     else:
         return psycopg2.connect("dbname=talent_pulse user=postgres password=postgres host=localhost")
@@ -177,7 +173,6 @@ def estruturar_curriculo_com_ia(texto_bruto):
             inicio = texto_resposta.find("{")
             fim = texto_resposta.rfind("}") + 1
             dados = json.loads(texto_resposta[inicio:fim])
-            # Sanitiza os dados vindos da IA para evitar quebras no banco
             return {k: limpar_caracteres_invalidos(str(v)) for k, v in dados.items()}
             
     except Exception as e:
