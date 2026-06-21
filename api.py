@@ -23,6 +23,8 @@ DATABASE_URL = os.environ.get('DATABASE_URL')
 
 import re
 
+from urllib.parse import urlparse
+
 def get_db_connection():
     if DATABASE_URL:
         url_conexao = DATABASE_URL
@@ -30,29 +32,22 @@ def get_db_connection():
             url_conexao = url_conexao.replace("postgres://", "postgresql://", 1)
         
         try:
-            # Expressão regular cirúrgica para extrair: user, password, host, port e database
-            # Ignora completamente qualquer query string ou parâmetro extra no final da URL
-            padrao = r"postgresql://([^:]+):([^@]+)@([^:/]+):?(\d+)?/(.+)?"
-            match = re.match(padrao, url_conexao.split('?')[0])
+            # Remove parâmetros de query (?sslmode=...) para evitar quebras no parse
+            url_limpa = url_conexao.split('?')[0]
+            parsed = urlparse(url_limpa)
             
-            if match:
-                username, password, hostname, port, database = match.groups()
-                # Se a porta não veio na URL, usa a padrão do Postgres (5432)
-                port = port if port else 5432
-                
-                return psycopg2.connect(
-                    database=database,
-                    user=username,
-                    password=password,
-                    host=hostname,
-                    port=port,
-                    sslmode='require'  # Força o SSL exigido pela Render
-                )
+            # Força o retorno dos parâmetros limpos e explícitos para o psycopg2
+            return psycopg2.connect(
+                database=parsed.path[1:],
+                user=parsed.username,
+                password=parsed.password,
+                host=parsed.hostname,
+                port=parsed.port or 5432,
+                sslmode='require' # Garante a conexão segura exigida pela nuvem
+            )
         except Exception as e:
-            print(f"Erro no parse manual da URL: {e}")
-            
-        # Fallback caso a regex falhe em algum cenário extremo
-        return psycopg2.connect(url_conexao)
+            print(f"Erro no parse estruturado da URL: {e}")
+            return psycopg2.connect(url_conexao)
     else:
         return psycopg2.connect("dbname=talent_pulse user=postgres password=postgres host=localhost")
 # ==========================================
