@@ -1,7 +1,7 @@
-Flask==3.0.2
-pypdf==4.1.0
-docx2txt==0.8
-google-genai==0.1.0
-pydantic==2.6.4
-psycopg2-binary==2.9.9
-gunicorn==21.2.0
+Flask
+pypdf
+docx2txt
+google-genai
+pydantic
+psycopg2-binary
+gunicorn
