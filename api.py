@@ -86,7 +86,7 @@ class Candidato(db.Model):
     habilidades = db.Column(db.Text, nullable=True)
     arquivo_binario = db.Column(db.Text, nullable=True)
 
-   def to_dict(self):
+    def to_dict(self):
         return {
             "id": self.id,
             "nome": self.nome_candidato or "Documento Digitalizado (Imagem/Scan)",
@@ -97,3 +97,239 @@ class Candidato(db.Model):
             "cursos": self.cursos or "Apenas arquivos PDF ou Word são permitidos!",
             "habilidades": self.habilidades or "Imagem"
         }
+
+# ==========================================
+# 🤖 CONFIGURAÇÃO DA API DO GEMINI
+# ==========================================
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+
+class EstruturaCurriculo(BaseModel):
+    nome: str
+    idade: str
+    sexo: str
+    localizacao: str
+    formacao: str
+    cursos: str
+    habilidades: str
+
+# ==========================================
+# 🛠️ FUNÇÕES AUXILIARES
+# ==========================================
+def remover_acentos(texto):
+    if not texto:
+        return ""
+    texto_normalizado = unicodedata.normalize('NFKD', texto)
+    return "".join([c for c in texto_normalizado if not unicodedata.combining(c)]).lower()
+
+def extrair_texto_pdf(arquivo_storage):
+    texto = ""
+    try:
+        leitor = pypdf.PdfReader(arquivo_storage)
+        for pagina in leitor.pages:
+            texto += pagina.extract_text() or ""
+    except Exception as e:
+        print(f"Erro ao ler arquivo em memória: {e}")
+    return texto
+
+def extrair_texto_docx(arquivo_storage):
+    return docx2txt.process(arquivo_storage)
+
+def obter_variacoes_busca(termo):
+    termo_limpo = remover_acentos(termo)
+    mapeamento_rh = {
+        "analista": ["analis", "analit", "analista", "analista", "analit"],
+        "gestao": ["gesto", "gerenc", "gestor", "gesto", "gerenc", "gerente", "gesto"],
+        "desenvolvedor": ["desenvol", "dev", "program", "programador", "desenvol", "desenvolv", "dev"],
+        "tecnico": ["tecnic", "coordenador", "coorden", "superv", "supervisor", "superv", "coorden"]
+    }
+    if termo_limpo in mapeamento_rh:
+        return mapeamento_rh[termo_limpo]
+    if len(termo_limpo) > 5:
+        return [termo_limpo, termo_limpo[:4], termo_limpo[:5]]
+    return [termo_limpo]
+
+def estruturar_curriculo_com_ia(texto_bruto):
+    if not texto_bruto or not texto_bruto.strip():
+        return None
+    
+    texto_limitado = texto_bruto.strip()[:18000]
+    prompt_base = """
+    Você é um assistente de RH especialista em triagem de currículos.
+    Analise o texto bruto do currículo fornecido e extraia com precisão as informações solicitadas.
+    Importante: Retorne strings simples e curtas para cada campo. Se não encontrar uma informação de forma explícita, preencha o campo como 'Não informado'.
+    """
+    
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=f"{prompt_base}\nRetorne em formato JSON válido usando estritamente as chaves: 'nome', 'idade', 'sexo', 'localizacao', 'formacao', 'cursos', 'habilidades'.\n\nTexto do Currículo:\n{texto_limitado}"
+        )
+        
+        texto_resposta = response.text.strip() if response.text else ""
+        import json
+        
+        if "{" in texto_resposta:
+            inicio = texto_resposta.find("{")
+            fim = texto_resposta.rfind("}") + 1
+            return json.loads(texto_resposta[inicio:fim])
+            
+    except Exception as e:
+        print(f"Erro na geração de conteúdo do Gemini: {e}")
+        
+    return {
+        "nome": "Nome provisório", "idade": "Não Informado", "sexo": "Não Informado",
+        "localizacao": "Manual necessário", "formacao": "Estrutura complexa de leitura.",
+        "cursos": "Consulte o arquivo original", "habilidades": "Análise Manual"
+    }
+
+# ==========================================
+# 🛣️ ROTAS DO SISTEMA
+# ==========================================
+@app.route('/', methods=['GET'])
+def index():
+    busca_geral = request.args.get('busca', '').strip()
+    f_sexo = request.args.get('sexo', '').strip()
+    f_formacao = request.args.get('formacao', '').strip()
+    f_localizacao = request.args.get('localizacao', '').strip()
+    
+    resultados_finais = []
+    
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("SELECT id, nome_arquivo, conteudo, nome_candidato, idade, sexo, localizacao, formacao, cursos, habilidades FROM curriculos")
+                todos_candidatos = cursor.fetchall()
+                
+                for item in todos_candidatos:
+                    texto_completo_candidato = remover_acentos(
+                        f"{item['conteudo']} {item['nome_candidato']} {item['habilidades']} {item['cursos']}"
+                    )
+                    passou_filtro = True
+                    
+                    if busca_geral:
+                        radicais_procurados = obter_variacoes_busca(busca_geral)
+                        match_encontrado = False
+                        for radical in radicais_procurados:
+                            if radical in texto_completo_candidato:
+                                match_encontrado = True
+                                break
+                        if not match_encontrado:
+                            passou_filtro = False
+                            
+                    if f_sexo and item['sexo'] != f_sexo:
+                        passou_filtro = False
+                    if f_formacao and f_formacao.lower() not in remover_acentos(item['formacao']):
+                        passou_filtro = False
+                    if f_localizacao and f_localizacao.lower() not in remover_acentos(item['localizacao']):
+                        passou_filtro = False
+                        
+                    if passou_filtro:
+                        item['resumo'] = item['conteudo'][:150] + "..." if len(item['conteudo']) > 150 else item['conteudo']
+                        resultados_finais.append(item)
+    except Exception as e:
+        print(f"Erro ao buscar dados: {e}")
+        
+    return render_template('index.html', candidatos=resultados_finais, filtros_ativos={
+        'busca': busca_geral, 'sexo': f_sexo, 'formacao': f_formacao, 'localizacao': f_localizacao
+    })
+
+@app.route('/api/candidatos', methods=['GET'])
+def listar_candidatos():
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("SELECT * FROM curriculos")
+                candidatos = cursor.fetchall()
+                return jsonify(candidatos)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/upload', methods=['POST'])
+def upload():
+    if 'arquivo' not in request.files:
+        flash('Nenhum arquivo selecionado!')
+        return redirect(url_for('index'))
+        
+    arquivo = request.files['arquivo']
+    if arquivo.filename == '':
+        flash('Nenhum arquivo selecionado!')
+        return redirect(url_for('index'))
+        
+    extensao = os.path.splitext(arquivo.filename)[1].lower()
+    if extensao not in ['.pdf', '.docx', '.doc']:
+        flash('Apenas arquivos PDF ou Word são permitidos!')
+        return redirect(url_for('index'))
+        
+    try:
+        arquivo_read = arquivo.read()
+        string_base64 = base64.b64encode(arquivo_read).decode('utf-8')
+        
+        arquivo_memoria = io.BytesIO(arquivo_read)
+        if extensao == '.pdf':
+            texto_extraido = extrair_texto_pdf(arquivo_memoria)
+        else:
+            texto_extraido = extrair_texto_docx(arquivo_memoria)
+            
+        dados_ia = estruturar_curriculo_com_ia(texto_extraido)
+        
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO curriculos (nome_arquivo, conteudo, nome_candidato, idade, sexo, localizacao, formacao, cursos, habilidades, arquivo_binario)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    arquivo.filename, texto_extraido, dados_ia.get('nome'), dados_ia.get('idade'),
+                    dados_ia.get('sexo'), dados_ia.get('localizacao'), dados_ia.get('formacao'),
+                    dados_ia.get('cursos'), dados_ia.get('habilidades'), string_base64
+                ))
+                conn.commit()
+                
+        flash(f"Candidato '{dados_ia.get('nome')}' cadastrado com sucesso!")
+    except Exception as e:
+        flash(f"Erro ao processar arquivo: {e}")
+        
+    return redirect(url_for('index'))
+
+@app.route('/curriculo/<int:id_candidato>')
+def ver_curriculo(id_candidato):
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT nome_arquivo, arquivo_binario FROM curriculos WHERE id = %s", (id_candidato,))
+                resultado = cursor.fetchone()
+                
+                if resultado and resultado[1]:
+                    nome_arquivo = resultado[0]
+                    bytes_originais = base64.b64decode(resultado[1])
+                    extensao = os.path.splitext(nome_arquivo)[1].lower()
+                    
+                    mimetype = "application/pdf" if extensao == ".pdf" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    return Response(
+                        bytes_originais,
+                        mimetype=mimetype,
+                        headers={"Content-Disposition": f"inline; filename={nome_arquivo}"}
+                    )
+    except Exception as e:
+        print(f"Erro ao recuperar arquivo: {e}")
+        
+    return "Arquivo original não encontrado", 404
+
+@app.route('/deletar/<int:id_candidato>', methods=['POST'])
+def deletar_candidato(id_candidato):
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM curriculos WHERE id = %s", (id_candidato,))
+                conn.commit()
+        flash("Candidato removido com sucesso!")
+    except Exception as e:
+        flash(f"Erro ao deletar: {e}")
+    return redirect(url_for('index'))
+
+# ==========================================
+# 🚀 INICIALIZAÇÃO DO SERVIDOR
+# ==========================================
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
