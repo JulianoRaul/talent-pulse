@@ -204,6 +204,7 @@
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
+            margin-top: 8px;
         }
 
         .results-column {
@@ -219,7 +220,7 @@
             padding: 24px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 16px;
             transition: all 0.3s ease;
         }
 
@@ -287,11 +288,29 @@
         .info-section strong {
             color: #1e293b;
             display: block;
-            margin-bottom: 2px;
+            margin-bottom: 6px;
         }
 
         .info-section p {
             color: #475569;
+        }
+
+        /* Destaque para as Competências / Habilidades */
+        .skills-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .skill-badge {
+            background: #f1f5f9;
+            color: #334155;
+            font-size: 12px;
+            font-weight: 500;
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
         }
 
         .alert {
@@ -377,6 +396,37 @@
                             <label for="busca">Busca Global</label>
                             <input type="text" id="busca" name="busca" class="form-control" placeholder="Ex: gestor, python" value="{{ request.args.get('busca', '') }}">
                         </div>
+
+                        <div class="form-group">
+                            <label for="localizacao">Localização</label>
+                            <input type="text" id="localizacao" name="localizacao" class="form-control" placeholder="Cidade ou Estado" value="{{ request.args.get('localizacao', '') }}">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="idioma">Idioma</label>
+                            <input type="text" id="idioma" name="idioma" class="form-control" placeholder="Ex: Inglês, Espanhol" value="{{ request.args.get('idioma', '') }}">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="nivel_idioma">Nível do Idioma</label>
+                            <select id="nivel_idioma" name="nivel_idioma" class="form-control">
+                                <option value="">Todos os Níveis</option>
+                                <option value="basico" {{ 'selected' if request.args.get('nivel_idioma') == 'basico' }}>Básico</option>
+                                <option value="intermediario" {{ 'selected' if request.args.get('nivel_idioma') == 'intermediario' }}>Intermediário</option>
+                                <option value="avancado" {{ 'selected' if request.args.get('nivel_idioma') == 'avancado' }}>Avançado/Fluente</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="genero">Gênero</label>
+                            <select id="genero" name="genero" class="form-control">
+                                <option value="">Todos</option>
+                                <option value="Masculino" {{ 'selected' if request.args.get('genero') == 'Masculino' }}>Masculino</option>
+                                <option value="Feminino" {{ 'selected' if request.args.get('genero') == 'Feminino' }}>Feminino</option>
+                                <option value="Não informado" {{ 'selected' if request.args.get('genero') == 'Não informado' }}>Não informado</option>
+                            </select>
+                        </div>
+
                         <button type="submit" class="btn-filtrar">Filtrar Perfis</button>
                     </form>
                 </div>
@@ -413,14 +463,24 @@
                                 </div>
                             </div>
 
-                            <div class="info-section" style="margin-top: 8px;">
+                            <div class="info-section">
                                 <strong>Formação Acadêmica:</strong>
                                 <p>{{ candidato.formacao or 'Não informada' }}</p>
                             </div>
 
                             <div class="info-section">
                                 <strong>Habilidades Práticas:</strong>
-                                <p>{{ candidato.habilidades or 'Não informadas' }}</p>
+                                <div class="skills-container">
+                                    {% if candidato.habilidades %}
+                                        {% for skill in candidato.habilidades.split(',') %}
+                                            {% if skill.strip() %}
+                                                <span class="skill-badge">{{ skill.strip() }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% else %}
+                                        <p style="color: #94a3b8; font-style: italic;">Não informadas</p>
+                                    {% endif %}
+                                </div>
                             </div>
                         </div>
                     {% endfor %}
@@ -440,7 +500,6 @@
             const card = document.getElementById(idElemento);
             if (!card) return;
 
-            // Envia uma requisição assíncrona ao servidor para registrar o ocultamento na sessão
             fetch(`/ocultar/${idBanco}`, {
                 method: 'POST',
                 headers: {
@@ -450,13 +509,10 @@
             .then(response => response.json())
             .then(data => {
                 if (data.status === "sucesso") {
-                    // Executa o efeito de transição visual somente se o backend salvou com sucesso
                     card.style.opacity = '0';
                     card.style.transform = 'scale(0.95)';
                     setTimeout(() => {
                         card.remove();
-                        
-                        // Atualiza dinamicamente o contador na Topbar
                         const totalBadge = document.querySelector('.badge-triados span');
                         if (totalBadge) {
                             let totalAtual = parseInt(totalBadge.innerText) || 0;
