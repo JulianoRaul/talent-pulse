@@ -26,20 +26,13 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 def get_db_connection():
     if DATABASE_URL:
         url_conexao = DATABASE_URL.strip()
-        
         if url_conexao.startswith("postgres://"):
             url_conexao = url_conexao.replace("postgres://", "postgresql://", 1)
-        elif not url_conexao.startswith("postgresql://") and url_conexao.startswith("//"):
-            url_conexao = "postgresql:" + url_conexao
-            
         try:
             return psycopg2.connect(url_conexao)
         except Exception as e:
-            print(f"Falha na conexão direta, tentando parse manual estruturado: {e}")
-            
             url_limpa = url_conexao.split('?')[0]
             parsed = urlparse(url_limpa)
-            
             return psycopg2.connect(
                 database=parsed.path[1:],
                 user=parsed.username,
@@ -52,7 +45,6 @@ def get_db_connection():
         return psycopg2.connect("dbname=talent_pulse user=postgres password=postgres host=localhost")
 
 def init_db():
-    print("-> Verificando/Criando tabelas no PostgreSQL na nuvem...")
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
@@ -75,7 +67,6 @@ def init_db():
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS hard_skills TEXT;')
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS soft_skills TEXT;')
                 conn.commit()
-        print("-> Banco de dados PostgreSQL pronto!")
     except Exception as e:
         print(f"Erro ao inicializar o banco de dados: {e}")
 
@@ -99,7 +90,7 @@ class EstruturaCurriculo(BaseModel):
     idiomas: str
 
 # ==============================================================================
-# FUNÇÕES AUXILIARES DE TEXTO E BUSCA
+# FUNÇÕES AUXILIARES DE TEXTO
 # ==============================================================================
 def remover_acentos(texto):
     if not texto:
@@ -116,7 +107,6 @@ def obter_variacoes_busca(termo_busca):
     termo_limpo = remover_acentos(termo_busca).strip()
     palavras = termo_limpo.split()
     variacoes = set()
-    
     for palabra in palavras:
         if len(palabra) > 2:
             if palabra.endswith(('s', 'es')):
@@ -137,7 +127,6 @@ def extrair_texto_pdf(dados_bytes):
                 texto += texto_pagina + "\n"
         return texto
     except Exception as e:
-        print(f"Erro ao extrair PDF: {e}")
         return ""
 
 def extrair_texto_docx(dados_bytes):
@@ -145,7 +134,6 @@ def extrair_texto_docx(dados_bytes):
         docx_file = io.BytesIO(dados_bytes)
         return docx2txt.process(docx_file)
     except Exception as e:
-        print(f"Erro ao extrair DOCX: {e}")
         return ""
 
 def estruturar_curriculo_com_ia(texto_bruto):
@@ -165,21 +153,32 @@ def estruturar_curriculo_com_ia(texto_bruto):
         }
         
     try:
+        system_prompt = (
+            "Você é um especialista em recrutamento avançado e triagem de currículos.\n"
+            "Sua tarefa é analisar o texto do candidato e extrair os dados dividindo estritamente as competências conforme as diretrizes abaixo:\n\n"
+            "1. HARD SKILLS:\n"
+            "Identifique e liste apenas habilidades técnicas palpáveis, conhecimentos operacionais, ferramentas, metodologias profissionais, frameworks e linguagens de programação. Separe-as por vírgula.\n"
+            "Exemplos: Python, JavaScript, Excel Avançado, SQL, Contabilidade, Gestão de Tráfego, Photoshop, CRM Pipedrive.\n\n"
+            "2. SOFT SKILLS:\n"
+            "Classifique e liste exclusivamente as características e competências comportamentais baseadas estritamente nos seguintes tipos mapeados:\n"
+            "- Comunicação (expressar ideias claras/concisas, saber ouvir)\n"
+            "- Liderança (influenciar, motivar pessoas, guiar equipes)\n"
+            "- Trabalho em equipe (colaborar com terceiros, alcançar resultados juntos)\n"
+            "- Resolução de problemas (analisar situações complexas, soluções criativas)\n"
+            "- Inteligência emocional (gerenciar emoções, lidar com o estresse, relações saudáveis)\n"
+            "- Adaptabilidade (ajustar-se a mudanças, aprender rápido)\n"
+            "- Criatividade (pensar fora da caixa, ideias originais)\n"
+            "Adicione na lista de soft_skills apenas os termos identificados que correspondam ou derivem desse grupo conceitual, separados por vírgula.\n\n"
+            "Mapeie também o campo 'idiomas' (Iniciante, Intermediário ou Avançado/Fluente). Se algum campo não existir, marque 'Não informado'."
+        )
+
         response = client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=f"Extraia com precisão os dados do seguinte currículo profissional:\n\n{texto_limitado}",
+            contents=f"Analise o seguinte currículo:\n\n{texto_limitado}",
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=EstruturaCurriculo,
-                system_instruction=(
-                    "Você é um sistema automatizado de triagem de currículos para o RH. "
-                    "Analise o texto do candidato e preencha todos os campos do Schema JSON.\n\n"
-                    "REGRAS DE SEPARAÇÃO DE HABILIDADES:\n"
-                    "- 'hard_skills': Liste estritamente competências técnicas, metodologias, ferramentas e frameworks separados por vírgula. Ex: Python, JavaScript, CRM Pipedrive, Vendas B2B, IoT, Excel Avançado.\n"
-                    "- 'soft_skills': Liste estritamente características comportamentais, inteligência emocional e habilidades interpessoais separadas por vírgula. Ex: Liderança, Comunicação Eficaz, Trabalho em Equipe, Resolução de Problemas, Proatividade, Empatia.\n\n"
-                    "No campo 'idiomas', classifique estritamente o nível informado como (Iniciante, Intermediário ou Avançado/Fluente). "
-                    "Caso não haja menção a algum campo, preencha como 'Não informado'."
-                )
+                system_instruction=system_prompt
             )
         )
         
@@ -189,7 +188,7 @@ def estruturar_curriculo_com_ia(texto_bruto):
             return {k: limpar_caracteres_invalidos(str(v)) for k, v in dados.items()}
             
     except Exception as e:
-        print(f"Erro na geração estruturada com Gemini GenAI: {e}")
+        print(f"Erro na análise com o Gemini GenAI: {e}")
         
     return {
         "nome": "Nome provisório", "idade": "Não Informado", "sexo": "Não Informado",
@@ -239,7 +238,6 @@ def index():
                     
                     passou_filtro = True
                     
-                    # 1. Filtro de Busca Global Multi-termo
                     if busca_geral:
                         termos = busca_geral.split(',') if ',' in busca_geral else busca_geral.split()
                         for t in termos:
@@ -250,27 +248,22 @@ def index():
                                     passou_filtro = False
                                     break
 
-                    # 2. Filtro de Gênero
                     if f_genero and passou_filtro:
                         if remover_acentos(f_genero) != remover_acentos(item.get('sexo') or ""):
                             passou_filtro = False
 
-                    # 3. Filtro de Formação
                     if f_formacao and passou_filtro:
                         if remover_acentos(f_formacao) not in remover_acentos(item.get('formacao') or ""):
                             passou_filtro = False
 
-                    # 4. Filtro de Localização
                     if f_localizacao and passou_filtro:
                         if remover_acentos(f_localizacao) not in remover_acentos(item.get('localizacao') or ""):
                             passou_filtro = False
 
-                    # 5. Filtro de Idioma Específico
                     if f_idioma and passou_filtro:
                         if remover_acentos(f_idioma) not in texto_idiomas:
                             passou_filtro = False
 
-                    # 6. Filtro de Nível do Idioma
                     if f_nivel and passou_filtro:
                         if remover_acentos(f_nivel) not in texto_idiomas:
                             passou_filtro = False
@@ -279,20 +272,20 @@ def index():
                         resultados_finais.append(item)
                         
     except Exception as e:
-        print(f"Erro ao buscar dados do banco: {e}")
-        flash("Ocorreu um erro ao carregar os currículos.")
+        print(f"Erro ao buscar dados: {e}")
+        flash("Ocorreu um erro ao carregar os currículos.", "error")
 
     return render_template('index.html', candidatos=resultados_finais)
 
 @app.route('/upload', methods=['POST'])
 def upload():
     if 'file' not in request.files:
-        flash("Nenhum arquivo enviado.")
+        flash("Nenhum arquivo enviado.", "error")
         return redirect(url_for('index'))
         
     arquivo = request.files['file']
     if arquivo.filename == '':
-        flash("Nenhum arquivo selecionado.")
+        flash("Nenhum arquivo selecionado.", "error")
         return redirect(url_for('index'))
         
     if arquivo:
@@ -300,7 +293,7 @@ def upload():
         extensao = nome_original.rsplit('.', 1)[1].lower() if '.' in nome_original else ''
         
         if extensao not in ['pdf', 'docx']:
-            flash("Formato inválido! Envie arquivos PDF ou DOCX.")
+            flash("Formato inválido! Envie arquivos PDF ou DOCX.", "error")
             return redirect(url_for('index'))
             
         try:
@@ -313,7 +306,7 @@ def upload():
                 texto_bruto = extrair_texto_docx(dados_bytes)
                 
             if not texto_bruto.strip():
-                flash(f"Não foi possível ler o texto do arquivo '{nome_original}'. O arquivo pode estar vazio ou corrompido.")
+                flash(f"Não foi possível ler o texto do arquivo '{nome_original}'.", "error")
                 return redirect(url_for('index'))
                 
             dados_ia = estruturar_curriculo_com_ia(texto_bruto)
@@ -332,10 +325,9 @@ def upload():
                     ))
                     conn.commit()
                     
-            flash(f"Currículo de '{dados_ia['nome']}' processado e salvo com sucesso!")
+            flash(f"Currículo de '{dados_ia['nome']}' processado e salvo com sucesso!", "success")
         except Exception as e:
-            print(f"Erro completo no upload: {e}")
-            flash("Falha interna ao processar documento.")
+            flash("Falha interna ao processar documento.", "error")
             
     return redirect(url_for('index'))
 
@@ -343,13 +335,23 @@ def upload():
 def ocultar(id_candidato):
     if 'ocultados' not in session:
         session['ocultados'] = []
-    
     lista = session['ocultados']
     if id_candidato not in lista:
         lista.append(id_candidato)
         session['ocultados'] = lista
-        
-    return jsonify({"status": "sucesso", "mensagem": "Candidato ocultado temporariamente"})
+    return jsonify({"status": "sucesso", "mensagem": "Candidato ocultado da tela"})
+
+@app.route('/excluir/<int:id_candidato>', methods=['POST'])
+def excluir(id_candidato):
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM curriculos WHERE id = %s", (id_candidato,))
+                conn.commit()
+        return jsonify({"status": "sucesso", "mensagem": "Candidato removido definitivamente do banco de dados."})
+    except Exception as e:
+        print(f"Erro ao excluir do banco: {e}")
+        return jsonify({"status": "erro", "mensagem": "Falha ao apagar registro do banco de dados."}), 500
 
 @app.route('/visualizar/<int:id_candidato>')
 def visualizar(id_candidato):
@@ -372,7 +374,6 @@ def visualizar(id_candidato):
                     )
     except Exception as e:
         print(f"Erro ao renderizar arquivo: {e}")
-        
     return "Arquivo ou candidato indisponível", 404
 
 if __name__ == '__main__':
