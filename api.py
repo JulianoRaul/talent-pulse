@@ -113,7 +113,7 @@ def limpar_caracteres_invalidos(texto):
         return ""
     return texto.replace('\x00', '')
 
-def obter_variacoes_busca(termo_busca):
+def obtener_variacoes_busca(termo_busca):
     termo_limpo = remover_acentos(termo_busca).strip()
     palavras = termo_limpo.split()
     variacoes = set()
@@ -210,7 +210,7 @@ def index():
     f_formacao = request.args.get('formacao', '').strip()
     f_localizacao = request.args.get('localizacao', '').strip()
     f_idioma = request.args.get('idioma', '').strip()
-    f_nivel = request.args.get('nivel_idioma', '').strip() # Ajustado para bater com o HTML original
+    f_nivel = request.args.get('nivel_idioma', '').strip()
     
     algum_filtro_ativo = any([busca_geral, f_sexo, f_formacao, f_localizacao, f_idioma, f_nivel])
     
@@ -298,6 +298,17 @@ def upload():
             nome_arquivo = arquivo.filename
             dados_bytes = arquivo.read()
             
+            # ------------------------------------------------------------------
+            # VALIDAÇÃO 1: VERIFICAÇÃO POR NOME DE ARQUIVO JÁ EXISTENTE
+            # ------------------------------------------------------------------
+            with get_db_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                    cursor.execute("SELECT id FROM curriculos WHERE nome_arquivo = %s LIMIT 1;", (nome_arquivo,))
+                    arquivo_duplicado = cursor.fetchone()
+                    if arquivo_duplicado:
+                        flash(f'O arquivo "{nome_arquivo}" já foi processado anteriormente!', "warning")
+                        return redirect(url_for('index'))
+            
             # Converte arquivo em string base64 para armazenar se necessário
             arquivo_binario_b64 = base64.b64encode(dados_bytes).decode('utf-8')
             
@@ -313,8 +324,21 @@ def upload():
                 
             # Chamada da Inteligência Artificial estruturada
             dados_ia = estruturar_curriculo_com_ia(texto_extraido)
+            nome_candidato = dados_ia.get('nome')
             
-            # Salvando no banco de dados PostgreSQL
+            # ------------------------------------------------------------------
+            # VALIDAÇÃO 2: VERIFICAÇÃO POR NOME DO CANDIDATO JÁ EXISTENTE
+            # ------------------------------------------------------------------
+            if nome_candidato and nome_candidato != "Nome provisório" and nome_candidato != "Sem Chave API":
+                with get_db_connection() as conn:
+                    with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                        cursor.execute("SELECT id FROM curriculos WHERE nome_candidato = %s LIMIT 1;", (nome_candidato,))
+                        candidato_duplicado = cursor.fetchone()
+                        if candidato_duplicado:
+                            flash(f'O(A) candidato(a) "{nome_candidato}" já está cadastrado(a) no sistema!', "warning")
+                            return redirect(url_for('index'))
+            
+            # Salvando no banco de dados PostgreSQL se passar nas validações
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("""
@@ -323,14 +347,14 @@ def upload():
                             localizacao, formacao, cursos, hard_skills, soft_skills, idiomas, arquivo_binario
                         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """, (
-                        nome_arquivo, texto_extraido, dados_ia.get('nome'), dados_ia.get('idade'), 
+                        nome_arquivo, texto_extraido, nome_candidato, dados_ia.get('idade'), 
                         dados_ia.get('sexo'), dados_ia.get('localizacao'), dados_ia.get('formacao'), 
                         dados_ia.get('cursos'), dados_ia.get('hard_skills'), dados_ia.get('soft_skills'), 
                         dados_ia.get('idiomas'), arquivo_binario_b64
                     ))
                     conn.commit()
             
-            flash(f"Currículo de {dados_ia.get('nome')} processado com sucesso!", "success")
+            flash(f"Currículo de {nome_candidato} processado com sucesso!", "success")
         except Exception as e:
             print(f"Erro no upload/processamento: {e}")
             flash("Erro interno ao processar o arquivo.", "danger")
