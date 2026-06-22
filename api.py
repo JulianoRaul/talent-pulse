@@ -282,6 +282,18 @@ def ocultar_candidato(id_curriculo):
     session['ocultados'] = lista_atual
     return jsonify({"status": "sucesso", "id_ocultado": id_curriculo})
 
+@app.route('/excluir/<int:id_curriculo>', methods=['POST'])
+def excluir_candidato(id_curriculo):
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM curriculos WHERE id = %s;", (id_curriculo,))
+                conn.commit()
+        return jsonify({"status": "sucesso", "id_excluido": id_curriculo})
+    except Exception as e:
+        print(f"Erro ao excluir currículo do banco: {e}")
+        return jsonify({"status": "erro", "mensagem": str(e)}), 500
+
 @app.route('/upload', methods=['POST'])
 def upload():
     if 'file' not in request.files:
