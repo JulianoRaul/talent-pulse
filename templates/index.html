@@ -62,7 +62,7 @@
             align-items: start;
         }
 
-        @media (max-width: 900px) {
+        @media (max-width: 1024px) {
             .main-grid {
                 grid-template-columns: 1fr;
             }
@@ -269,16 +269,17 @@
         .actions-group {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
+            flex-wrap: wrap;
         }
 
         .btn-action {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            padding: 8px 14px;
+            padding: 8px 12px;
             border-radius: 8px;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
             text-decoration: none;
             border: 1px solid #e2e8f0;
@@ -293,13 +294,25 @@
             color: #1e293b;
         }
 
-        .btn-remove {
+        .btn-retirar {
+            background: #fef3c7;
+            color: #b45309;
+            border-color: #fde68a;
+        }
+
+        .btn-retirar:hover {
+            background: #fef3c7;
+            border-color: #fcd34d;
+            color: #78350f;
+        }
+
+        .btn-delete {
             background: #fef2f2;
             color: #b91c1c;
             border-color: #fca5a5;
         }
 
-        .btn-remove:hover {
+        .btn-delete:hover {
             background: #fee2e2;
             border-color: #f87171;
             color: #991b1b;
@@ -467,8 +480,12 @@
                                         </button>
                                     {% endif %}
                                     
-                                    <button onclick="removerDaTela('candidato-{{ loop.index }}', {{ candidato.id }})" class="btn-action btn-remove">
+                                    <button onclick="removerDaTela('candidato-{{ loop.index }}', {{ candidato.id }}, 'ocultar')" class="btn-action btn-retirar" title="Ocultar da lista atual">
                                         ❌ Retirar
+                                    </button>
+
+                                    <button onclick="removerDaTela('candidato-{{ loop.index }}', {{ candidato.id }}, 'excluir')" class="btn-action btn-delete" title="Excluir permanentemente do banco de dados">
+                                        🗑️ Excluir
                                     </button>
                                 </div>
                             </div>
@@ -562,11 +579,20 @@
             }
         });
 
-        function removerDaTela(idElemento, idBanco) {
+        // Função unificada para gerenciar remoção e exclusão via parâmetros
+        function removerDaTela(idElemento, idBanco, acao) {
             const card = document.getElementById(idElemento);
             if (!card) return;
 
-            fetch(`/ocultar/${idBanco}`, {
+            // Define o endpoint dinamicamente baseado no botão clicado ('ocultar' ou 'excluir')
+            const rota = `/${acao}/${idBanco}`;
+
+            // Confirmação extra apenas para exclusões permanentes
+            if (acao === 'excluir' && !confirm("Tem certeza que deseja apagar permanentemente este candidato do banco de dados?")) {
+                return;
+            }
+
+            fetch(rota, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -585,9 +611,11 @@
                             if (totalAtual > 0) totalBadge.innerText = totalAtual - 1;
                         }
                     }, 300);
+                } else {
+                    alert("Erro ao processar ação: " + (data.mensagem || "Erro desconhecido"));
                 }
             })
-            .catch(err => console.error("Erro ao registrar ocultamento do candidato:", err));
+            .catch(err => console.error(`Erro ao processar a ação de ${acao}:`, err));
         }
     </script>
 
