@@ -210,7 +210,7 @@ def index():
     f_formacao = request.args.get('formacao', '').strip()
     f_localizacao = request.args.get('localizacao', '').strip()
     f_idioma = request.args.get('idioma', '').strip()
-    f_nivel = request.args.get('nivel', '').strip()
+    f_nivel = request.args.get('nivel_idioma', '').strip() # Ajustado para bater com o HTML original
     
     algum_filtro_ativo = any([busca_geral, f_sexo, f_formacao, f_localizacao, f_idioma, f_nivel])
     
@@ -224,7 +224,6 @@ def index():
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                # Modificado para coletar as colunas novas
                 cursor.execute("""
                     SELECT id, nome_arquivo, conteudo, nome_candidato AS nome, idade, sexo, 
                            localizacao, formacao, cursos, habilidades, hard_skills, soft_skills, idiomas 
@@ -237,7 +236,6 @@ def index():
                         continue
                         
                     texto_idiomas = remover_acentos(item.get('idiomas') or "")
-                    # Busca global estendida para varrer hard e soft skills também
                     texto_completo_candidato = remover_acentos(
                         f"{item['conteudo']} {item['nome']} {item.get('hard_skills', '')} {item.get('soft_skills', '')} {item['cursos']} {item.get('idiomas', '')}"
                     )
@@ -270,10 +268,7 @@ def index():
     except Exception as e:
         print(f"Erro ao buscar dados: {e}")
         
-    return render_template('index.html', candidatos=resultados_finais, filtros={
-        'busca': busca_geral, 'sexo': f_sexo, 'formacao': f_formacao, 'localizacao': f_localizacao,
-        'idioma': f_idioma, 'nivel': f_nivel
-    })
+    return render_template('index.html', candidatos=resultados_finais)
 
 @app.route('/ocultar/<int:id_curriculo>', methods=['POST'])
 def ocultar_candidato(id_curriculo):
@@ -295,103 +290,52 @@ def upload():
         
     arquivo = request.files['file']
     if arquivo.filename == '':
-        flash("Nenhum arquivo secretário.", "danger")
+        flash("Nenhum arquivo selecionado.", "danger")
         return redirect(url_for('index'))
         
-    if arquivo and (arquivo.filename.lower().endswith('.pdf') or arquivo.filename.lower().endswith('.docx')):
+    if arquivo:
         try:
+            nome_arquivo = arquivo.filename
             dados_bytes = arquivo.read()
-            string_base64 = base64.b64encode(dados_bytes).decode('utf-8')
             
-            if arquivo.filename.lower().endswith('.pdf'):
+            # Converte arquivo em string base64 para armazenar se necessário
+            arquivo_binario_b64 = base64.b64encode(dados_bytes).decode('utf-8')
+            
+            texto_extraido = ""
+            if nome_arquivo.lower().endswith('.pdf'):
                 texto_extraido = extrair_texto_pdf(dados_bytes)
-            else:
+            elif nome_arquivo.lower().endswith('.docx'):
                 texto_extraido = extrair_texto_docx(dados_bytes)
-                
+            
             if not texto_extraido.strip():
-                flash(f"Não foi possível extrair texto legível de: {arquivo.filename}", "warning")
+                flash(f"Não foi possível extrair texto legível de {nome_arquivo}.", "warning")
                 return redirect(url_for('index'))
                 
+            # Chamada da Inteligência Artificial estruturada
             dados_ia = estruturar_curriculo_com_ia(texto_extraido)
             
-            # Unifica no campo 'habilidades' antigo para manter retrocompatibilidade com cadastros velhos
-            habilidades_unificadas = f"{dados_ia.get('hard_skills', '')}, {dados_ia.get('soft_skills', '')}".strip(', ')
-            
+            # Salvando no banco de dados PostgreSQL
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
-                    # Inserção atualizada mapeando individualmente hard_skills e soft_skills
                     cursor.execute("""
-                        INSERT INTO curriculos (nome_arquivo, conteudo, nome_candidato, idade, sexo, localizacao, formacao, cursos, habilidades, hard_skills, soft_skills, arquivo_binario, idiomas)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        INSERT INTO curriculos (
+                            nome_arquivo, conteudo, nome_candidato, idade, sexo, 
+                            localizacao, formacao, cursos, hard_skills, soft_skills, idiomas, arquivo_binario
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """, (
-                        limpar_caracteres_invalidos(arquivo.filename),
-                        texto_extraido,
-                        dados_ia.get('nome', 'Nome provisório'),
-                        dados_ia.get('idade', 'Não informado'),
-                        dados_ia.get('sexo', 'Não informado'),
-                        dados_ia.get('localizacao', 'Manual necessário'),
-                        dados_ia.get('formacao', 'Não informado'),
-                        dados_ia.get('cursos', 'Não informado'),
-                        habilidades_unificadas,
-                        dados_ia.get('hard_skills', 'Não informado'),
-                        dados_ia.get('soft_skills', 'Não informado'),
-                        string_base64,
-                        dados_ia.get('idiomas', 'Não informado')
+                        nome_arquivo, texto_extraido, dados_ia.get('nome'), dados_ia.get('idade'), 
+                        dados_ia.get('sexo'), dados_ia.get('localizacao'), dados_ia.get('formacao'), 
+                        dados_ia.get('cursos'), dados_ia.get('hard_skills'), dados_ia.get('soft_skills'), 
+                        dados_ia.get('idiomas'), arquivo_binario_b64
                     ))
                     conn.commit()
-                    
-            flash(f"Currículo '{arquivo.filename}' processado com sucesso!", "success")
-        except Exception as e:
-            flash(f"Erro crítico no upload: {e}", "danger")
-            print(f"Erro crítico no upload: {e}")
             
-    return redirect(url_for('index'))
-
-@app.route('/visualizar/<int:id_curriculo>')
-def visualizar(id_curriculo):
-    try:
-        with get_db_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute("SELECT nome_arquivo, arquivo_binario FROM curriculos WHERE id = %s", (id_curriculo,))
-                registro = cursor.fetchone()
-                
-                if registro and registro['arquivo_binario']:
-                    dados_originais = base64.b64decode(registro['arquivo_binario'])
-                    extensao = registro['nome_arquivo'].lower()
-                    mimetype = "application/pdf" if extensao.endswith('.pdf') else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    
-                    return send_file(
-                        io.BytesIO(dados_originais),
-                        mimetype=mimetype,
-                        as_attachment=False,
-                        download_name=registro['nome_arquivo']
-                    )
-    except Exception as e:
-        print(f"Erro ao visualizar arquivo: {e}")
-    return "O arquivo solicitado está indisponível ou não foi encontrado.", 404
-
-@app.route('/download/<int:id_curriculo>')
-def download(id_curriculo):
-    try:
-        with get_db_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute("SELECT nome_arquivo, arquivo_binario FROM curriculos WHERE id = %s", (id_curriculo,))
-                registro = cursor.fetchone()
-                
-                if registro and registro['arquivo_binario']:
-                    dados_originais = base64.b64decode(registro['arquivo_binario'])
-                    extensao = registro['nome_arquivo'].lower()
-                    mimetype = "application/pdf" if extensao.endswith('.pdf') else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    
-                    return Response(
-                        dados_originais,
-                        mimetype=mimetype,
-                        headers={"Content-Disposition": f"attachment; filename={registro['nome_arquivo']}"}
-                    )
-    except Exception as e:
-        print(f"Erro no download: {e}")
-    flash("Arquivo original indisponível para download.", "danger")
+            flash(f"Currículo de {dados_ia.get('nome')} processado com sucesso!", "success")
+        except Exception as e:
+            print(f"Erro no upload/processamento: {e}")
+            flash("Erro interno ao processar o arquivo.", "danger")
+            
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000, debug=True)
+    app.run(debug=True)
