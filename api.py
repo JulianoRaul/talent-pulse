@@ -25,23 +25,20 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 def get_db_connection():
     if DATABASE_URL:
         url_conexao = DATABASE_URL
+        # Correção para compatibilidade de dialeto
         if url_conexao.startswith("postgres://"):
             url_conexao = url_conexao.replace("postgres://", "postgresql://", 1)
         
         try:
+            # Remove parâmetros adicionais de query (?sslmode=...) que quebram o parser manual se houver
             url_limpa = url_conexao.split('?')[0]
             parsed = urlparse(url_limpa)
             
-            return psycopg2.connect(
-                database=parsed.path[1:],
-                user=parsed.username,
-                password=parsed.password,
-                host=parsed.hostname,
-                port=parsed.port or 5432,
-                sslmode='require'
-            )
+            # Se o parser falhar ou o username/password contiver caracteres especiais que confundem o DSN
+            # passamos a URL completa diretamente usando o DSN nativo que o psycopg2 aceita nativamente
+            return psycopg2.connect(url_conexao)
         except Exception as e:
-            print(f"Erro no parse estruturado da URL: {e}")
+            print(f"Tentando conexão direta via string padrão após desvio de parse: {e}")
             return psycopg2.connect(url_conexao)
     else:
         return psycopg2.connect("dbname=talent_pulse user=postgres password=postgres host=localhost")
