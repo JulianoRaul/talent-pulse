@@ -27,7 +27,6 @@
             margin: 0 auto;
         }
 
-        /* Topbar / Cabeçalho Principal */
         .topbar {
             background: #ffffff;
             padding: 16px 24px;
@@ -56,7 +55,6 @@
             border: 1px solid #a7f3d0;
         }
 
-        /* Grid Principal */
         .main-grid {
             display: grid;
             grid-template-columns: 320px 1fr;
@@ -64,14 +62,12 @@
             align-items: start;
         }
 
-        /* Coluna da Esquerda */
         .left-column {
             display: flex;
             flex-direction: column;
             gap: 24px;
         }
 
-        /* Base para os Cards Brancos */
         .card {
             background: #ffffff;
             padding: 24px;
@@ -89,7 +85,6 @@
             margin-bottom: 16px;
         }
 
-        /* Área de Upload */
         .upload-card {
             display: flex;
             flex-direction: column;
@@ -175,7 +170,6 @@
             color: #94a3b8;
         }
 
-        /* Formulários de Filtro */
         .form-group {
             margin-bottom: 16px;
         }
@@ -198,12 +192,6 @@
             font-size: 14px;
             color: #334155;
             background-color: #ffffff;
-            transition: border-color 0.15s ease;
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: #4f46e5;
         }
 
         .btn-filtrar {
@@ -216,14 +204,8 @@
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            transition: background 0.15s ease;
         }
 
-        .btn-filtrar:hover {
-            background: #1e293b;
-        }
-
-        /* Seção da Direita (Resultados dos Candidatos) */
         .results-column {
             display: flex;
             flex-direction: column;
@@ -262,7 +244,6 @@
             margin-top: 4px;
         }
 
-        /* Grupo de botões de Ação do Candidato */
         .actions-group {
             display: flex;
             align-items: center;
@@ -280,7 +261,6 @@
             text-decoration: none;
             border: 1px solid #e2e8f0;
             cursor: pointer;
-            transition: all 0.15s ease;
             background: #f1f5f9;
             color: #475569;
         }
@@ -289,7 +269,6 @@
             background: #e2e8f0;
         }
 
-        /* Estilo específico para o botão de Remover/Retirar */
         .btn-remove {
             background: #fef2f2;
             color: #b91c1c;
@@ -315,7 +294,6 @@
             color: #475569;
         }
 
-        /* Alertas Flash */
         .alert {
             padding: 12px 16px;
             border-radius: 8px;
@@ -324,20 +302,6 @@
             border: 1px solid #fca5a5;
             background: #fef2f2;
             color: #991b1b;
-        }
-
-        @media (max-width: 768px) {
-            .main-grid {
-                grid-template-columns: 1fr;
-            }
-            .candidato-header {
-                flex-direction: column;
-            }
-            .actions-group {
-                margin-top: 12px;
-                width: 100%;
-                justify-content: flex-start;
-            }
         }
     </style>
 </head>
@@ -371,14 +335,14 @@
             </div>
 
             <div class="badge-triados">
-                Candidatos Triados: <span id="total-count">{{ candidatos|length if candidatos else 0 }}</span>
+                Candidatos Triados: <span>{{ candidatos|length if candidatos else 0 }}</span>
             </div>
         </header>
 
         {% with messages = get_flashed_messages() %}
             {% if messages %}
                 {% for message in messages %}
-                    <div class="alert">
+                    <div class="alert" style="background: #f0fdf4; color: #166534; border-color: #bbf7d0;">
                         {{ message }}
                     </div>
                 {% endfor %}
@@ -388,7 +352,6 @@
         <main class="main-grid">
             
             <div class="left-column">
-                
                 <div class="upload-card">
                     <div class="upload-header">
                         <h2>Upload Automatizado</h2>
@@ -414,25 +377,9 @@
                             <label for="busca">Busca Global</label>
                             <input type="text" id="busca" name="busca" class="form-control" placeholder="Ex: gestor, python" value="{{ request.args.get('busca', '') }}">
                         </div>
-
-                        <div class="form-group">
-                            <label for="localizacao">Localização</label>
-                            <input type="text" id="localizacao" name="localizacao" class="form-control" placeholder="Cidade ou Estado" value="{{ request.args.get('localizacao', '') }}">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="sexo">Gênero</label>
-                            <select id="sexo" name="sexo" class="form-control">
-                                <option value="">Todos</option>
-                                <option value="Masculino" {% if request.args.get('sexo') == 'Masculino' %}selected{% endif %}>Masculino</option>
-                                <option value="Feminino" {% if request.args.get('sexo') == 'Feminino' %}selected{% endif %}>Feminino</option>
-                            </select>
-                        </div>
-
                         <button type="submit" class="btn-filtrar">Filtrar Perfis</button>
                     </form>
                 </div>
-
             </div>
 
             <div class="results-column">
@@ -441,7 +388,7 @@
                         <div class="candidato-card" id="candidato-{{ loop.index }}">
                             <div class="candidato-header">
                                 <div class="candidato-info">
-                                    <h3>{{ candidato.nome }}</h3>
+                                    <h3>{{ candidato.nome if candidato.nome and candidato.nome != 'Manual necessário' else (candidato.nome_arquivo or 'Currículo Processado') }}</h3>
                                     <div class="candidato-meta">
                                         <span>📍 {{ candidato.localizacao or 'Não informado' }}</span>
                                         <span>🎂 {{ candidato.idade or 'Não informado' }}</span>
@@ -450,9 +397,15 @@
                                 </div>
                                 
                                 <div class="actions-group">
-                                    <a href="/visualizar/{{ candidato.id if candidato.id else '#' }}" target="_blank" class="btn-action">
-                                        👁️ Abrir em nova aba
-                                    </a>
+                                    {% if candidato.id %}
+                                        <a href="/visualizar/{{ candidato.id }}" target="_blank" class="btn-action">
+                                            👁️ Abrir em nova aba
+                                        </a>
+                                    {% else %}
+                                        <button class="btn-action" disabled style="opacity: 0.5; cursor: not-allowed;">
+                                            👁️ Indisponível
+                                        </button>
+                                    {% endif %}
                                     <button onclick="removerDaTela('candidato-{{ loop.index }}')" class="btn-action btn-remove">
                                         ❌ Retirar
                                     </button>
@@ -485,22 +438,16 @@
         function removerDaTela(idElemento) {
             const card = document.getElementById(idElemento);
             if (card) {
-                // Animação simples de fade-out antes de sumir
                 card.style.opacity = '0';
                 card.style.transform = 'scale(0.95)';
-                
                 setTimeout(() => {
                     card.remove();
-                    
-                    // Atualiza dinamicamente o número no badge "Candidatos Triados"
                     const totalBadge = document.querySelector('.badge-triados span');
                     if (totalBadge) {
                         let totalAtual = parseInt(totalBadge.innerText) || 0;
-                        if (totalAtual > 0) {
-                            totalBadge.innerText = totalAtual - 1;
-                        }
+                        if (totalAtual > 0) totalBadge.innerText = totalAtual - 1;
                     }
-                }, 300); // Aguarda os 300ms da animação
+                }, 300);
             }
         }
     </script>
