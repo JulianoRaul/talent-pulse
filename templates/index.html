@@ -3,21 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TalentPulse - Triagem de Currículos</title>
+    <title>TalentPulse - Extração Inteligente de Currículos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
     <style>
-        :root {
-            --bg-principal: #f8fafc;
-            --brand-primary: #004d40;
-            --brand-secondary: #00796b;
-            --text-dark: #1e293b;
-            --text-light: #64748b;
-            --white: #ffffff;
-            --border-color: #e2e8f0;
-            --alert-success: #e6f4ea;
-            --alert-success-text: #137333;
-        }
-
         * {
             margin: 0;
             padding: 0;
@@ -26,420 +17,427 @@
         }
 
         body {
-            background-color: var(--bg-principal);
-            color: var(--text-dark);
+            background-color: #f8fafc;
+            color: #334155;
             padding: 24px;
         }
 
-        .header {
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Topbar / Cabeçalho Principal */
+        .topbar {
+            background: #ffffff;
+            padding: 16px 24px;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: var(--white);
-            padding: 20px 32px;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
             margin-bottom: 24px;
-            border: 1px solid var(--border-color);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
         }
 
-        .logo-container {
+        .brand {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 14px;
         }
 
-        .logo-box {
-            background: var(--brand-primary);
-            color: var(--white);
-            font-weight: 700;
-            padding: 8px 12px;
-            border-radius: 8px;
-            font-size: 18px;
-        }
-
-        .logo-text h1 {
-            font-size: 20px;
-            color: var(--brand-primary);
-            font-weight: 700;
-        }
-
-        .logo-text p {
-            font-size: 11px;
-            color: var(--text-light);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .counter-badge {
-            background: #e0f2f1;
-            color: var(--brand-secondary);
+        .badge-triados {
+            background: #ecfdf5;
+            color: #047857;
             padding: 8px 16px;
-            border-radius: 20px;
+            border-radius: 99px;
+            font-size: 14px;
             font-weight: 600;
-            font-size: 14px;
+            border: 1px solid #a7f3d0;
         }
 
-        .alert-flash {
-            background: var(--alert-success);
-            color: var(--alert-success-text);
-            padding: 16px;
-            border-radius: 8px;
-            margin-bottom: 24px;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            border: 1px solid rgba(19, 115, 51, 0.1);
-        }
-
-        .painel-grid {
+        /* Grid Principal */
+        .main-grid {
             display: grid;
             grid-template-columns: 320px 1fr;
             gap: 24px;
             align-items: start;
         }
 
+        /* Coluna da Esquerda */
+        .left-column {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Base para os Cards Brancos */
         .card {
-            background: var(--white);
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
+            background: #ffffff;
             padding: 24px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
         }
 
         .card-title {
-            font-size: 16px;
-            font-weight: 600;
+            font-size: 14px;
+            font-weight: 700;
+            color: #1e293b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
             margin-bottom: 16px;
-            color: var(--text-dark);
         }
 
-        .upload-zone {
-            border: 2px dashed #b2dfdb;
-            border-radius: 8px;
-            padding: 32px 16px;
-            text-align: center;
-            cursor: pointer;
+        /* Área de Upload */
+        .upload-card {
+            display: flex;
+            flex-direction: column;
+            background: #ffffff;
+            padding: 24px;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .upload-header {
+            margin-bottom: 16px;
+        }
+
+        .upload-header h2 {
+            font-size: 15px;
+            font-weight: 700;
+            color: #0f172a;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .upload-header p {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 4px;
+            line-height: 1.4;
+        }
+
+        .drop-zone {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed #cbd5e1;
+            border-radius: 12px;
+            padding: 24px 16px;
+            background: #f8fafc;
+            position: relative;
+            min-height: 160px;
             transition: all 0.2s ease;
-            background: #fafafa;
         }
 
-        .upload-zone:hover {
-            border-color: var(--brand-secondary);
-            background: #f0f7f6;
+        .drop-zone:hover {
+            border-color: #4f46e5;
+            background: #f5f3ff;
+        }
+
+        .drop-zone input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .upload-content {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
         }
 
         .upload-icon {
-            font-size: 32px;
-            color: var(--brand-secondary);
-            margin-bottom: 12px;
+            font-size: 28px;
+            color: #4f46e5;
+            font-weight: 300;
+            line-height: 1;
+            margin-bottom: 2px;
         }
 
-        .upload-zone p {
+        .upload-text-main {
             font-size: 13px;
-            color: var(--text-light);
-            margin-bottom: 4px;
+            font-weight: 600;
+            color: #334155;
         }
 
-        .upload-zone span {
+        .upload-text-sub {
             font-size: 11px;
             color: #94a3b8;
         }
 
-        .form-file {
-            display: none;
-        }
-
+        /* Formulários de Filtro */
         .form-group {
             margin-bottom: 16px;
         }
 
         .form-group label {
             display: block;
-            font-size: 12px;
-            font-weight: 500;
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
             margin-bottom: 6px;
-            color: var(--text-light);
+            letter-spacing: 0.3px;
         }
 
         .form-control {
             width: 100%;
             padding: 10px 12px;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            font-size: 13px;
-            color: var(--text-dark);
-            outline: none;
-            background-color: var(--bg-principal);
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #334155;
+            background-color: #ffffff;
+            transition: border-color 0.15s ease;
         }
 
         .form-control:focus {
-            border-color: var(--brand-secondary);
-            background-color: var(--white);
+            outline: none;
+            border-color: #4f46e5;
         }
 
-        .btn {
+        .btn-filtrar {
             width: 100%;
             padding: 12px;
-            border: none;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background 0.2s;
-            text-align: center;
-            text-decoration: none;
-            display: inline-block;
-        }
-
-        .btn-primary {
             background: #0f172a;
-            color: var(--white);
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease;
         }
 
-        .btn-primary:hover {
+        .btn-filtrar:hover {
             background: #1e293b;
         }
 
-        .btn-clear {
-            background: transparent;
-            color: var(--text-light);
-            font-size: 13px;
-            margin-top: 8px;
-        }
-
-        .btn-clear:hover {
-            color: var(--text-dark);
-        }
-
-        .btn-download {
-            background: #e2e8f0;
-            color: var(--text-dark);
-            font-size: 12px;
-            padding: 6px 12px;
-            width: auto;
-            border-radius: 4px;
-        }
-
-        .btn-download:hover {
-            background: #cbd5e1;
-        }
-
-        .candidatos-lista {
+        /* Seção da Direita (Resultados dos Candidatos) */
+        .results-column {
             display: flex;
             flex-direction: column;
             gap: 16px;
         }
 
-        .candidato-item {
-            background: var(--white);
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
+        .candidato-card {
+            background: #ffffff;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
             padding: 24px;
-            position: relative;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
 
         .candidato-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 12px;
-            border-bottom: 1px solid #f1f5f9;
-            padding-bottom: 12px;
         }
 
-        .candidato-nome {
+        .candidato-info h3 {
             font-size: 18px;
-            font-weight: 600;
-            color: var(--text-dark);
+            font-weight: 700;
+            color: #0f172a;
         }
 
         .candidato-meta {
-            font-size: 12px;
-            color: var(--text-light);
-            margin-top: 4px;
             display: flex;
-            gap: 12px;
+            gap: 16px;
+            font-size: 13px;
+            color: #64748b;
+            margin-top: 4px;
         }
 
-        .info-bloco {
-            margin-top: 12px;
-            font-size: 13px;
+        .btn-baixar {
+            background: #f1f5f9;
+            color: #475569;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            text-decoration: none;
+            border: 1px solid #e2e8f0;
+        }
+
+        .btn-baixar:hover {
+            background: #e2e8f0;
+        }
+
+        .info-section {
+            font-size: 14px;
             line-height: 1.5;
         }
 
-        .info-label {
-            font-weight: 600;
+        .info-section strong {
+            color: #1e293b;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .info-section p {
             color: #475569;
         }
 
-        .badge-idioma {
-            background: #f0fdf4;
-            color: #166534;
-            border: 1px solid #bbf7d0;
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 500;
-            display: inline-block;
-            margin-top: 6px;
+        /* Alertas Flash */
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            border: 1px solid #fca5a5;
+            background: #fef2f2;
+            color: #991b1b;
         }
 
-        .empty-state {
-            text-align: center;
-            padding: 64px 32px;
-            color: var(--text-light);
-        }
-
-        .empty-icon {
-            font-size: 48px;
-            color: #cbd5e1;
-            margin-bottom: 16px;
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <div class="logo-container">
-            <div class="logo-box">TP</div>
-            <div class="logo-text">
-                <h1>TalentPulse</h1>
-                <p>Extração Inteligente de Currículos</p>
-            </div>
-        </div>
-        <div class="counter-badge">
-            Candidatos Triados: {{ candidatos|length }}
-        </div>
-    </div>
+    <div class="container">
+        
+        <header class="topbar">
+            <div class="brand">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
+                    <rect width="40" height="40" rx="10" fill="url(#gradient-bg)"/>
+                    <path d="M10 21H14.5L17.5 13L21.5 27L24.5 19.5L26.5 21H30" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="21.5" cy="27" r="2" fill="#22c55e" stroke="#ffffff" stroke-width="1"/>
+                    <circle cx="17.5" cy="13" r="2" fill="#22c55e" stroke="#ffffff" stroke-width="1"/>
+                    <defs>
+                        <linearGradient id="gradient-bg" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+                            <stop offset="0%" stop-color="#022c22"/>
+                            <stop offset="100%" stop-color="#0f172a"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
 
-    <!-- CORREÇÃO DA FUNÇÃO DO FLASH AQUI -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert-flash">
-                    ✓ {{ message }}
+                <div class="brand-text">
+                    <h1 style="font-size: 20px; font-weight: 700; color: #0f172a; margin: 0; letter-spacing: -0.5px;">
+                        Talent<span style="color: #4f46e5;">Pulse</span>
+                    </h1>
+                    <p style="font-size: 10px; color: #64748b; margin: 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
+                        Extração Inteligente de Currículos
+                    </p>
                 </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-
-    <div class="painel-grid">
-        
-        <div class="sidebar-fluxo" style="display: flex; flex-direction: column; gap: 24px;">
-            <!-- CARD DE UPLOAD -->
-            <div style="background: #ffffff; padding: 24px; border-radius: 16px; border: 1px solid #f1f5f9; display: flex; flex-direction: column; height: 100%; box-sizing: border-box;">
-    
-    <div style="margin-bottom: 20px;">
-        <h2 style="font-size: 18px; font-weight: 700; color: #1e293b; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Upload Automatizado</h2>
-        <p style="font-size: 12px; color: #64748b; margin: 4px 0 0 0; line-height: 1.4;">
-            Arraste ou selecione o arquivo. A IA lerá o documento e preencherá tudo sozinha no banco.
-        </p>
-    </div>
-
-    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px dashed #cbd5e1; border-radius: 12px; padding: 30px 20px; background: #f8fafc; position: relative; min-height: 180px;">
-        
-        <input type="file" id="file-input" name="file" accept=".pdf,.docx" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 10;">
-        
-        <div style="text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px;">
-            <div style="font-size: 28px; color: #4f46e5; font-weight: 300; line-height: 1;">+</div>
-            
-            <p style="font-size: 14px; font-weight: 600; color: #334155; margin: 0;">Selecione o Currículo</p>
-            <p style="font-size: 12px; color: #94a3b8; margin: 0;">PDF ou DOCX</p>
-        </div>
-    </div>
-
-</div>
-
-            <!-- CARD DE FILTROS -->
-            <div class="card">
-                <div class="card-title">FILTRAR PERFIS</div>
-                <form action="{{ url_for('index') }}" method="GET">
-                    
-                    <div class="form-group">
-                        <label>BUSCA GLOBAL</label>
-                        <input type="text" name="busca" class="form-control" placeholder="Competência, palavra-chave..." value="{{ filtros.busca }}">
-                    </div>
-
-                    <div class="form-group">
-                        <label>LOCALIZAÇÃO</label>
-                        <input type="text" name="localizacao" class="form-control" placeholder="Cidade ou Estado" value="{{ filtros.localizacao }}">
-                    </div>
-
-                    <div class="form-group">
-                        <label>IDIOMA</label>
-                        <input type="text" name="idioma" class="form-control" placeholder="Ex: Inglês, Espanhol" value="{{ filtros.idioma }}">
-                    </div>
-
-                    <div class="form-group">
-                        <label>NÍVEL DO IDIOMA</label>
-                        <select name="nivel" class="form-control">
-                            <option value="">Todos os Níveis</option>
-                            <option value="Iniciante" {% if filtros.nivel == 'Iniciante' %}selected{% endif %}>Iniciante</option>
-                            <option value="Intermediario" {% if filtros.nivel == 'Intermediario' %}selected{% endif %}>Intermediário</option>
-                            <option value="Avancado" {% if filtros.nivel == 'Avancado' %}selected{% endif %}>Avançado / Fluente</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>GÊNERO</label>
-                        <select name="sexo" class="form-control">
-                            <option value="">Todos</option>
-                            <option value="Masculino" {% if filtros.sexo == 'Masculino' %}selected{% endif %}>Masculino</option>
-                            <option value="Feminino" {% if filtros.sexo == 'Feminino' %}selected{% endif %}>Feminino</option>
-                        </select>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary">Filtrar Perfis</button>
-                    <a href="{{ url_for('index') }}" class="btn btn-clear">Limpar Filtros</a>
-                </form>
             </div>
-        </div>
 
-        <!-- LISTA DE RESULTADOS -->
-        <div class="conteudo-lista">
-            {% if candidatos %}
-                <div class="candidatos-lista">
+            <div class="badge-triados">
+                Candidatos Triados: <span>{{ candidatos|length if candidatos else 0 }}</span>
+            </div>
+        </header>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <main class="main-grid">
+            
+            <div class="left-column">
+                
+                <div class="upload-card">
+                    <div class="upload-header">
+                        <h2>Upload Automatizado</h2>
+                        <p>Arraste ou selecione o arquivo. A IA lerá o documento e preencherá tudo sozinha no banco.</p>
+                    </div>
+                    
+                    <form action="/upload" method="POST" enctype="multipart/form-data" id="upload-form">
+                        <div class="drop-zone">
+                            <input type="file" id="file-input" name="file" accept=".pdf,.docx" onchange="document.getElementById('upload-form').submit();">
+                            <div class="upload-content">
+                                <div class="upload-icon">+</div>
+                                <p class="upload-text-main">Selecione o Currículo</p>
+                                <p class="upload-text-sub">PDF ou DOCX</p>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Filtrar Perfis</div>
+                    <form action="/" method="GET">
+                        <div class="form-group">
+                            <label for="busca">Busca Global</label>
+                            <input type="text" id="busca" name="busca" class="form-control" placeholder="Ex: gestor, python" value="{{ request.args.get('busca', '') }}">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="localizacao">Localização</label>
+                            <input type="text" id="localizacao" name="localizacao" class="form-control" placeholder="Cidade ou Estado" value="{{ request.args.get('localizacao', '') }}">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="sexo">Gênero</label>
+                            <select id="sexo" name="sexo" class="form-control">
+                                <option value="">Todos</option>
+                                <option value="Masculino" {% if request.args.get('sexo') == 'Masculino' %}selected{% endif %}>Masculino</option>
+                                <option value="Feminino" {% if request.args.get('sexo') == 'Feminino' %}selected{% endif %}>Feminino</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn-filtrar">Filtrar Perfis</button>
+                    </form>
+                </div>
+
+            </div>
+
+            <div class="results-column">
+                {% if candidatos %}
                     {% for candidato in candidatos %}
-                        <div class="candidato-item">
+                        <div class="candidato-card">
                             <div class="candidato-header">
-                                <div>
-                                    <div class="candidato-nome">{{ candidato.nome_candidato or 'Nome não identificado' }}</div>
+                                <div class="candidato-info">
+                                    <h3>{{ candidato.nome }}</h3>
                                     <div class="candidato-meta">
                                         <span>📍 {{ candidato.localizacao or 'Não informado' }}</span>
-                                        <span>🎂 {{ candidato.idade or 'Não informada' }}</span>
-                                        <span>👥 Gênero: {{ candidato.sexo or 'Não informado' }}</span>
+                                        <span>🎂 {{ candidato.idade or 'Não informado' }}</span>
+                                        <span>👤 Gênero: {{ candidato.sexo or 'Não informado' }}</span>
                                     </div>
                                 </div>
-                                <!-- CORREÇÃO DA ROTA DE DOWNLOAD AQUI -->
-                                <a href="{{ url_for('download', id_curriculo=candidato.id) }}" class="btn btn-download">💾 Baixar Original</a>
+                                <a href="#" class="btn-baixar">🖨️ Baixar Original</a>
                             </div>
 
-                            <div class="info-bloco">
-                                <span class="info-label">Formação Acadêmica:</span> {{ candidato.formacao or 'Não informada' }}
+                            <div class="info-section" style="margin-top: 8px;">
+                                <strong>Formação Acadêmica:</strong>
+                                <p>{{ candidato.formacao or 'Não informada' }}</p>
                             </div>
 
-                            <div class="info-bloco">
-                                <span class="info-label">Habilidades Práticas:</span> {{ candidato.habilidades or 'Não informadas' }}
-                            </div>
-
-                            <div class="info-bloco">
-                                <span class="info-label">Idiomas Conhecidos:</span><br>
-                                <span class="badge-idioma">🌐 {{ candidato.idiomas or 'Não informado' }}</span>
+                            <div class="info-section">
+                                <strong>Habilidades Práticas:</strong>
+                                <p>{{ candidato.habilidades or 'Não informadas' }}</p>
                             </div>
                         </div>
                     {% endfor %}
-                </div>
-            {% else %}
-                <div class="card empty-state">
-                    <div class="empty-icon">📂</div>
-                    <p>Nenhum candidato cadastrado ou compatível com os filtros selecionados.</p>
-                </div>
-            {% endif %}
-        </div>
+                {% else %}
+                    <div class="card" style="text-align: center; padding: 48px; color: #64748b;">
+                        <span style="font-size: 32px; display: block; margin-bottom: 12px;">📁</span>
+                        Nenhum candidato cadastrado ou compatível com os filtros.
+                    </div>
+                {% endif %}
+            </div>
 
+        </main>
     </div>
 
 </body>
