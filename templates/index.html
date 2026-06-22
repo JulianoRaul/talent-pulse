@@ -387,9 +387,142 @@
                     <form action="/" method="GET">
                         <div class="form-group">
                             <label for="busca">Busca Global</label>
-                            <input type="text" id="busca" name="busca" class="form-control" placeholder="Ex: gestor, python" value="{{ request.args.get('busca', '') }}">
+                            <input type="text" id="busca" name="busca" class="form-control" placeholder="Ex: Python, Comunicação" value="{{ request.args.get('busca', '') }}">
                         </div>
 
                         <div class="form-group">
                             <label for="localizacao">Localização</label>
-                            <input type="text" id="localizacao" name="localizacao" class="form-control" placeholder="Cidade ou Estado" value
+                            <input type="text" id="localizacao" name="localizacao" class="form-control" placeholder="Cidade ou Estado" value="{{ request.args.get('localizacao', '') }}">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="genero">Gênero</label>
+                            <select id="genero" name="genero" class="form-control">
+                                <option value="">Todos</option>
+                                <option value="Masculino" {{ 'selected' if request.args.get('genero') == 'Masculino' }}>Masculino</option>
+                                <option value="Feminino" {{ 'selected' if request.args.get('genero') == 'Feminino' }}>Feminino</option>
+                                <option value="Não informado" {{ 'selected' if request.args.get('genero') == 'Não informado' }}>Não informado</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn-filtrar">Filtrar Perfis</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="results-column">
+                {% if candidatos %}
+                    {% for candidato in candidatos %}
+                        <div class="candidato-card" id="candidato-{{ loop.index }}">
+                            <div class="candidato-header">
+                                <div class="candidato-info">
+                                    <h3>{{ candidato.nome if candidato.nome and candidato.nome != 'Manual necessário' else (candidato.nome_arquivo or 'Currículo Processado') }}</h3>
+                                    <div class="candidato-meta">
+                                        <span>📍 {{ candidato.localizacao or 'Não informado' }}</span>
+                                        <span>🎂 {{ candidato.idade or 'Não informado' }}</span>
+                                        <span>👤 Gênero: {{ candidato.sexo or 'Não informado' }}</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="actions-group">
+                                    {% if candidato.id %}
+                                        <a href="/visualizar/{{ candidato.id }}" target="_blank" class="btn-action">
+                                            👁️ Abrir em nova aba
+                                        </a>
+                                    {% else %}
+                                        <button class="btn-action" disabled style="opacity: 0.5; cursor: not-allowed;">
+                                            👁️ Indisponível
+                                        </button>
+                                    {% endif %}
+                                    
+                                    <button onclick="removerDaTela('candidato-{{ loop.index }}', {{ candidato.id }})" class="btn-action btn-remove">
+                                        ❌ Retirar
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="info-section">
+                                <strong>Formação Acadêmica:</strong>
+                                <div style="white-space: pre-line; color: #475569;">{{ candidato.formacao or 'Não informada' }}</div>
+                            </div>
+
+                            <!-- SEÇÃO DE HARD SKILLS -->
+                            <div class="info-section">
+                                <strong>Hard Skills (Competências Técnicas):</strong>
+                                <div class="skills-container">
+                                    {% if candidato.hard_skills %}
+                                        {% for skill in candidato.hard_skills.split(',') %}
+                                            {% if skill.strip() %}
+                                                <span class="skill-badge" style="background: #e0e7ff; color: #4338ca; border-color: #c7d2fe;">
+                                                    🛠️ {{ skill.strip() }}
+                                                </span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% else %}
+                                        <p style="color: #94a3b8; font-style: italic; font-size: 13px;">Nenhuma competência técnica mapeada</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- SEÇÃO DE SOFT SKILLS -->
+                            <div class="info-section">
+                                <strong>Soft Skills (Habilidades Comportamentais):</strong>
+                                <div class="skills-container">
+                                    {% if candidato.soft_skills %}
+                                        {% for skill in candidato.soft_skills.split(',') %}
+                                            {% if skill.strip() %}
+                                                <span class="skill-badge" style="background: #fdf2f8; color: #9d174d; border-color: #fbcfe8;">
+                                                    🧠 {{ skill.strip() }}
+                                                </span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% else %}
+                                        <p style="color: #94a3b8; font-style: italic; font-size: 13px;">Nenhuma habilidade comportamental mapeada</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="card" style="text-align: center; padding: 48px; color: #64748b;">
+                        <span style="font-size: 32px; display: block; margin-bottom: 12px;">📁</span>
+                        Nenhum candidato cadastrado ou compatível com os filtros.
+                    </div>
+                {% endif %}
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        function removerDaTela(idElemento, idBanco) {
+            const card = document.getElementById(idElemento);
+            if (!card) return;
+
+            fetch(`/ocultar/${idBanco}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "sucesso") {
+                    card.style.opacity = '0';
+                    card.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        card.remove();
+                        const totalBadge = document.querySelector('.badge-triados span');
+                        if (totalBadge) {
+                            let totalAtual = parseInt(totalBadge.innerText) || 0;
+                            if (totalAtual > 0) totalBadge.innerText = totalAtual - 1;
+                        }
+                    }, 300);
+                }
+            })
+            .catch(err => console.error("Erro ao registrar ocultamento do candidato:", err));
+        }
+    </script>
+
+</body>
+</html>
