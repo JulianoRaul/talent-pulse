@@ -363,7 +363,7 @@
                     <div class="alert" style="background: #f0fdf4; color: #166534; border-color: #bbf7d0;">
                         {{ message }}
                     </div>
-                </for>
+                {% endfor %}
             {% endif %}
         {% endwith %}
 
@@ -467,41 +467,17 @@
                                 <p>{{ candidato.formacao or 'Não informada' }}</p>
                             </div>
 
-                            <!-- Nova Seção: Hard Skills (Azul) -->
                             <div class="info-section">
-                                <strong>Habilidades Técnicas (Hard Skills):</strong>
+                                <strong>Habilidades Práticas:</strong>
                                 <div class="skills-container">
-                                    {% if candidato.hard_skills %}
-                                        {% for skill in candidato.hard_skills.split(',') %}
-                                            {% if skill.strip() %}
-                                                <span class="skill-badge" style="background: #e0f2fe; color: #0369a1; border-color: #bae6fd;">{{ skill.strip() }}</span>
-                                            {% endif %}
-                                        {% endfor %}
-                                    {% elif candidato.habilidades %}
-                                        <!-- Fallback para registros antigos antes da divisão -->
+                                    {% if candidato.habilidades %}
                                         {% for skill in candidato.habilidades.split(',') %}
                                             {% if skill.strip() %}
-                                                <span class="skill-badge" style="background: #e0f2fe; color: #0369a1; border-color: #bae6fd;">{{ skill.strip() }}</span>
+                                                <span class="skill-badge">{{ skill.strip() }}</span>
                                             {% endif %}
                                         {% endfor %}
                                     {% else %}
-                                        <p style="color: #94a3b8; font-style: italic; font-size: 13px;">Não informadas</p>
-                                    {% endif %}
-                                </div>
-                            </div>
-
-                            <!-- Nova Seção: Soft Skills (Rosa/Roxo) -->
-                            <div class="info-section">
-                                <strong>Competências Comportamentais (Soft Skills):</strong>
-                                <div class="skills-container">
-                                    {% if candidato.soft_skills %}
-                                        {% for skill in candidato.soft_skills.split(',') %}
-                                            {% if skill.strip() %}
-                                                <span class="skill-badge" style="background: #fdf2f8; color: #9d174d; border-color: #fbcfe8;">{{ skill.strip() }}</span>
-                                            {% endif %}
-                                        {% endfor %}
-                                    {% else %}
-                                        <p style="color: #94a3b8; font-style: italic; font-size: 13px;">Não informadas</p>
+                                        <p style="color: #94a3b8; font-style: italic;">Não informadas</p>
                                     {% endif %}
                                 </div>
                             </div>
