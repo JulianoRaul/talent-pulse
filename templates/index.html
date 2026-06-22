@@ -267,4 +267,350 @@
         }
 
         .actions-group {
-            display
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+            border: 1px solid #e2e8f0;
+            cursor: pointer;
+            background: #f1f5f9;
+            color: #475569;
+            transition: all 0.15s ease;
+        }
+
+        .btn-action:hover {
+            background: #e2e8f0;
+            color: #1e293b;
+        }
+
+        .btn-remove {
+            background: #fef2f2;
+            color: #b91c1c;
+            border-color: #fca5a5;
+        }
+
+        .btn-remove:hover {
+            background: #fee2e2;
+            border-color: #f87171;
+            color: #991b1b;
+        }
+
+        .info-section {
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .info-section strong {
+            color: #1e293b;
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .skills-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .skill-badge {
+            font-size: 12px;
+            font-weight: 500;
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            border: 1px solid #fca5a5;
+            background: #fef2f2;
+            color: #991b1b;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        
+        <header class="topbar">
+            <div class="brand">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
+                    <rect width="40" height="40" rx="10" fill="url(#gradient-bg)"/>
+                    <path d="M10 21H14.5L17.5 13L21.5 27L24.5 19.5L26.5 21H30" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="21.5" cy="27" r="2" fill="#22c55e" stroke="#ffffff" stroke-width="1"/>
+                    <circle cx="17.5" cy="13" r="2" fill="#22c55e" stroke="#ffffff" stroke-width="1"/>
+                    <defs>
+                        <linearGradient id="gradient-bg" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+                            <stop offset="0%" stop-color="#022c22"/>
+                            <stop offset="100%" stop-color="#0f172a"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+
+                <div class="brand-text">
+                    <h1 style="font-size: 20px; font-weight: 700; color: #0f172a; margin: 0; letter-spacing: -0.5px;">
+                        Talent<span style="color: #4f46e5;">Pulse</span>
+                    </h1>
+                    <p style="font-size: 10px; color: #64748b; margin: 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
+                        Extração Inteligente de Currículos
+                    </p>
+                </div>
+            </div>
+
+            <div class="badge-triados">
+                Candidatos Triados: <span>{{ candidatos|length if candidatos else 0 }}</span>
+            </div>
+        </header>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert" style="background: #f0fdf4; color: #166534; border-color: #bbf7d0;">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <main class="main-grid">
+            
+            <div class="left-column">
+                <div class="upload-card">
+                    <div class="upload-header">
+                        <h2>Upload Automatizado</h2>
+                        <p>Arraste ou selecione o arquivo. A IA lerá o documento e preencherá tudo sozinha no banco.</p>
+                    </div>
+                    
+                    <form action="/upload" method="POST" enctype="multipart/form-data" id="upload-form">
+                        <div class="drop-zone" id="drop-zone">
+                            <input type="file" id="file-input" name="file" accept=".pdf,.docx">
+                            <div class="upload-content" id="upload-content">
+                                <div class="upload-icon">+</div>
+                                <p class="upload-text-main">Selecione ou Arraste o Currículo</p>
+                                <p class="upload-text-sub">PDF ou DOCX</p>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Filtrar Perfis</div>
+                    <form action="/" method="GET">
+                        <div class="form-group">
+                            <label for="busca">Busca Global</label>
+                            <input type="text" id="busca" name="busca" class="form-control" placeholder="Ex: Python, Comunicação" value="{{ request.args.get('busca', '') }}">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="localizacao">Localização</label>
+                            <input type="text" id="localizacao" name="localizacao" class="form-control" placeholder="Cidade ou Estado" value="{{ request.args.get('localizacao', '') }}">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="formacao">Escolaridade / Formação</label>
+                            <input type="text" id="formacao" name="formacao" class="form-control" placeholder="Ex: Graduação, Sistemas" value="{{ request.args.get('formacao', '') }}">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="genero">Gênero</label>
+                            <select id="genero" name="genero" class="form-control">
+                                <option value="">Todos</option>
+                                <option value="Masculino" {{ 'selected' if request.args.get('genero') == 'Masculino' }}>Masculino</option>
+                                <option value="Feminino" {{ 'selected' if request.args.get('genero') == 'Feminino' }}>Feminino</option>
+                                <option value="Não informado" {{ 'selected' if request.args.get('genero') == 'Não informado' }}>Não informado</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="idioma">Idioma</label>
+                            <input type="text" id="idioma" name="idioma" class="form-control" placeholder="Ex: Inglês, Espanhol" value="{{ request.args.get('idioma', '') }}">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="nivel_idioma">Nível do Idioma</label>
+                            <select id="nivel_idioma" name="nivel_idioma" class="form-control">
+                                <option value="">Todos os Níveis</option>
+                                <option value="Iniciante" {{ 'selected' if request.args.get('nivel_idioma') == 'Iniciante' }}>Iniciante</option>
+                                <option value="Intermediário" {{ 'selected' if request.args.get('nivel_idioma') == 'Intermediário' }}>Intermediário</option>
+                                <option value="Avançado" {{ 'selected' if request.args.get('nivel_idioma') == 'Avançado' }}>Avançado / Fluente</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn-filtrar">Filtrar Perfis</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="results-column">
+                {% if candidatos %}
+                    {% for candidato in candidatos %}
+                        <div class="candidato-card" id="candidato-{{ loop.index }}">
+                            <div class="candidato-header">
+                                <div class="candidato-info">
+                                    <h3>{{ candidato.nome if candidato.nome and candidato.nome != 'Manual necessário' else (candidato.nome_arquivo or 'Currículo Processado') }}</h3>
+                                    <div class="candidato-meta">
+                                        <span>📍 {{ candidato.localizacao or 'Não informado' }}</span>
+                                        <span>🎂 {{ candidato.idade or 'Não informado' }}</span>
+                                        <span>👤 Gênero: {{ candidato.sexo or 'Não informado' }}</span>
+                                        {% if candidato.idiomas and candidato.idiomas != 'Não informado' %}
+                                            <span>🗣️ {{ candidato.idiomas }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="actions-group">
+                                    {% if candidato.id %}
+                                        <a href="/visualizar/{{ candidato.id }}" target="_blank" class="btn-action">
+                                            👁️ Abrir
+                                        </a>
+                                    {% else %}
+                                        <button class="btn-action" disabled style="opacity: 0.5; cursor: not-allowed;">
+                                            👁️ Indisponível
+                                        </button>
+                                    {% endif %}
+                                    
+                                    <button onclick="removerDaTela('candidato-{{ loop.index }}', {{ candidato.id }})" class="btn-action btn-remove">
+                                        ❌ Retirar
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="info-section">
+                                <strong>Formação Acadêmica:</strong>
+                                <div style="white-space: pre-line; color: #475569;">{{ candidato.formacao or 'Não informada' }}</div>
+                            </div>
+
+                            <div class="info-section">
+                                <strong>Hard Skills (Competências Técnicas):</strong>
+                                <div class="skills-container">
+                                    {% if candidato.hard_skills %}
+                                        {% for skill in candidato.hard_skills.split(',') %}
+                                            {% if skill.strip() %}
+                                                <span class="skill-badge" style="background: #e0e7ff; color: #4338ca; border-color: #c7d2fe;">
+                                                    🛠️ {{ skill.strip() }}
+                                                </span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% else %}
+                                        <p style="color: #94a3b8; font-style: italic; font-size: 13px;">Nenhuma competência técnica mapeada</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="info-section">
+                                <strong>Soft Skills (Habilidades Comportamentais):</strong>
+                                <div class="skills-container">
+                                    {% if candidato.soft_skills %}
+                                        {% for skill in candidato.soft_skills.split(',') %}
+                                            {% if skill.strip() %}
+                                                <span class="skill-badge" style="background: #fdf2f8; color: #9d174d; border-color: #fbcfe8;">
+                                                    🧠 {{ skill.strip() }}
+                                                </span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% else %}
+                                        <p style="color: #94a3b8; font-style: italic; font-size: 13px;">Nenhuma habilidade comportamental mapeada</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="card" style="text-align: center; padding: 48px; color: #64748b;">
+                        <span style="font-size: 32px; display: block; margin-bottom: 12px;">📁</span>
+                        Nenhum candidato cadastrado ou compatível com os filtros.
+                    </div>
+                {% endif %}
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const uploadForm = document.getElementById('upload-form');
+        const uploadContent = document.getElementById('upload-content');
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                uploadContent.innerHTML = `<div class="upload-icon" style="color: #22c55e;">✓</div><p class="upload-text-main">Enviando documento...</p>`;
+                uploadForm.submit();
+            }
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                uploadContent.innerHTML = `<div class="upload-icon" style="color: #22c55e;">✓</div><p class="upload-text-main">Enviando documento...</p>`;
+                uploadForm.submit();
+            }
+        });
+
+        function removerDaTela(idElemento, idBanco) {
+            const card = document.getElementById(idElemento);
+            if (!card) return;
+
+            fetch(`/ocultar/${idBanco}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "sucesso") {
+                    card.style.opacity = '0';
+                    card.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        card.remove();
+                        const totalBadge = document.querySelector('.badge-triados span');
+                        if (totalBadge) {
+                            let totalAtual = parseInt(totalBadge.innerText) || 0;
+                            if (totalAtual > 0) totalBadge.innerText = totalAtual - 1;
+                        }
+                    }, 300);
+                }
+            })
+            .catch(err => console.error("Erro ao registrar ocultamento do candidato:", err));
+        }
+    </script>
+</body>
+</html>
