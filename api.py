@@ -289,4 +289,77 @@ def upload():
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("""
-                        INSERT INTO
+                        INSERT INTO curriculos (nome_arquivo, conteudo, nome_candidato, idade, sexo, localizacao, formacao, cursos, habilidades, arquivo_binario, idiomas)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        limpar_caracteres_invalidos(arquivo.filename),
+                        texto_extraido,
+                        dados_ia.get('nome', 'Nome provisório'),
+                        dados_ia.get('idade', 'Não informado'),
+                        dados_ia.get('sexo', 'Não informado'),
+                        dados_ia.get('localizacao', 'Manual necessário'),
+                        dados_ia.get('formacao', 'Não informado'),
+                        dados_ia.get('cursos', 'Não informado'),
+                        dados_ia.get('habilidades', 'Não informado'),
+                        string_base64,
+                        dados_ia.get('idiomas', 'Não informado')
+                    ))
+                    conn.commit()
+                    
+            flash(f"Currículo '{arquivo.filename}' processado com sucesso!", "success")
+        except Exception as e:
+            flash(f"Erro crítico no upload: {e}", "danger")
+            print(f"Erro crítico no upload: {e}")
+            
+    return redirect(url_for('index'))
+
+@app.route('/visualizar/<int:id_curriculo>')
+def visualizar(id_curriculo):
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("SELECT nome_arquivo, arquivo_binario FROM curriculos WHERE id = %s", (id_curriculo,))
+                registro = cursor.fetchone()
+                
+                if registro and registro['arquivo_binario']:
+                    dados_originais = base64.b64decode(registro['arquivo_binario'])
+                    extensao = registro['nome_arquivo'].lower()
+                    
+                    mimetype = "application/pdf" if extensao.endswith('.pdf') else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    
+                    return send_file(
+                        io.BytesIO(dados_originais),
+                        mimetype=mimetype,
+                        as_attachment=False,
+                        download_name=registro['nome_arquivo']
+                    )
+    except Exception as e:
+        print(f"Erro ao visualizar arquivo: {e}")
+        
+    return "O arquivo solicitado está indisponível ou não foi encontrado.", 404
+
+@app.route('/download/<int:id_curriculo>')
+def download(id_curriculo):
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("SELECT nome_arquivo, arquivo_binario FROM curriculos WHERE id = %s", (id_curriculo,))
+                registro = cursor.fetchone()
+                
+                if registro and registro['arquivo_binario']:
+                    dados_originais = base64.b64decode(registro['arquivo_binario'])
+                    extensao = registro['nome_arquivo'].lower()
+                    mimetype = "application/pdf" if extensao.endswith('.pdf') else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    
+                    return Response(
+                        dados_originais,
+                        mimetype=mimetype,
+                        headers={"Content-Disposition": f"attachment; filename={registro['nome_arquivo']}"}
+                    )
+    except Exception as e:
+        print(f"Erro no download: {e}")
+    flash("Arquivo original indisponível para download.", "danger")
+    return redirect(url_for('index'))
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=10000, debug=True)
