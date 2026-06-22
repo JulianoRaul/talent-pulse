@@ -3,165 +3,425 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TalentPulse — Extração Inteligente de Currículos</title>
-    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>TalentPulse - Triagem de Currículos</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+        :root {
+            --bg-principal: #f8fafc;
+            --brand-primary: #004d40;
+            --brand-secondary: #00796b;
+            --text-dark: #1e293b;
+            --text-light: #64748b;
+            --white: #ffffff;
+            --border-color: #e2e8f0;
+            --alert-success: #e6f4ea;
+            --alert-success-text: #137333;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-principal);
+            color: var(--text-dark);
+            padding: 24px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--white);
+            padding: 20px 32px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            margin-bottom: 24px;
+            border: 1px solid var(--border-color);
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-box {
+            background: var(--brand-primary);
+            color: var(--white);
+            font-weight: 700;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 18px;
+        }
+
+        .logo-text h1 {
+            font-size: 20px;
+            color: var(--brand-primary);
+            font-weight: 700;
+        }
+
+        .logo-text p {
+            font-size: 11px;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .counter-badge {
+            background: #e0f2f1;
+            color: var(--brand-secondary);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .alert-flash {
+            background: var(--alert-success);
+            color: var(--alert-success-text);
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid rgba(19, 115, 51, 0.1);
+        }
+
+        .painel-grid {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 24px;
+            align-items: start;
+        }
+
+        .card {
+            background: var(--white);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-dark);
+        }
+
+        .upload-zone {
+            border: 2px dashed #b2dfdb;
+            border-radius: 8px;
+            padding: 32px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: #fafafa;
+        }
+
+        .upload-zone:hover {
+            border-color: var(--brand-secondary);
+            background: #f0f7f6;
+        }
+
+        .upload-icon {
+            font-size: 32px;
+            color: var(--brand-secondary);
+            margin-bottom: 12px;
+        }
+
+        .upload-zone p {
+            font-size: 13px;
+            color: var(--text-light);
+            margin-bottom: 4px;
+        }
+
+        .upload-zone span {
+            font-size: 11px;
+            color: #94a3b8;
+        }
+
+        .form-file {
+            display: none;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: var(--text-light);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--text-dark);
+            outline: none;
+            background-color: var(--bg-principal);
+        }
+
+        .form-control:focus {
+            border-color: var(--brand-secondary);
+            background-color: var(--white);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: #0f172a;
+            color: var(--white);
+        }
+
+        .btn-primary:hover {
+            background: #1e293b;
+        }
+
+        .btn-clear {
+            background: transparent;
+            color: var(--text-light);
+            font-size: 13px;
+            margin-top: 8px;
+        }
+
+        .btn-clear:hover {
+            color: var(--text-dark);
+        }
+
+        .btn-download {
+            background: #e2e8f0;
+            color: var(--text-dark);
+            font-size: 12px;
+            padding: 6px 12px;
+            width: auto;
+            border-radius: 4px;
+        }
+
+        .btn-download:hover {
+            background: #cbd5e1;
+        }
+
+        .candidatos-lista {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .candidato-item {
+            background: var(--white);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            padding: 24px;
+            position: relative;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .candidato-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+            border-bottom: 1px solid #f1f5f9;
+            padding-bottom: 12px;
+        }
+
+        .candidato-nome {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+
+        .candidato-meta {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-top: 4px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .info-bloco {
+            margin-top: 12px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #475569;
+        }
+
+        .badge-idioma {
+            background: #f0fdf4;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            display: inline-block;
+            margin-top: 6px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 64px 32px;
+            color: var(--text-light);
+        }
+
+        .empty-icon {
+            font-size: 48px;
+            color: #cbd5e1;
+            margin-bottom: 16px;
+        }
     </style>
 </head>
-<body class="text-slate-800 min-h-screen">
+<body>
 
-    <div class="max-w-7xl mx-auto px-4 py-8">
+    <div class="header">
+        <div class="logo-container">
+            <div class="logo-box">TP</div>
+            <div class="logo-text">
+                <h1>TalentPulse</h1>
+                <p>Extração Inteligente de Currículos</p>
+            </div>
+        </div>
+        <div class="counter-badge">
+            Candidatos Triados: {{ candidatos|length }}
+        </div>
+    </div>
+
+    {% with messages = get_flashes(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert-flash">
+                    ✓ {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="painel-grid">
         
-        <header class="flex items-center justify-between border-b border-slate-200 pb-6 mb-8">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-[#1a1a40] rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm">
-                    TP
-                </div>
-                <div>
-                    <h1 class="text-2xl font-bold text-[#1a1a40] tracking-tight">Talent<span class="text-emerald-600">Pulse</span></h1>
-                    <p class="text-xs text-slate-500 font-medium tracking-wider uppercase">Extração Inteligente de Currículos</p>
-                </div>
+        <div class="sidebar-fluxo" style="display: flex; flex-direction: column; gap: 24px;">
+            <div class="card">
+                <div class="card-title">UPLOAD AUTOMATIZADO</div>
+                <form action="{{ url_for('upload') }}" method="POST" enctype="multipart/form-data" id="uploadForm">
+                    <label class="upload-zone" for="fileInput">
+                        <div class="upload-icon">+</div>
+                        <p>Selecione o Currículo</p>
+                        <span>PDF ou DOCX</span>
+                        <input type="file" name="file" id="fileInput" class="form-file" onchange="document.getElementById('uploadForm').submit()">
+                    </label>
+                </form>
             </div>
-            <div class="bg-blue-50 text-blue-700 px-4 py-2 rounded-full text-sm font-semibold border border-blue-100">
-                Candidatos Triados: <span id="contador-candidatos">{{ candidatos|length }}</span>
-            </div>
-        </header>
 
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center gap-2 text-sm font-medium shadow-sm animate-fade-in">
-                        <svg class="w-5 h-5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        <span>{{ message }}</span>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            
-            <div class="lg:col-span-4">
-                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm sticky top-6">
-                    <h2 class="text-sm font-bold text-[#1a1a40] uppercase tracking-wider mb-1">Upload Automatizado</h2>
-                    <p class="text-xs text-slate-500 mb-6">Arraste ou selecione o arquivo. A IA lerá o documento e preencherá tudo sozinha no banco.</p>
+            <div class="card">
+                <div class="card-title">FILTRAR PERFIS</div>
+                <form action="{{ url_for('index') }}" method="GET">
                     
-                    <form action="{{ url_for('upload') }}" method="POST" enctype="multipart/form-data" id="upload-form">
-                        <label class="border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50 hover:bg-emerald-50/30 rounded-2xl p-8 flex flex-col items-center justify-center gap-4 cursor-pointer transition-all group">
-                            <div class="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm border border-slate-100 group-hover:scale-110 transition-transform">
-                                <svg class="w-6 h-6 text-slate-400 group-hover:text-emerald-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                            </div>
-                            <div class="text-center">
-                                <p class="text-sm font-semibold text-slate-700">Selecione o Currículo</p>
-                                <p class="text-xs text-slate-400 mt-1">PDF ou DOCX</p>
-                            </div>
-                            <input type="file" name="arquivo" class="hidden" onchange="document.getElementById('upload-form').submit();">
-                        </label>
-                    </form>
-                </div>
+                    <div class="form-group">
+                        <label>BUSCA GLOBAL</label>
+                        <input type="text" name="busca" class="form-control" placeholder="Competência, palavra-chave..." value="{{ filtros.busca }}">
+                    </div>
+
+                    <div class="form-group">
+                        <label>LOCALIZAÇÃO</label>
+                        <input type="text" name="localizacao" class="form-control" placeholder="Cidade ou Estado" value="{{ filtros.localizacao }}">
+                    </div>
+
+                    <div class="form-group">
+                        <label>IDIOMA</label>
+                        <input type="text" name="idioma" class="form-control" placeholder="Ex: Inglês, Espanhol" value="{{ filtros.idioma }}">
+                    </div>
+
+                    <div class="form-group">
+                        <label>NÍVEL DO IDIOMA</label>
+                        <select name="nivel" class="form-control">
+                            <option value="">Todos os Níveis</option>
+                            <option value="Iniciante" {% if filtros.nivel == 'Iniciante' %}selected{% endif %}>Iniciante</option>
+                            <option value="Intermediario" {% if filtros.nivel == 'Intermediario' %}selected{% endif %}>Intermediário</option>
+                            <option value="Avancado" {% if filtros.nivel == 'Avancado' %}selected{% endif %}>Avançado / Fluente</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>GÊNERO</label>
+                        <select name="sexo" class="form-control">
+                            <option value="">Todos</option>
+                            <option value="Masculino" {% if filtros.sexo == 'Masculino' %}selected{% endif %}>Masculino</option>
+                            <option value="Feminino" {% if filtros.sexo == 'Feminino' %}selected{% endif %}>Feminino</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Filtrar Perfis</button>
+                    <a href="{{ url_for('index') }}" class="btn btn-clear">Limpar Filtros</a>
+                </form>
             </div>
+        </div>
 
-            <div class="lg:col-span-8 flex flex-col gap-6">
-                
-                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                    <form method="GET" action="{{ url_for('index') }}" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="md:col-span-2">
-                            <input type="text" name="busca" value="{{ filtros.busca }}" placeholder="Buscar por competência, nome, palavra-chave..." class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500 transition-colors">
-                        </div>
-                        <div>
-                            <input type="text" name="localizacao" value="{{ filtros.localizacao }}" placeholder="Localização (ex: Porto Alegre)" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500 transition-colors">
-                        </div>
-                        <div>
-                            <select name="sexo" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500 transition-colors">
-                                <option value="">Gênero: Todos</option>
-                                <option value="Masculino" {% if filtros.sexo == 'Masculino' %}selected{% endif %}>Masculino</option>
-                                <option value="Feminino" {% if filtros.sexo == 'Feminino' %}selected{% endif %}>Feminino</option>
-                                <option value="Não informado" {% if filtros.sexo == 'Não informado' %}selected{% endif %}>Não informado</option>
-                            </select>
-                        </div>
-                        <div class="md:col-span-2 flex justify-end gap-3 mt-2">
-                            <a href="{{ url_for('index') }}" class="px-5 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors flex items-center justify-center">Limpar</a>
-                            <button type="submit" class="px-5 py-2 text-sm font-semibold text-white bg-[#1a1a40] hover:bg-[#242459] rounded-xl shadow-sm transition-colors">Filtrar Perfis</button>
-                        </div>
-                    </form>
-                </div>
-
-                <div class="flex flex-col gap-4">
-                    {% if candidatos %}
-                        {% for candidato in candidatos %}
-                            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-4 hover:border-slate-300 transition-all">
-                                
-                                <div class="flex items-start justify-between gap-4">
-                                    <div>
-                                        <h3 class="text-lg font-bold text-[#1a1a40]">{{ candidato.nome_candidato }}</h3>
-                                        <div class="flex items-center gap-1 text-xs text-slate-400 mt-1 font-medium">
-                                            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path></svg>
-                                            <span>{{ candidato.localizacao }}</span>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="flex items-center gap-2 shrink-0">
-                                        <span class="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-semibold">{{ candidato.idade }}</span>
-                                        <span class="px-2.5 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-semibold">{{ candidato.sexo }}</span>
-                                        
-                                        <a href="{{ url_for('ver_curriculo', id_candidato=candidato.id) }}" target="_blank" class="w-8 h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center font-bold shadow-sm transition-colors" title="Visualizar arquivo original">
-                                            +
-                                        </a>
-                                        
-                                        <form action="{{ url_for('deletar_candidato', id_candidato=candidato.id) }}" method="POST" onsubmit="return confirm('Tem certeza que deseja remover este candidato?');">
-                                            <button type="submit" class="w-8 h-8 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center font-bold shadow-sm transition-colors" title="Remover registro">
-                                                -
-                                            </button>
-                                        </form>
-                                    </div>
-                                </div>
-
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-b border-slate-100 py-4 text-xs">
-                                    <div>
-                                        <h4 class="font-semibold text-slate-400 uppercase tracking-wider mb-1">Escolaridade:</h4>
-                                        <p class="text-slate-700 leading-relaxed font-medium">{{ candidato.formacao }}</p>
-                                    </div>
-                                    <div>
-                                        <h4 class="font-semibold text-slate-400 uppercase tracking-wider mb-1">Cursos Complementares:</h4>
-                                        <p class="text-slate-700 leading-relaxed font-medium">{{ candidato.cursos }}</p>
-                                    </div>
-                                </div>
-
+        <div class="conteudo-lista">
+            {% if candidatos %}
+                <div class="candidatos-lista">
+                    {% for candidato in candidatos %}
+                        <div class="candidato-item">
+                            <div class="candidato-header">
                                 <div>
-                                    <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Keywords de Competências:</h4>
-                                    <div class="flex flex-wrap gap-1.5">
-                                        {% if candidato.habilidades and candidato.habilidades != "Não informado" %}
-                                            {% for hab in candidato.habilidades.split(',') %}
-                                                {% if hab.strip() %}
-                                                    <span class="px-2 py-1 bg-emerald-50 text-emerald-700 rounded-md text-[11px] font-bold border border-emerald-100/60 uppercase tracking-wide">
-                                                        {{ hab.strip() }}
-                                                    </span>
-                                                {% endif %}
-                                            {% endfor %}
-                                        {% else %}
-                                            <span class="px-2 py-1 bg-slate-100 text-slate-400 rounded-md text-[11px] font-semibold uppercase tracking-wide">
-                                                NÃO INFORMADO
-                                            </span>
-                                        {% endif %}
+                                    <div class="candidato-nome">{{ candidato.nome_candidato or 'Nome não identificado' }}</div>
+                                    <div class="candidato-meta">
+                                        <span>📍 {{ candidato.localizacao or 'Não informado' }}</span>
+                                        <span>🎂 {{ candidato.idade or 'Não informada' }}</span>
+                                        <span>👥 Gênero: {{ candidato.sexo or 'Não informado' }}</span>
                                     </div>
                                 </div>
-
+                                <a href="{{ url_for('download', id_curriculo=candidato.id) }}" class="btn btn-download">💾 Baixar Original</a>
                             </div>
-                        {% endfor %}
-                    {% else %}
-                        <div class="bg-white p-12 rounded-2xl border border-slate-200 shadow-sm text-center flex flex-col items-center justify-center gap-3">
-                            <svg class="w-10 h-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0a2 2 0 01-2 2H6a2 2 0 01-2-2m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5a2 2 0 01-2-2m16 0h-2M4 13H6"></path></svg>
-                            <p class="text-sm font-semibold text-slate-600">Nenhum candidato cadastrado ou compatível com os filtros.</p>
+
+                            <div class="info-bloco">
+                                <span class="info-label">Formação Acadêmica:</span> {{ candidato.formacao or 'Não informada' }}
+                            </div>
+
+                            <div class="info-bloco">
+                                <span class="info-label">Habilidades Práticas:</span> {{ candidato.habilidades or 'Não informadas' }}
+                            </div>
+
+                            <div class="info-bloco">
+                                <span class="info-label">Idiomas Conhecidos:</span><br>
+                                <span class="badge-idioma">🌐 {{ candidato.idiomas or 'Não informado' }}</span>
+                            </div>
                         </div>
-                    {% endif %}
+                    {% endfor %}
                 </div>
-
-            </div>
-
+            {% else %}
+                <div class="card empty-state">
+                    <div class="empty-icon">📂</div>
+                    <p>Nenhum candidato cadastrado ou compatível com os filtros selecionados.</p>
+                </div>
+            {% endif %}
         </div>
 
     </div>
