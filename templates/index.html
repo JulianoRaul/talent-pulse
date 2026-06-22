@@ -269,14 +269,14 @@
         .actions-group {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
 
         .btn-action {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            padding: 8px 14px;
+            padding: 8px 12px;
             border-radius: 8px;
             font-size: 13px;
             font-weight: 600;
@@ -293,13 +293,25 @@
             color: #1e293b;
         }
 
-        .btn-remove {
+        .btn-retirar {
+            background: #fff7ed;
+            color: #c2410c;
+            border-color: #fed7aa;
+        }
+
+        .btn-retirar:hover {
+            background: #ffedd5;
+            border-color: #fdba74;
+            color: #9a3412;
+        }
+
+        .btn-excluir {
             background: #fef2f2;
             color: #b91c1c;
             border-color: #fca5a5;
         }
 
-        .btn-remove:hover {
+        .btn-excluir:hover {
             background: #fee2e2;
             border-color: #f87171;
             color: #991b1b;
@@ -337,9 +349,8 @@
             border-radius: 8px;
             margin-bottom: 20px;
             font-size: 14px;
-            border: 1px solid #fca5a5;
-            background: #fef2f2;
-            color: #991b1b;
+            border: 1px solid #cbd5e1;
+            background: #f8fafc;
             animation: fadeIn 0.2s ease;
         }
 
@@ -383,10 +394,10 @@
             </div>
         </header>
 
-        {% with messages = get_flashed_messages() %}
+        {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                {% for message in messages %}
-                    <div class="alert" style="background: #f0fdf4; color: #166534; border-color: #bbf7d0;">
+                {% for categoria, message in messages %}
+                    <div class="alert" style="{% if categoria == 'error' %}background: #fef2f2; color: #991b1b; border-color: #fca5a5;{% else %}background: #f0fdf4; color: #166534; border-color: #bbf7d0;{% endif %}">
                         {{ message }}
                     </div>
                 {% endfor %}
@@ -490,8 +501,12 @@
                                         </button>
                                     {% endif %}
                                     
-                                    <button onclick="removerDaTela('candidato-{{ loop.index }}', {{ candidato.id }})" class="btn-action btn-remove">
-                                        ❌ Retirar
+                                    <button onclick="retirarDaTela('candidato-{{ loop.index }}', {{ candidato.id }})" class="btn-action btn-retirar" title="Ocultar temporariamente do painel de visualização">
+                                        👁️‍🗨️ Retirar
+                                    </button>
+
+                                    <button onclick="excluirDoBanco('candidato-{{ loop.index }}', {{ candidato.id }}, '{{ candidato.nome }}')" class="btn-action btn-excluir" title="Apagar permanentemente do banco de dados">
+                                        🗑️ Excluir
                                     </button>
                                 </div>
                             </div>
@@ -584,32 +599,57 @@
             }
         });
 
-        function removerDaTela(idElemento, idBanco) {
+        // Apenas oculta temporariamente na sessão
+        function retirarDaTela(idElemento, idBanco) {
             const card = document.getElementById(idElemento);
             if (!card) return;
 
             fetch(`/ocultar/${idBanco}`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+                headers: { 'Content-Type': 'application/json' }
             })
             .then(response => response.json())
             .then(data => {
                 if (data.status === "sucesso") {
-                    card.style.opacity = '0';
-                    card.style.transform = 'scale(0.95)';
-                    setTimeout(() => {
-                        card.remove();
-                        const totalBadge = document.querySelector('.badge-triados span');
-                        if (totalBadge) {
-                            let totalAtual = parseInt(totalBadge.innerText) || 0;
-                            if (totalAtual > 0) totalBadge.innerText = totalAtual - 1;
-                        }
-                    }, 300);
+                    fazerSumirCardDoPainel(card);
                 }
             })
-            .catch(err => console.error("Erro ao registrar ocultamento do candidato:", err));
+            .catch(err => console.error("Erro ao retirar candidato:", err));
+        }
+
+        // Deleta em definitivo do Banco de Dados
+        function excluirDoBanco(idElemento, idBanco, nomeCandidato) {
+            const card = document.getElementById(idElemento);
+            if (!card) return;
+
+            if (confirm(`Tem certeza absoluta de que deseja EXCLUIR DEFINITIVAMENTE o currículo de "${nomeCandidato}" do banco de dados? Esta ação não pode ser desfeita.`)) {
+                fetch(`/excluir/${idBanco}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "sucesso") {
+                        fazerSumirCardDoPainel(card);
+                    } else {
+                        alert("Erro ao excluir: " + data.mensagem);
+                    }
+                })
+                .catch(err => console.error("Erro ao deletar candidato:", err));
+            }
+        }
+
+        function fazerSumirCardDoPainel(card) {
+            card.style.opacity = '0';
+            card.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                card.remove();
+                const totalBadge = document.querySelector('.badge-triados span');
+                if (totalBadge) {
+                    let totalAtual = parseInt(totalBadge.innerText) || 0;
+                    if (totalAtual > 0) totalBadge.innerText = totalAtual - 1;
+                }
+            }, 300);
         }
     </script>
 </body>
