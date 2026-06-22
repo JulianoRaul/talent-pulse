@@ -8,6 +8,7 @@ import unicodedata
 from urllib.parse import urlparse
 from flask import Flask, render_template, request, redirect, url_for, flash, Response, jsonify, send_file
 from google import genai
+from google.genai import types  # Importação necessária para o Object Schema nativo
 from pydantic import BaseModel
 import pypdf
 import docx2txt
@@ -33,13 +34,10 @@ def get_db_connection():
             url_conexao = "postgresql:" + url_conexao
             
         try:
-            # Estratégia 1: Tenta conectar diretamente usando a URL higienizada
             return psycopg2.connect(url_conexao)
         except Exception as e:
             print(f"Falha na conexão direta, tentando parse manual estruturado: {e}")
             
-            # Estratégia 2 (Fallback): Quebra a URL manualmente para evitar o erro de DSN 'missing ='
-            # Remove parâmetros de query strings se houver (?sslmode=...)
             url_limpa = url_conexao.split('?')[0]
             parsed = urlparse(url_limpa)
             
@@ -85,7 +83,7 @@ def init_db():
 init_db()
 
 # ==============================================================================
-# CONFIGURAÇÃO DO GOOGLE GEMINI AI
+# CONFIGURAÇÃO DO GOOGLE GEMINI AI (ATUALIZADO COM ESTRUTURAÇÃO NATIVA)
 # ==============================================================================
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
@@ -158,13 +156,7 @@ def estruturar_curriculo_com_ia(texto_bruto):
             "cursos": "Nenhum", "habilidades": "Nenhuma", "idiomas": "Não informado"
         }
     
-    texto_limitado = texto_bruto.strip()[:18000]
-    prompt_base = """
-    Você é um assistente de RH especialista em triagem de currículos.
-    Analise o texto bruto do currículo fornecido e extraia com precisão as informações solicitadas.
-    Importante: No campo 'idiomas', identifique quais idiomas o candidato fala e classifique estritamente o nível informado como (Iniciante, Intermediário ou Avançado/Fluente). Exemplo de retorno: 'Inglês (Avançado), Espanhol (Iniciante)'. Se não houver menção explícita a idiomas, defina como 'Não informado'.
-    Retorne strings simples e curtas para cada campo.
-    """
+    texto_limitado = texto_bruto.strip()[:24000] # Aumentado o limite de tokens avaliados
     
     if not client:
         return {
@@ -174,21 +166,33 @@ def estruturar_curriculo_com_ia(texto_bruto):
         }
         
     try:
+        # ATUALIZAÇÃO CRÍTICA: Usando o config=types.GenerateContentConfig para mapeamento tipado estrito
         response = client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=f"{prompt_base}\nRetorne em formato JSON válido usando estritamente as chaves: 'nome', 'idade', 'sexo', 'localizacao', 'formacao', 'cursos', 'habilidades', 'idiomas'.\n\nTexto do Currículo:\n{texto_limitado}"
+            contents=f"Extraia com precisão os dados do seguinte currículo profissional:\n\n{texto_limitado}",
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=EstruturaCurriculo, # Valida os tipos direto no motor da IA
+                system_instruction=(
+                    "Você é um sistema automatizado de triagem de currículos para o RH. "
+                    "Analise o texto do candidato e preencha todos os campos do Schema JSON. "
+                    "Se um campo como 'nome' ou 'localizacao' for oculto ou complexo demais, tente deduzir "
+                    "ou use informações do cabeçalho. No campo 'idiomas', classifique estritamente o nível informado "
+                    "como (Iniciante, Intermediário ou Avançado/Fluente). Exemplo: 'Inglês (Avançado)'. "
+                    "Caso não haja menção a algum campo, preencha como 'Não informado'."
+                )
+            )
         )
         
         texto_resposta = response.text.strip() if response.text else ""
         
-        if "{" in texto_resposta:
-            inicio = texto_resposta.find("{")
-            fim = texto_resposta.rfind("}") + 1
-            dados = json.loads(texto_resposta[inicio:fim])
+        # Conversão direta e limpa garantida pelo schema tipado
+        if texto_resposta:
+            dados = json.loads(texto_resposta)
             return {k: limpar_caracteres_invalidos(str(v)) for k, v in dados.items()}
             
     except Exception as e:
-        print(f"Erro na geração de conteúdo do Gemini: {e}")
+        print(f"Erro na geração estruturada com Gemini GenAI: {e}")
         
     return {
         "nome": "Nome provisório", "idade": "Não Informado", "sexo": "Não Informado",
@@ -285,81 +289,4 @@ def upload():
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("""
-                        INSERT INTO curriculos (nome_arquivo, conteudo, nome_candidato, idade, sexo, localizacao, formacao, cursos, habilidades, arquivo_binario, idiomas)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (
-                        limpar_caracteres_invalidos(arquivo.filename),
-                        texto_extraido,
-                        dados_ia.get('nome', 'Nome provisório'),
-                        dados_ia.get('idade', 'Não informado'),
-                        dados_ia.get('sexo', 'Não informado'),
-                        dados_ia.get('localizacao', 'Manual necessário'),
-                        dados_ia.get('formacao', 'Não informado'),
-                        dados_ia.get('cursos', 'Não informado'),
-                        dados_ia.get('habilidades', 'Não informado'),
-                        string_base64,
-                        dados_ia.get('idiomas', 'Não informado')
-                    ))
-                    conn.commit()
-                    
-            flash(f"Currículo '{arquivo.filename}' processado com sucesso!", "success")
-        except Exception as e:
-            flash(f"Erro crítico no upload: {e}", "danger")
-            print(f"Erro crítico no upload: {e}")
-            
-    return redirect(url_for('index'))
-
-# ==============================================================================
-# NOVA ROTA: VISUALIZAR CURRÍCULO EM NOVA ABA
-# ==============================================================================
-@app.route('/visualizar/<int:id_curriculo>')
-def visualizar(id_curriculo):
-    try:
-        with get_db_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute("SELECT nome_arquivo, arquivo_binario FROM curriculos WHERE id = %s", (id_curriculo,))
-                registro = cursor.fetchone()
-                
-                if registro and registro['arquivo_binario']:
-                    # Decodifica a string Base64 de volta para os bytes originais do documento
-                    dados_originais = base64.b64decode(registro['arquivo_binario'])
-                    extensao = registro['nome_arquivo'].lower()
-                    
-                    mimetype = "application/pdf" if extensao.endswith('.pdf') else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    
-                    return send_file(
-                        io.BytesIO(dados_originais),
-                        mimetype=mimetype,
-                        as_attachment=False, # Abre direto na aba ao invés de forçar download
-                        download_name=registro['nome_arquivo']
-                    )
-    except Exception as e:
-        print(f"Erro ao visualizar arquivo: {e}")
-        
-    return "O arquivo solicitado está indisponível ou não foi encontrado.", 404
-
-@app.route('/download/<int:id_curriculo>')
-def download(id_curriculo):
-    try:
-        with get_db_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute("SELECT nome_arquivo, arquivo_binario FROM curriculos WHERE id = %s", (id_curriculo,))
-                registro = cursor.fetchone()
-                
-                if registro and registro['arquivo_binario']:
-                    dados_originais = base64.b64decode(registro['arquivo_binario'])
-                    extensao = registro['nome_arquivo'].lower()
-                    mimetype = "application/pdf" if extensao.endswith('.pdf') else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    
-                    return Response(
-                        dados_originais,
-                        mimetype=mimetype,
-                        headers={"Content-Disposition": f"attachment; filename={registro['nome_arquivo']}"}
-                    )
-    except Exception as e:
-        print(f"Erro no download: {e}")
-    flash("Arquivo original indisponível para download.", "danger")
-    return redirect(url_for('index'))
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000, debug=True)
+                        INSERT INTO
