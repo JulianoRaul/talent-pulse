@@ -315,7 +315,8 @@
         </div>
     </div>
 
-    {% with messages = get_flashes(with_categories=true) %}
+    <!-- CORREÇÃO DA FUNÇÃO DO FLASH AQUI -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
                 <div class="alert-flash">
@@ -328,6 +329,7 @@
     <div class="painel-grid">
         
         <div class="sidebar-fluxo" style="display: flex; flex-direction: column; gap: 24px;">
+            <!-- CARD DE UPLOAD -->
             <div class="card">
                 <div class="card-title">UPLOAD AUTOMATIZADO</div>
                 <form action="{{ url_for('upload') }}" method="POST" enctype="multipart/form-data" id="uploadForm">
@@ -340,6 +342,7 @@
                 </form>
             </div>
 
+            <!-- CARD DE FILTROS -->
             <div class="card">
                 <div class="card-title">FILTRAR PERFIS</div>
                 <form action="{{ url_for('index') }}" method="GET">
@@ -384,6 +387,7 @@
             </div>
         </div>
 
+        <!-- LISTA DE RESULTADOS -->
         <div class="conteudo-lista">
             {% if candidatos %}
                 <div class="candidatos-lista">
@@ -398,6 +402,7 @@
                                         <span>👥 Gênero: {{ candidato.sexo or 'Não informado' }}</span>
                                     </div>
                                 </div>
+                                <!-- CORREÇÃO DA ROTA DE DOWNLOAD AQUI -->
                                 <a href="{{ url_for('download', id_curriculo=candidato.id) }}" class="btn btn-download">💾 Baixar Original</a>
                             </div>
 
