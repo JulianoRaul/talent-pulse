@@ -238,12 +238,14 @@
             display: flex;
             flex-direction: column;
             gap: 12px;
+            transition: all 0.3s ease;
         }
 
         .candidato-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
+            gap: 16px;
         }
 
         .candidato-info h3 {
@@ -260,19 +262,42 @@
             margin-top: 4px;
         }
 
-        .btn-baixar {
-            background: #f1f5f9;
-            color: #475569;
+        /* Grupo de botões de Ação do Candidato */
+        .actions-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
             padding: 6px 12px;
             border-radius: 6px;
             font-size: 12px;
             font-weight: 600;
             text-decoration: none;
             border: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            background: #f1f5f9;
+            color: #475569;
         }
 
-        .btn-baixar:hover {
+        .btn-action:hover {
             background: #e2e8f0;
+        }
+
+        /* Estilo específico para o botão de Remover/Retirar */
+        .btn-remove {
+            background: #fef2f2;
+            color: #b91c1c;
+            border-color: #fca5a5;
+        }
+
+        .btn-remove:hover {
+            background: #fee2e2;
         }
 
         .info-section {
@@ -304,6 +329,14 @@
         @media (max-width: 768px) {
             .main-grid {
                 grid-template-columns: 1fr;
+            }
+            .candidato-header {
+                flex-direction: column;
+            }
+            .actions-group {
+                margin-top: 12px;
+                width: 100%;
+                justify-content: flex-start;
             }
         }
     </style>
@@ -338,7 +371,7 @@
             </div>
 
             <div class="badge-triados">
-                Candidatos Triados: <span>{{ candidatos|length if candidatos else 0 }}</span>
+                Candidatos Triados: <span id="total-count">{{ candidatos|length if candidatos else 0 }}</span>
             </div>
         </header>
 
@@ -405,7 +438,7 @@
             <div class="results-column">
                 {% if candidatos %}
                     {% for candidato in candidatos %}
-                        <div class="candidato-card">
+                        <div class="candidato-card" id="candidato-{{ loop.index }}">
                             <div class="candidato-header">
                                 <div class="candidato-info">
                                     <h3>{{ candidato.nome }}</h3>
@@ -415,7 +448,15 @@
                                         <span>👤 Gênero: {{ candidato.sexo or 'Não informado' }}</span>
                                     </div>
                                 </div>
-                                <a href="#" class="btn-baixar">🖨️ Baixar Original</a>
+                                
+                                <div class="actions-group">
+                                    <a href="/visualizar/{{ candidato.id if candidato.id else '#' }}" target="_blank" class="btn-action">
+                                        👁️ Abrir em nova aba
+                                    </a>
+                                    <button onclick="removerDaTela('candidato-{{ loop.index }}')" class="btn-action btn-remove">
+                                        ❌ Retirar
+                                    </button>
+                                </div>
                             </div>
 
                             <div class="info-section" style="margin-top: 8px;">
@@ -439,6 +480,30 @@
 
         </main>
     </div>
+
+    <script>
+        function removerDaTela(idElemento) {
+            const card = document.getElementById(idElemento);
+            if (card) {
+                // Animação simples de fade-out antes de sumir
+                card.style.opacity = '0';
+                card.style.transform = 'scale(0.95)';
+                
+                setTimeout(() => {
+                    card.remove();
+                    
+                    // Atualiza dinamicamente o número no badge "Candidatos Triados"
+                    const totalBadge = document.querySelector('.badge-triados span');
+                    if (totalBadge) {
+                        let totalAtual = parseInt(totalBadge.innerText) || 0;
+                        if (totalAtual > 0) {
+                            totalBadge.innerText = totalAtual - 1;
+                        }
+                    }
+                }, 300); // Aguarda os 300ms da animação
+            }
+        }
+    </script>
 
 </body>
 </html>
