@@ -8,7 +8,7 @@ import unicodedata
 from urllib.parse import urlparse
 from flask import Flask, render_template, request, redirect, url_for, flash, Response, jsonify, send_file, session
 from google import genai
-from google.genai import types  # Importação necessária para o Object Schema nativo
+from google.genai import types  
 from pydantic import BaseModel
 import pypdf
 import docx2txt
@@ -19,7 +19,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "chave_secreta_talent_pulse_a1")
 
 # ==============================================================================
-# CONFIGURAÇÃO DO BANCO DE DADOS (POSTGRESQL) - ATUALIZADO PARA SOFT/HARD SKILLS
+# CONFIGURAÇÃO DO BANCO DE DADOS (POSTGRESQL)
 # ==============================================================================
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -71,7 +71,6 @@ def init_db():
                         arquivo_binario TEXT
                     );
                 ''')
-                # Adiciona as colunas novas caso não existam
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS idiomas TEXT;')
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS hard_skills TEXT;')
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS soft_skills TEXT;')
@@ -83,7 +82,7 @@ def init_db():
 init_db()
 
 # ==============================================================================
-# CONFIGURAÇÃO DO GOOGLE GEMINI AI (ATUALIZADO COM SEPARAÇÃO DE SKILLS)
+# CONFIGURAÇÃO DO GOOGLE GEMINI AI
 # ==============================================================================
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
@@ -95,8 +94,8 @@ class EstruturaCurriculo(BaseModel):
     localizacao: str
     formacao: str
     cursos: str
-    hard_skills: str   # Técnico/Ferramentas (ex: Python, Vendas B2B, Pipedrive)
-    soft_skills: str   # Comportamental (ex: Liderança, Comunicação, Empatia)
+    hard_skills: str   
+    soft_skills: str   
     idiomas: str
 
 # ==============================================================================
@@ -113,7 +112,7 @@ def limpar_caracteres_invalidos(texto):
         return ""
     return texto.replace('\x00', '')
 
-def obtener_variacoes_busca(termo_busca):
+def obter_variacoes_busca(termo_busca):
     termo_limpo = remover_acentos(termo_busca).strip()
     palavras = termo_limpo.split()
     variacoes = set()
@@ -158,7 +157,6 @@ def estruturar_curriculo_com_ia(texto_bruto):
         }
     
     texto_limitado = texto_bruto.strip()[:24000]
-    
     if not client:
         return {
             "nome": "Sem Chave API", "idade": "Não Informado", "sexo": "Não Informado",
@@ -186,7 +184,6 @@ def estruturar_curriculo_com_ia(texto_bruto):
         )
         
         texto_resposta = response.text.strip() if response.text else ""
-        
         if texto_resposta:
             dados = json.loads(texto_resposta)
             return {k: limpar_caracteres_invalidos(str(v)) for k, v in dados.items()}
@@ -206,13 +203,13 @@ def estruturar_curriculo_com_ia(texto_bruto):
 @app.route('/', methods=['GET'])
 def index():
     busca_geral = request.args.get('busca', '').strip()
-    f_sexo = request.args.get('sexo', '').strip()
+    f_genero = request.args.get('genero', '').strip()
     f_formacao = request.args.get('formacao', '').strip()
     f_localizacao = request.args.get('localizacao', '').strip()
     f_idioma = request.args.get('idioma', '').strip()
     f_nivel = request.args.get('nivel_idioma', '').strip()
     
-    algum_filtro_ativo = any([busca_geral, f_sexo, f_formacao, f_localizacao, f_idioma, f_nivel])
+    algum_filtro_ativo = any([busca_geral, f_genero, f_formacao, f_localizacao, f_idioma, f_nivel])
     
     if algum_filtro_ativo:
         session['ocultados'] = []
@@ -239,139 +236,144 @@ def index():
                     texto_completo_candidato = remover_acentos(
                         f"{item['conteudo']} {item['nome']} {item.get('hard_skills', '')} {item.get('soft_skills', '')} {item['cursos']} {item.get('idiomas', '')}"
                     )
+                    
                     passou_filtro = True
                     
+                    # 1. Filtro de Busca Global Multi-termo
                     if busca_geral:
-                        radicais_procurados = obter_variacoes_busca(busca_geral)
-                        match_encontrado = False
-                        for radical in radicais_procurados:
-                            if radical in texto_completo_candidato:
-                                match_encontrado = True
-                                break
-                        if not match_encontrado:
+                        termos = busca_geral.split(',') if ',' in busca_geral else busca_geral.split()
+                        for t in termos:
+                            t_limpo = t.strip()
+                            if t_limpo:
+                                variacoes = obter_variacoes_busca(t_limpo)
+                                if not any(v in texto_completo_candidato for v in variacoes):
+                                    passou_filtro = False
+                                    break
+
+                    # 2. Filtro de Gênero
+                    if f_genero and passou_filtro:
+                        if remover_acentos(f_genero) != remover_acentos(item.get('sexo') or ""):
                             passou_filtro = False
-                            
-                    if f_sexo and item['sexo'] != f_sexo:
-                        passou_filtro = False
-                    if f_formacao and f_formacao.lower() not in remover_acentos(item['formacao']):
-                        passou_filtro = False
-                    if f_localizacao and f_localizacao.lower() not in remover_acentos(item['localizacao']):
-                        passou_filtro = False
-                    if f_idioma and f_idioma.lower() not in texto_idiomas:
-                        passou_filtro = False
-                    if f_nivel and f_nivel.lower() not in texto_idiomas:
-                        passou_filtro = False
-                        
+
+                    # 3. Filtro de Formação
+                    if f_formacao and passou_filtro:
+                        if remover_acentos(f_formacao) not in remover_acentos(item.get('formacao') or ""):
+                            passou_filtro = False
+
+                    # 4. Filtro de Localização
+                    if f_localizacao and passou_filtro:
+                        if remover_acentos(f_localizacao) not in remover_acentos(item.get('localizacao') or ""):
+                            passou_filtro = False
+
+                    # 5. Filtro de Idioma Específico
+                    if f_idioma and passou_filtro:
+                        if remover_acentos(f_idioma) not in texto_idiomas:
+                            passou_filtro = False
+
+                    # 6. Filtro de Nível do Idioma
+                    if f_nivel and passou_filtro:
+                        if remover_acentos(f_nivel) not in texto_idiomas:
+                            passou_filtro = False
+
                     if passou_filtro:
-                        item['resumo'] = item['conteudo'][:150] + "..." if len(item['conteudo']) > 150 else item['conteudo']
                         resultados_finais.append(item)
+                        
     except Exception as e:
-        print(f"Erro ao buscar dados: {e}")
-        
+        print(f"Erro ao buscar dados do banco: {e}")
+        flash("Ocorreu um erro ao carregar os currículos.")
+
     return render_template('index.html', candidatos=resultados_finais)
-
-@app.route('/ocultar/<int:id_curriculo>', methods=['POST'])
-def ocultar_candidato(id_curriculo):
-    if 'ocultados' not in session:
-        session['ocultados'] = []
-    
-    lista_atual = list(session['ocultados'])
-    if id_curriculo not in lista_atual:
-        lista_atual.append(id_curriculo)
-        
-    session['ocultados'] = lista_atual
-    return jsonify({"status": "sucesso", "id_ocultado": id_curriculo})
-
-@app.route('/excluir/<int:id_curriculo>', methods=['POST'])
-def excluir_candidato(id_curriculo):
-    try:
-        with get_db_connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute("DELETE FROM curriculos WHERE id = %s;", (id_curriculo,))
-                conn.commit()
-        return jsonify({"status": "sucesso", "id_excluido": id_curriculo})
-    except Exception as e:
-        print(f"Erro ao excluir currículo do banco: {e}")
-        return jsonify({"status": "erro", "mensagem": str(e)}), 500
 
 @app.route('/upload', methods=['POST'])
 def upload():
     if 'file' not in request.files:
-        flash("Nenhum arquivo enviado.", "danger")
+        flash("Nenhum arquivo enviado.")
         return redirect(url_for('index'))
         
     arquivo = request.files['file']
     if arquivo.filename == '':
-        flash("Nenhum arquivo selecionado.", "danger")
+        flash("Nenhum arquivo selecionado.")
         return redirect(url_for('index'))
         
     if arquivo:
+        nome_original = arquivo.filename
+        extensao = nome_original.rsplit('.', 1)[1].lower() if '.' in nome_original else ''
+        
+        if extensao not in ['pdf', 'docx']:
+            flash("Formato inválido! Envie arquivos PDF ou DOCX.")
+            return redirect(url_for('index'))
+            
         try:
-            nome_arquivo = arquivo.filename
             dados_bytes = arquivo.read()
+            arquivo_b64 = base64.b64encode(dados_bytes).decode('utf-8')
             
-            # ------------------------------------------------------------------
-            # VALIDAÇÃO 1: VERIFICAÇÃO POR NOME DE ARQUIVO JÁ EXISTENTE
-            # ------------------------------------------------------------------
-            with get_db_connection() as conn:
-                with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                    cursor.execute("SELECT id FROM curriculos WHERE nome_arquivo = %s LIMIT 1;", (nome_arquivo,))
-                    arquivo_duplicado = cursor.fetchone()
-                    if arquivo_duplicado:
-                        flash(f'O arquivo "{nome_arquivo}" já foi processado anteriormente!', "warning")
-                        return redirect(url_for('index'))
-            
-            # Converte arquivo em string base64 para armazenar se necessário
-            arquivo_binario_b64 = base64.b64encode(dados_bytes).decode('utf-8')
-            
-            texto_extraido = ""
-            if nome_arquivo.lower().endswith('.pdf'):
-                texto_extraido = extrair_texto_pdf(dados_bytes)
-            elif nome_arquivo.lower().endswith('.docx'):
-                texto_extraido = extrair_texto_docx(dados_bytes)
-            
-            if not texto_extraido.strip():
-                flash(f"Não foi possível extrair texto legível de {nome_arquivo}.", "warning")
+            if extensao == 'pdf':
+                texto_bruto = extrair_texto_pdf(dados_bytes)
+            else:
+                texto_bruto = extrair_texto_docx(dados_bytes)
+                
+            if not texto_bruto.strip():
+                flash(f"Não foi possível ler o texto do arquivo '{nome_original}'. O arquivo pode estar vazio ou corrompido.")
                 return redirect(url_for('index'))
                 
-            # Chamada da Inteligência Artificial estruturada
-            dados_ia = estruturar_curriculo_com_ia(texto_extraido)
-            nome_candidato = dados_ia.get('nome')
+            dados_ia = estruturar_curriculo_com_ia(texto_bruto)
             
-            # ------------------------------------------------------------------
-            # VALIDAÇÃO 2: VERIFICAÇÃO POR NOME DO CANDIDATO JÁ EXISTENTE
-            # ------------------------------------------------------------------
-            if nome_candidato and nome_candidato != "Nome provisório" and nome_candidato != "Sem Chave API":
-                with get_db_connection() as conn:
-                    with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                        cursor.execute("SELECT id FROM curriculos WHERE nome_candidato = %s LIMIT 1;", (nome_candidato,))
-                        candidato_duplicado = cursor.fetchone()
-                        if candidato_duplicado:
-                            flash(f'O(A) candidato(a) "{nome_candidato}" já está cadastrado(a) no sistema!', "warning")
-                            return redirect(url_for('index'))
-            
-            # Salvando no banco de dados PostgreSQL se passar nas validações
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("""
                         INSERT INTO curriculos (
                             nome_arquivo, conteudo, nome_candidato, idade, sexo, 
-                            localizacao, formacao, cursos, hard_skills, soft_skills, idiomas, arquivo_binario
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            localizacao, formacao, cursos, habilidades, hard_skills, soft_skills, idiomas, arquivo_binario
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """, (
-                        nome_arquivo, texto_extraido, nome_candidato, dados_ia.get('idade'), 
-                        dados_ia.get('sexo'), dados_ia.get('localizacao'), dados_ia.get('formacao'), 
-                        dados_ia.get('cursos'), dados_ia.get('hard_skills'), dados_ia.get('soft_skills'), 
-                        dados_ia.get('idiomas'), arquivo_binario_b64
+                        nome_original, texto_bruto, dados_ia['nome'], dados_ia['idade'], dados_ia['sexo'],
+                        dados_ia['localizacao'], dados_ia['formacao'], dados_ia['cursos'], 
+                        dados_ia['hard_skills'], dados_ia['hard_skills'], dados_ia['soft_skills'], dados_ia['idiomas'], arquivo_b64
                     ))
                     conn.commit()
-            
-            flash(f"Currículo de {nome_candidato} processado com sucesso!", "success")
+                    
+            flash(f"Currículo de '{dados_ia['nome']}' processado e salvo com sucesso!")
         except Exception as e:
-            print(f"Erro no upload/processamento: {e}")
-            flash("Erro interno ao processar o arquivo.", "danger")
+            print(f"Erro completo no upload: {e}")
+            flash("Falha interna ao processar documento.")
             
     return redirect(url_for('index'))
 
+@app.route('/ocultar/<int:id_candidato>', methods=['POST'])
+def ocultar(id_candidato):
+    if 'ocultados' not in session:
+        session['ocultados'] = []
+    
+    lista = session['ocultados']
+    if id_candidato not in lista:
+        lista.append(id_candidato)
+        session['ocultados'] = lista
+        
+    return jsonify({"status": "sucesso", "mensagem": "Candidato ocultado temporariamente"})
+
+@app.route('/visualizar/<int:id_candidato>')
+def visualizar(id_candidato):
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("SELECT nome_arquivo, arquivo_binario FROM curriculos WHERE id = %s", (id_candidato,))
+                resultado = cursor.fetchone()
+                
+                if resultado and resultado['arquivo_binario']:
+                    dados_decodificados = base64.b64decode(resultado['arquivo_binario'])
+                    extensao = resultado['nome_arquivo'].rsplit('.', 1)[1].lower()
+                    mime = 'application/pdf' if extensao == 'pdf' else 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                    
+                    return send_file(
+                        io.BytesIO(dados_decodificados),
+                        mimetype=mime,
+                        as_attachment=False,
+                        download_name=resultado['nome_arquivo']
+                    )
+    except Exception as e:
+        print(f"Erro ao renderizar arquivo: {e}")
+        
+    return "Arquivo ou candidato indisponível", 404
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
