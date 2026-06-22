@@ -406,7 +406,8 @@
                                             👁️ Indisponível
                                         </button>
                                     {% endif %}
-                                    <button onclick="removerDaTela('candidato-{{ loop.index }}')" class="btn-action btn-remove">
+                                    
+                                    <button onclick="removerDaTela('candidato-{{ loop.index }}', {{ candidato.id }})" class="btn-action btn-remove">
                                         ❌ Retirar
                                     </button>
                                 </div>
@@ -435,20 +436,36 @@
     </div>
 
     <script>
-        function removerDaTela(idElemento) {
+        function removerDaTela(idElemento, idBanco) {
             const card = document.getElementById(idElemento);
-            if (card) {
-                card.style.opacity = '0';
-                card.style.transform = 'scale(0.95)';
-                setTimeout(() => {
-                    card.remove();
-                    const totalBadge = document.querySelector('.badge-triados span');
-                    if (totalBadge) {
-                        let totalAtual = parseInt(totalBadge.innerText) || 0;
-                        if (totalAtual > 0) totalBadge.innerText = totalAtual - 1;
-                    }
-                }, 300);
-            }
+            if (!card) return;
+
+            // Envia uma requisição assíncrona ao servidor para registrar o ocultamento na sessão
+            fetch(`/ocultar/${idBanco}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "sucesso") {
+                    // Executa o efeito de transição visual somente se o backend salvou com sucesso
+                    card.style.opacity = '0';
+                    card.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        card.remove();
+                        
+                        // Atualiza dinamicamente o contador na Topbar
+                        const totalBadge = document.querySelector('.badge-triados span');
+                        if (totalBadge) {
+                            let totalAtual = parseInt(totalBadge.innerText) || 0;
+                            if (totalAtual > 0) totalBadge.innerText = totalAtual - 1;
+                        }
+                    }, 300);
+                }
+            })
+            .catch(err => console.error("Erro ao registrar ocultamento do candidato:", err));
         }
     </script>
 
