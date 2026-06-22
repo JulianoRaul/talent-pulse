@@ -62,6 +62,12 @@
             align-items: start;
         }
 
+        @media (max-width: 900px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         .left-column {
             display: flex;
             flex-direction: column;
@@ -127,9 +133,10 @@
             transition: all 0.2s ease;
         }
 
-        .drop-zone:hover {
+        .drop-zone.dragover {
             border-color: #4f46e5;
             background: #f5f3ff;
+            transform: scale(1.02);
         }
 
         .drop-zone input[type="file"] {
@@ -149,6 +156,7 @@
             flex-direction: column;
             align-items: center;
             gap: 6px;
+            pointer-events: none;
         }
 
         .upload-icon {
@@ -192,6 +200,13 @@
             font-size: 14px;
             color: #334155;
             background-color: #ffffff;
+            transition: border-color 0.15s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
         }
 
         .btn-filtrar {
@@ -205,6 +220,11 @@
             font-weight: 600;
             cursor: pointer;
             margin-top: 8px;
+            transition: background-color 0.15s ease;
+        }
+
+        .btn-filtrar:hover {
+            background: #1e293b;
         }
 
         .results-column {
@@ -221,7 +241,7 @@
             display: flex;
             flex-direction: column;
             gap: 16px;
-            transition: all 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .candidato-header {
@@ -239,6 +259,7 @@
 
         .candidato-meta {
             display: flex;
+            flex-wrap: wrap;
             gap: 16px;
             font-size: 13px;
             color: #64748b;
@@ -255,19 +276,21 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 12px;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 13px;
             font-weight: 600;
             text-decoration: none;
             border: 1px solid #e2e8f0;
             cursor: pointer;
             background: #f1f5f9;
             color: #475569;
+            transition: all 0.15s ease;
         }
 
         .btn-action:hover {
             background: #e2e8f0;
+            color: #1e293b;
         }
 
         .btn-remove {
@@ -278,6 +301,8 @@
 
         .btn-remove:hover {
             background: #fee2e2;
+            border-color: #f87171;
+            color: #991b1b;
         }
 
         .info-section {
@@ -289,6 +314,7 @@
             color: #1e293b;
             display: block;
             margin-bottom: 6px;
+            font-weight: 600;
         }
 
         .skills-container {
@@ -314,6 +340,12 @@
             border: 1px solid #fca5a5;
             background: #fef2f2;
             color: #991b1b;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
@@ -357,7 +389,7 @@
                     <div class="alert" style="background: #f0fdf4; color: #166534; border-color: #bbf7d0;">
                         {{ message }}
                     </div>
-                {% endfor %}
+                </for>
             {% endif %}
         {% endwith %}
 
@@ -371,11 +403,11 @@
                     </div>
                     
                     <form action="/upload" method="POST" enctype="multipart/form-data" id="upload-form">
-                        <div class="drop-zone">
-                            <input type="file" id="file-input" name="file" accept=".pdf,.docx" onchange="document.getElementById('upload-form').submit();">
-                            <div class="upload-content">
+                        <div class="drop-zone" id="drop-zone">
+                            <input type="file" id="file-input" name="file" accept=".pdf,.docx">
+                            <div class="upload-content" id="upload-content">
                                 <div class="upload-icon">+</div>
-                                <p class="upload-text-main">Selecione o Currículo</p>
+                                <p class="upload-text-main">Selecione ou Arraste o Currículo</p>
                                 <p class="upload-text-sub">PDF ou DOCX</p>
                             </div>
                         </div>
@@ -427,7 +459,7 @@
                                 <div class="actions-group">
                                     {% if candidato.id %}
                                         <a href="/visualizar/{{ candidato.id }}" target="_blank" class="btn-action">
-                                            👁️ Abrir em nova aba
+                                            👁️ Abrir
                                         </a>
                                     {% else %}
                                         <button class="btn-action" disabled style="opacity: 0.5; cursor: not-allowed;">
@@ -446,7 +478,6 @@
                                 <div style="white-space: pre-line; color: #475569;">{{ candidato.formacao or 'Não informada' }}</div>
                             </div>
 
-                            <!-- SEÇÃO DE HARD SKILLS -->
                             <div class="info-section">
                                 <strong>Hard Skills (Competências Técnicas):</strong>
                                 <div class="skills-container">
@@ -464,7 +495,6 @@
                                 </div>
                             </div>
 
-                            <!-- SEÇÃO DE SOFT SKILLS -->
                             <div class="info-section">
                                 <strong>Soft Skills (Habilidades Comportamentais):</strong>
                                 <div class="skills-container">
@@ -495,6 +525,43 @@
     </div>
 
     <script>
+        // Gerenciamento dinâmico e visual da área de Drop Zone
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const uploadForm = document.getElementById('upload-form');
+        const uploadContent = document.getElementById('upload-content');
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                uploadContent.innerHTML = `<div class="upload-icon" style="color: #22c55e;">✓</div><p class="upload-text-main">Enviando documento...</p>`;
+                uploadForm.submit();
+            }
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                uploadContent.innerHTML = `<div class="upload-icon" style="color: #22c55e;">✓</div><p class="upload-text-main">Enviando documento...</p>`;
+                uploadForm.submit();
+            }
+        });
+
         function removerDaTela(idElemento, idBanco) {
             const card = document.getElementById(idElemento);
             if (!card) return;
