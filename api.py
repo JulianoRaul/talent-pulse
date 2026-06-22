@@ -19,7 +19,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "chave_secreta_talent_pulse_a1")
 
 # ==============================================================================
-# CONFIGURAÇÃO DO BANCO DE DADOS (POSTGRESQL)
+# CONFIGURAÇÃO DO BANCO DE DADOS (POSTGRESQL) - ATUALIZADO PARA SOFT/HARD SKILLS
 # ==============================================================================
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -27,7 +27,6 @@ def get_db_connection():
     if DATABASE_URL:
         url_conexao = DATABASE_URL.strip()
         
-        # Garante de forma estrita que a URL comece com postgresql://
         if url_conexao.startswith("postgres://"):
             url_conexao = url_conexao.replace("postgres://", "postgresql://", 1)
         elif not url_conexao.startswith("postgresql://") and url_conexao.startswith("//"):
@@ -72,9 +71,10 @@ def init_db():
                         arquivo_binario TEXT
                     );
                 ''')
-                cursor.execute('''
-                    ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS idiomas TEXT;
-                ''')
+                # Adiciona as colunas novas caso não existam
+                cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS idiomas TEXT;')
+                cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS hard_skills TEXT;')
+                cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS soft_skills TEXT;')
                 conn.commit()
         print("-> Banco de dados PostgreSQL pronto!")
     except Exception as e:
@@ -83,7 +83,7 @@ def init_db():
 init_db()
 
 # ==============================================================================
-# CONFIGURAÇÃO DO GOOGLE GEMINI AI (ATUALIZADO COM ESTRUTURAÇÃO NATIVA)
+# CONFIGURAÇÃO DO GOOGLE GEMINI AI (ATUALIZADO COM SEPARAÇÃO DE SKILLS)
 # ==============================================================================
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
@@ -95,7 +95,8 @@ class EstruturaCurriculo(BaseModel):
     localizacao: str
     formacao: str
     cursos: str
-    habilidades: str
+    hard_skills: str   # Técnico/Ferramentas (ex: Python, Vendas B2B, Pipedrive)
+    soft_skills: str   # Comportamental (ex: Liderança, Comunicação, Empatia)
     idiomas: str
 
 # ==============================================================================
@@ -153,32 +154,32 @@ def estruturar_curriculo_com_ia(texto_bruto):
         return {
             "nome": "Nome provisório", "idade": "Não Informado", "sexo": "Não Informado",
             "localizacao": "Manual necessário", "formacao": "Texto vazio.",
-            "cursos": "Nenhum", "habilidades": "Nenhuma", "idiomas": "Não informado"
+            "cursos": "Nenhum", "hard_skills": "Nenhuma", "soft_skills": "Nenhuma", "idiomas": "Não informado"
         }
     
-    texto_limitado = texto_bruto.strip()[:24000] # Aumentado o limite de tokens avaliados
+    texto_limitado = texto_bruto.strip()[:24000]
     
     if not client:
         return {
             "nome": "Sem Chave API", "idade": "Não Informado", "sexo": "Não Informado",
             "localizacao": "Configuração Pendente", "formacao": "A IA não pôde ser chamada.",
-            "cursos": "Nenhum", "habilidades": "Nenhuma", "idiomas": "Não informado"
+            "cursos": "Nenhum", "hard_skills": "Nenhuma", "soft_skills": "Nenhuma", "idiomas": "Não informado"
         }
         
     try:
-        # ATUALIZAÇÃO CRÍTICA: Usando o config=types.GenerateContentConfig para mapeamento tipado estrito
         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=f"Extraia com precisão os dados do seguinte currículo profissional:\n\n{texto_limitado}",
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
-                response_schema=EstruturaCurriculo, # Valida os tipos direto no motor da IA
+                response_schema=EstruturaCurriculo,
                 system_instruction=(
                     "Você é um sistema automatizado de triagem de currículos para o RH. "
-                    "Analise o texto do candidato e preencha todos os campos do Schema JSON. "
-                    "Se um campo como 'nome' ou 'localizacao' for oculto ou complexo demais, tente deduzir "
-                    "ou use informações do cabeçalho. No campo 'idiomas', classifique estritamente o nível informado "
-                    "como (Iniciante, Intermediário ou Avançado/Fluente). Exemplo: 'Inglês (Avançado)'. "
+                    "Analise o texto do candidato e preencha todos os campos do Schema JSON.\n\n"
+                    "REGRAS DE SEPARAÇÃO DE HABILIDADES:\n"
+                    "- 'hard_skills': Liste estritamente competências técnicas, metodologias, ferramentas e frameworks separados por vírgula. Ex: Python, JavaScript, CRM Pipedrive, Vendas B2B, IoT, Excel Avançado.\n"
+                    "- 'soft_skills': Liste estritamente características comportamentais, inteligência emocional e habilidades interpessoais separadas por vírgula. Ex: Liderança, Comunicação Eficaz, Trabalho em Equipe, Resolução de Problemas, Proatividade, Empatia.\n\n"
+                    "No campo 'idiomas', classifique estritamente o nível informado como (Iniciante, Intermediário ou Avançado/Fluente). "
                     "Caso não haja menção a algum campo, preencha como 'Não informado'."
                 )
             )
@@ -186,7 +187,6 @@ def estruturar_curriculo_com_ia(texto_bruto):
         
         texto_resposta = response.text.strip() if response.text else ""
         
-        # Conversão direta e limpa garantida pelo schema tipado
         if texto_resposta:
             dados = json.loads(texto_resposta)
             return {k: limpar_caracteres_invalidos(str(v)) for k, v in dados.items()}
@@ -197,7 +197,7 @@ def estruturar_curriculo_com_ia(texto_bruto):
     return {
         "nome": "Nome provisório", "idade": "Não Informado", "sexo": "Não Informado",
         "localizacao": "Manual necessário", "formacao": "Estrutura complexa de leitura.",
-        "cursos": "Consulte o arquivo original", "habilidades": "Análise Manual", "idiomas": "Não informado"
+        "cursos": "Consulte o arquivo original", "hard_skills": "Análise Manual", "soft_skills": "Análise Manual", "idiomas": "Não informado"
     }
 
 # ==============================================================================
@@ -212,10 +212,8 @@ def index():
     f_idioma = request.args.get('idioma', '').strip()
     f_nivel = request.args.get('nivel', '').strip()
     
-    # Verifica se há qualquer tipo de parâmetro de pesquisa/filtro ativo
     algum_filtro_ativo = any([busca_geral, f_sexo, f_formacao, f_localizacao, f_idioma, f_nivel])
     
-    # Se o usuário realizou uma nova busca, nós "resetamos" a lista de ocultados para reavaliá-los
     if algum_filtro_ativo:
         session['ocultados'] = []
     elif 'ocultados' not in session:
@@ -226,17 +224,22 @@ def index():
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute("SELECT id, nome_arquivo, conteudo, nome_candidato AS nome, idade, sexo, localizacao, formacao, cursos, habilidades, idiomas FROM curriculos ORDER BY id DESC")
+                # Modificado para coletar as colunas novas
+                cursor.execute("""
+                    SELECT id, nome_arquivo, conteudo, nome_candidato AS nome, idade, sexo, 
+                           localizacao, formacao, cursos, habilidades, hard_skills, soft_skills, idiomas 
+                    FROM curriculos ORDER BY id DESC
+                """)
                 todos_candidatos = cursor.fetchall()
                 
                 for item in todos_candidatos:
-                    # Se NÃO há filtro ativo e o candidato foi retirado anteriormente, pula a exibição dele
                     if not algum_filtro_ativo and item['id'] in session['ocultados']:
                         continue
                         
                     texto_idiomas = remover_acentos(item.get('idiomas') or "")
+                    # Busca global estendida para varrer hard e soft skills também
                     texto_completo_candidato = remover_acentos(
-                        f"{item['conteudo']} {item['nome']} {item['habilidades']} {item['cursos']} {item.get('idiomas', '')}"
+                        f"{item['conteudo']} {item['nome']} {item.get('hard_skills', '')} {item.get('soft_skills', '')} {item['cursos']} {item.get('idiomas', '')}"
                     )
                     passou_filtro = True
                     
@@ -272,7 +275,6 @@ def index():
         'idioma': f_idioma, 'nivel': f_nivel
     })
 
-# NOVA ROTA: Adiciona o ID do candidato à lista de itens temporariamente ocultos
 @app.route('/ocultar/<int:id_curriculo>', methods=['POST'])
 def ocultar_candidato(id_curriculo):
     if 'ocultados' not in session:
@@ -312,11 +314,15 @@ def upload():
                 
             dados_ia = estruturar_curriculo_com_ia(texto_extraido)
             
+            # Unifica no campo 'habilidades' antigo para manter retrocompatibilidade com cadastros velhos
+            habilidades_unificadas = f"{dados_ia.get('hard_skills', '')}, {dados_ia.get('soft_skills', '')}".strip(', ')
+            
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
+                    # Inserção atualizada mapeando individualmente hard_skills e soft_skills
                     cursor.execute("""
-                        INSERT INTO curriculos (nome_arquivo, conteudo, nome_candidato, idade, sexo, localizacao, formacao, cursos, habilidades, arquivo_binario, idiomas)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        INSERT INTO curriculos (nome_arquivo, conteudo, nome_candidato, idade, sexo, localizacao, formacao, cursos, habilidades, hard_skills, soft_skills, arquivo_binario, idiomas)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """, (
                         limpar_caracteres_invalidos(arquivo.filename),
                         texto_extraido,
@@ -326,7 +332,9 @@ def upload():
                         dados_ia.get('localizacao', 'Manual necessário'),
                         dados_ia.get('formacao', 'Não informado'),
                         dados_ia.get('cursos', 'Não informado'),
-                        dados_ia.get('habilidades', 'Não informado'),
+                        habilidades_unificadas,
+                        dados_ia.get('hard_skills', 'Não informado'),
+                        dados_ia.get('soft_skills', 'Não informado'),
                         string_base64,
                         dados_ia.get('idiomas', 'Não informado')
                     ))
@@ -350,7 +358,6 @@ def visualizar(id_curriculo):
                 if registro and registro['arquivo_binario']:
                     dados_originais = base64.b64decode(registro['arquivo_binario'])
                     extensao = registro['nome_arquivo'].lower()
-                    
                     mimetype = "application/pdf" if extensao.endswith('.pdf') else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                     
                     return send_file(
@@ -361,7 +368,6 @@ def visualizar(id_curriculo):
                     )
     except Exception as e:
         print(f"Erro ao visualizar arquivo: {e}")
-        
     return "O arquivo solicitado está indisponível ou não foi encontrado.", 404
 
 @app.route('/download/<int:id_curriculo>')
