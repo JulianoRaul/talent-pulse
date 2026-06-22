@@ -7,9 +7,7 @@ import base64
 import unicodedata
 from urllib.parse import urlparse
 from flask import Flask, render_template, request, redirect, url_for, flash, Response, jsonify
-from flask_sqlalchemy import SQLAlchemy
 from google import genai
-from google.genai import types
 from pydantic import BaseModel
 import pypdf
 import docx2txt
@@ -113,13 +111,13 @@ def obter_variacoes_busca(termo_busca):
     palavras = termo_limpo.split()
     variacoes = set()
     
-    for palavra in palavras:
-        if len(palavra) > 2:
-            if palavra.endswith(('s', 'es')):
-                variacoes.add(palavra[:-1] if palavra.endswith('s') else palavra[:-2])
-            if palavra.endswith(('r', 'cao', 'mento')):
-                variacoes.add(palavra[:int(len(palavra)*0.7)])
-        variacoes.add(palavra)
+    for palabra in palavras:
+        if len(palabra) > 2:
+            if palabra.endswith(('s', 'es')):
+                variacoes.add(palabra[:-1] if palabra.endswith('s') else palabra[:-2])
+            if palabra.endswith(('r', 'cao', 'mento')):
+                variacoes.add(palabra[:int(len(palabra)*0.7)])
+        variacoes.add(palabra)
     return list(variacoes) if variacoes else [termo_limpo]
 
 def extrair_texto_pdf(dados_bytes):
