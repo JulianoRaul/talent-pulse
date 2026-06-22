@@ -6,7 +6,7 @@ import json
 import base64
 import unicodedata
 from urllib.parse import urlparse
-from flask import Flask, render_template, request, redirect, url_for, flash, Response, jsonify, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, Response, jsonify, send_file, session
 from google import genai
 from google.genai import types  # Importação necessária para o Object Schema nativo
 from pydantic import BaseModel
@@ -212,6 +212,15 @@ def index():
     f_idioma = request.args.get('idioma', '').strip()
     f_nivel = request.args.get('nivel', '').strip()
     
+    # Verifica se há qualquer tipo de parâmetro de pesquisa/filtro ativo
+    algum_filtro_ativo = any([busca_geral, f_sexo, f_formacao, f_localizacao, f_idioma, f_nivel])
+    
+    # Se o usuário realizou uma nova busca, nós "resetamos" a lista de ocultados para reavaliá-los
+    if algum_filtro_ativo:
+        session['ocultados'] = []
+    elif 'ocultados' not in session:
+        session['ocultados'] = []
+        
     resultados_finais = []
     
     try:
@@ -221,6 +230,10 @@ def index():
                 todos_candidatos = cursor.fetchall()
                 
                 for item in todos_candidatos:
+                    # Se NÃO há filtro ativo e o candidato foi retirado anteriormente, pula a exibição dele
+                    if not algum_filtro_ativo and item['id'] in session['ocultados']:
+                        continue
+                        
                     texto_idiomas = remover_acentos(item.get('idiomas') or "")
                     texto_completo_candidato = remover_acentos(
                         f"{item['conteudo']} {item['nome']} {item['habilidades']} {item['cursos']} {item.get('idiomas', '')}"
@@ -259,6 +272,19 @@ def index():
         'idioma': f_idioma, 'nivel': f_nivel
     })
 
+# NOVA ROTA: Adiciona o ID do candidato à lista de itens temporariamente ocultos
+@app.route('/ocultar/<int:id_curriculo>', methods=['POST'])
+def ocultar_candidato(id_curriculo):
+    if 'ocultados' not in session:
+        session['ocultados'] = []
+    
+    lista_atual = list(session['ocultados'])
+    if id_curriculo not in lista_atual:
+        lista_atual.append(id_curriculo)
+        
+    session['ocultados'] = lista_atual
+    return jsonify({"status": "sucesso", "id_ocultado": id_curriculo})
+
 @app.route('/upload', methods=['POST'])
 def upload():
     if 'file' not in request.files:
@@ -267,7 +293,7 @@ def upload():
         
     arquivo = request.files['file']
     if arquivo.filename == '':
-        flash("Nenhum arquivo selecionado.", "danger")
+        flash("Nenhum arquivo secretário.", "danger")
         return redirect(url_for('index'))
         
     if arquivo and (arquivo.filename.lower().endswith('.pdf') or arquivo.filename.lower().endswith('.docx')):
