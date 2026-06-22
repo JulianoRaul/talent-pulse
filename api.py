@@ -6,7 +6,7 @@ import json
 import base64
 import unicodedata
 from urllib.parse import urlparse
-from flask import Flask, render_template, request, redirect, url_for, flash, Response, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, Response, jsonify, send_file
 from google import genai
 from pydantic import BaseModel
 import pypdf
@@ -213,13 +213,13 @@ def index():
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute("SELECT id, nome_arquivo, conteudo, nome_candidato, idade, sexo, localizacao, formacao, cursos, habilidades, idiomas FROM curriculos ORDER BY id DESC")
+                cursor.execute("SELECT id, nome_arquivo, conteudo, nome_candidato AS nome, idade, sexo, localizacao, formacao, cursos, habilidades, idiomas FROM curriculos ORDER BY id DESC")
                 todos_candidatos = cursor.fetchall()
                 
                 for item in todos_candidatos:
                     texto_idiomas = remover_acentos(item.get('idiomas') or "")
                     texto_completo_candidato = remover_acentos(
-                        f"{item['conteudo']} {item['nome_candidato']} {item['habilidades']} {item['cursos']} {item.get('idiomas', '')}"
+                        f"{item['conteudo']} {item['nome']} {item['habilidades']} {item['cursos']} {item.get('idiomas', '')}"
                     )
                     passou_filtro = True
                     
@@ -308,6 +308,35 @@ def upload():
             print(f"Erro crítico no upload: {e}")
             
     return redirect(url_for('index'))
+
+# ==============================================================================
+# NOVA ROTA: VISUALIZAR CURRÍCULO EM NOVA ABA
+# ==============================================================================
+@app.route('/visualizar/<int:id_curriculo>')
+def visualizar(id_curriculo):
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("SELECT nome_arquivo, arquivo_binario FROM curriculos WHERE id = %s", (id_curriculo,))
+                registro = cursor.fetchone()
+                
+                if registro and registro['arquivo_binario']:
+                    # Decodifica a string Base64 de volta para os bytes originais do documento
+                    dados_originais = base64.b64decode(registro['arquivo_binario'])
+                    extensao = registro['nome_arquivo'].lower()
+                    
+                    mimetype = "application/pdf" if extensao.endswith('.pdf') else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    
+                    return send_file(
+                        io.BytesIO(dados_originais),
+                        mimetype=mimetype,
+                        as_attachment=False, # Abre direto na aba ao invés de forçar download
+                        download_name=registro['nome_arquivo']
+                    )
+    except Exception as e:
+        print(f"Erro ao visualizar arquivo: {e}")
+        
+    return "O arquivo solicitado está indisponível ou não foi encontrado.", 404
 
 @app.route('/download/<int:id_curriculo>')
 def download(id_curriculo):
