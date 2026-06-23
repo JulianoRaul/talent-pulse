@@ -7,7 +7,11 @@ import base64
 import unicodedata
 import time
 from urllib.parse import urlparse
+
 from flask import Flask, render_template, request, redirect, url_for, flash, Response, jsonify, send_file, session
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
+
 from google import genai
 from google.genai import types  
 from pydantic import BaseModel
@@ -18,6 +22,34 @@ from psycopg2.extras import RealDictCursor
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "chave_secreta_talent_pulse_a1")
+
+# ==============================================================================
+# CONFIGURAÇÃO DO FLASK-LOGIN
+# ==============================================================================
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+login_manager.login_message = "Por favor, faça o login para acessar esta página."
+login_manager.login_message_category = "error"
+
+class User(UserMixin):
+    def __init__(self, id, email, nome):
+        self.id = id
+        self.email = email
+        self.nome = nome
+
+@login_manager.user_loader
+def load_user(user_id):
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("SELECT id, email, nome FROM usuarios WHERE id = %s", (int(user_id),))
+                user_data = cursor.fetchone()
+                if user_data:
+                    return User(id=str(user_data['id']), email=user_data['email'], nome=user_data['nome'])
+    except Exception as e:
+        print(f"Erro ao carregar usuário: {e}")
+    return None
 
 # ==============================================================================
 # CONFIGURAÇÃO DO BANCO DE DADOS (POSTGRESQL)
@@ -49,6 +81,7 @@ def init_db():
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
+                # Tabela de Currículos
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS curriculos (
                         id SERIAL PRIMARY KEY,
@@ -67,6 +100,16 @@ def init_db():
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS idiomas TEXT;')
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS hard_skills TEXT;')
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS soft_skills TEXT;')
+                
+                # Nova Tabela de Usuários do Sistema
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS usuarios (
+                        id SERIAL PRIMARY KEY,
+                        nome TEXT NOT NULL,
+                        email TEXT UNIQUE NOT NULL,
+                        senha_hash TEXT NOT NULL
+                    );
+                ''')
                 conn.commit()
     except Exception as e:
         print(f"Erro ao inicializar o banco de dados: {e}")
@@ -81,7 +124,7 @@ client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 class EstruturaCurriculo(BaseModel):
     nome: str
-    idade: str
+    id_idade: str
     sexo: str
     localizacao: str
     formacao: str
@@ -198,7 +241,7 @@ def estruturar_curriculo_com_ia(texto_bruto):
             if tentativa < max_tentativas - 1:
                 print(f"Aguardando {tempo_espera} segundos antes da próxima tentativa...")
                 time.sleep(tempo_espera)
-                tempo_espera *= 2  # Dobra o tempo (Backoff Exponencial: 2s -> 4s)
+                tempo_espera *= 2
             else:
                 print("Número máximo de retentativas atingido no Gemini GenAI. Aplicando proteção de fallback.")
         
@@ -209,9 +252,79 @@ def estruturar_curriculo_com_ia(texto_bruto):
     }
 
 # ==============================================================================
-# ROTAS DA APLICAÇÃO WEB
+# ROTAS DE AUTENTICAÇÃO
+# ==============================================================================
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        senha = request.form.get('senha')
+        
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                    cursor.execute("SELECT * FROM usuarios WHERE email = %s", (email,))
+                    user_data = cursor.fetchone()
+                    
+            if user_data and check_password_hash(user_data['senha_hash'], senha):
+                usuario = User(id=str(user_data['id']), email=user_data['email'], nome=user_data['nome'])
+                login_user(usuario)
+                flash(f"Bem-vindo de volta, {usuario.nome}!", "success")
+                return redirect(url_for('index'))
+            else:
+                flash("E-mail ou senha incorretos.", "error")
+        except Exception as e:
+            print(f"Erro no login: {e}")
+            flash("Erro interno ao processar login.", "error")
+            
+    return render_template('login.html')
+
+@app.route('/cadastro', methods=['GET', 'POST'])
+def cadastro():
+    if request.method == 'POST':
+        nome = request.form.get('nome')
+        email = request.form.get('email')
+        senha = request.form.get('senha')
+        
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                    # Verifica se o e-mail já existe
+                    cursor.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
+                    if cursor.fetchone():
+                        flash("Este e-mail já está cadastrado.", "error")
+                        return redirect(url_for('cadastro'))
+                    
+                    # Criptografa a senha antes de salvar
+                    senha_hash = generate_password_hash(senha)
+                    
+                    # Salva no banco de dados real
+                    cursor.execute(
+                        "INSERT INTO usuarios (nome, email, senha_hash) VALUES (%s, %s, %s) RETURNING id",
+                        (nome, email, senha_hash)
+                    )
+                    conn.commit()
+            
+            flash("Usuário criado com sucesso! Faça seu login.", "success")
+            return redirect(url_for('login'))
+        except Exception as e:
+            print(f"Erro no cadastro: {e}")
+            flash("Erro ao salvar novo usuário.", "error")
+        
+    return render_template('cadastro.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash("Sessão encerrada com sucesso.", "success")
+    return redirect(url_for('login'))
+
+# ==============================================================================
+# ROTAS DA APLICAÇÃO WEB (PROTEGIDAS)
 # ==============================================================================
 @app.route('/', methods=['GET'])
+@login_required
 def index():
     busca_geral = request.args.get('busca', '').strip()
     f_genero = request.args.get('genero', '').strip()
@@ -290,6 +403,7 @@ def index():
     return render_template('index.html', candidatos=resultados_finais)
 
 @app.route('/upload', methods=['POST'])
+@login_required
 def upload():
     if 'file' not in request.files:
         flash("Nenhum arquivo enviado.", "error")
@@ -345,6 +459,7 @@ def upload():
     return redirect(url_for('index'))
 
 @app.route('/ocultar/<int:id_candidato>', methods=['POST'])
+@login_required
 def ocultar(id_candidato):
     if 'ocultados' not in session:
         session['ocultados'] = []
@@ -355,6 +470,7 @@ def ocultar(id_candidato):
     return jsonify({"status": "sucesso", "mensagem": "Candidato ocultado da tela"})
 
 @app.route('/download/<int:id_candidato>', methods=['GET'])
+@login_required
 def download(id_candidato):
     try:
         with get_db_connection() as conn:
