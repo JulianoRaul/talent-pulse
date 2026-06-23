@@ -305,18 +305,6 @@
             color: #9a3412;
         }
 
-        .btn-excluir {
-            background: #fef2f2;
-            color: #b91c1c;
-            border-color: #fca5a5;
-        }
-
-        .btn-excluir:hover {
-            background: #fee2e2;
-            border-color: #f87171;
-            color: #991b1b;
-        }
-
         .info-section {
             font-size: 14px;
             line-height: 1.5;
@@ -342,6 +330,19 @@
             padding: 4px 10px;
             border-radius: 6px;
             border: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+
+        .skill-badge.hard {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border-color: #bfdbfe;
+        }
+
+        .skill-badge.soft {
+            background: #f5f3ff;
+            color: #6d28d9;
+            border-color: #ddd6fe;
         }
 
         .alert {
@@ -352,6 +353,15 @@
             border: 1px solid #cbd5e1;
             background: #f8fafc;
             animation: fadeIn 0.2s ease;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 48px;
+            color: #64748b;
+            background: #ffffff;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
         }
 
         @keyframes fadeIn {
@@ -476,180 +486,157 @@
             <div class="results-column">
                 {% if candidatos %}
                     {% for candidato in candidatos %}
-                        <div class="candidato-card" id="candidato-{{ loop.index }}">
+                        <div class="candidato-card" id="candidato-box-{{ candidato.id }}">
                             <div class="candidato-header">
                                 <div class="candidato-info">
                                     <h3>{{ candidato.nome if candidato.nome and candidato.nome != 'Manual necessário' else (candidato.nome_arquivo or 'Currículo Processado') }}</h3>
                                     <div class="candidato-meta">
-                                        <span>📍 {{ candidato.localizacao or 'Não informado' }}</span>
-                                        <span>🎂 {{ candidato.idade or 'Não informado' }}</span>
-                                        <span>👤 Gênero: {{ candidato.sexo or 'Não informado' }}</span>
-                                        {% if candidato.idiomas and candidato.idiomas != 'Não informado' %}
-                                            <span>🗣️ {{ candidato.idiomas }}</span>
-                                        {% endif %}
+                                        <span><strong>Gênero:</strong> {{ candidato.sexo }}</span>
+                                        <span><strong>Idade:</strong> {{ candidato.idade }}</span>
+                                        <span><strong>Localização:</strong> {{ candidato.localizacao }}</span>
                                     </div>
                                 </div>
-                                
                                 <div class="actions-group">
-                                    {% if candidato.id %}
-                                        <a href="/visualizar/{{ candidato.id }}" target="_blank" class="btn-action">
-                                            👁️ Abrir
-                                        </a>
-                                    {% else %}
-                                        <button class="btn-action" disabled style="opacity: 0.5; cursor: not-allowed;">
-                                            👁️ Indisponível
-                                        </button>
-                                    {% endif %}
-                                    
-                                    <button onclick="retirarDaTela('candidato-{{ loop.index }}', {{ candidato.id }})" class="btn-action btn-retirar" title="Ocultar temporariamente do painel de visualização">
-                                        👁️‍🗨️ Retirar
-                                    </button>
-
-                                    <button onclick="excluirDoBanco('candidato-{{ loop.index }}', {{ candidato.id }}, '{{ candidato.nome }}')" class="btn-action btn-excluir" title="Apagar permanentemente do banco de dados">
-                                        🗑️ Excluir
+                                    <a href="/download{{ candidato.id }}" class="btn-action" title="Baixar arquivo original">
+                                        ⬇️ Arquivo
+                                    </a>
+                                    <button class="btn-action btn-retirar" onclick="ocultarCandidato('{{ candidato.id }}')">
+                                        👁️ Ocultar
                                     </button>
                                 </div>
                             </div>
 
                             <div class="info-section">
                                 <strong>Formação Acadêmica:</strong>
-                                <div style="white-space: pre-line; color: #475569;">{{ candidato.formacao or 'Não informada' }}</div>
+                                <p>{{ candidato.formacao }}</p>
                             </div>
 
+                            {% if candidato.cursos and candidato.cursos != 'Nenhum' and candidato.cursos != 'Consulte o arquivo original' %}
                             <div class="info-section">
-                                <strong>Hard Skills (Competências Técnicas):</strong>
+                                <strong>Cursos e Certificações:</strong>
+                                <p>{{ candidato.cursos }}</p>
+                            </div>
+                            {% endif %}
+
+                            <div class="info-section">
+                                <strong>Hard Skills (Técnicas):</strong>
                                 <div class="skills-container">
-                                    {% if candidato.hard_skills %}
+                                    {% if candidato.hard_skills and candidato.hard_skills != 'Nenhuma' and candidato.hard_skills != 'Análise Manual' %}
                                         {% for skill in candidato.hard_skills.split(',') %}
-                                            {% if skill.strip() %}
-                                                <span class="skill-badge" style="background: #e0e7ff; color: #4338ca; border-color: #c7d2fe;">
-                                                    🛠️ {{ skill.strip() }}
-                                                </span>
-                                            {% endif %}
+                                            <span class="skill-badge hard">{{ skill.strip() }}</span>
                                         {% endfor %}
                                     {% else %}
-                                        <p style="color: #94a3b8; font-style: italic; font-size: 13px;">Nenhuma competência técnica mapeada</p>
+                                        <span class="skill-badge">Consulte o arquivo original</span>
                                     {% endif %}
                                 </div>
                             </div>
 
                             <div class="info-section">
-                                <strong>Soft Skills (Habilidades Comportamentais):</strong>
+                                <strong>Soft Skills (Comportamentais):</strong>
                                 <div class="skills-container">
-                                    {% if candidato.soft_skills %}
+                                    {% if candidato.soft_skills and candidato.soft_skills != 'Nenhuma' and candidato.soft_skills != 'Análise Manual' %}
                                         {% for skill in candidato.soft_skills.split(',') %}
-                                            {% if skill.strip() %}
-                                                <span class="skill-badge" style="background: #fdf2f8; color: #9d174d; border-color: #fbcfe8;">
-                                                    🧠 {{ skill.strip() }}
-                                                </span>
-                                            {% endif %}
+                                            <span class="skill-badge soft">{{ skill.strip() }}</span>
                                         {% endfor %}
                                     {% else %}
-                                        <p style="color: #94a3b8; font-style: italic; font-size: 13px;">Nenhuma habilidade comportamental mapeada</p>
+                                        <span class="skill-badge">Consulte o arquivo original</span>
                                     {% endif %}
                                 </div>
+                            </div>
+
+                            <div class="info-section">
+                                <strong>Idiomas:</strong>
+                                <p>{{ candidato.idiomas }}</p>
                             </div>
                         </div>
                     {% endfor %}
                 {% else %}
-                    <div class="card" style="text-align: center; padding: 48px; color: #64748b;">
-                        <span style="font-size: 32px; display: block; margin-bottom: 12px;">📁</span>
-                        Nenhum candidato cadastrado ou compatível com os filtros.
+                    <div class="no-results">
+                        <p style="font-size: 16px; font-weight: 500;">Nenhum candidato encontrado.</p>
+                        <p style="font-size: 13px; margin-top: 4px;">Tente alterar os filtros ou faça um novo upload.</p>
                     </div>
                 {% endif %}
             </div>
-
         </main>
     </div>
 
     <script>
+        // Interatividade de Drag & Drop para Upload de Arquivos
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         const uploadForm = document.getElementById('upload-form');
-        const uploadContent = document.getElementById('upload-content');
 
-        fileInput.addEventListener('change', () => {
-            if (fileInput.files.length > 0) {
-                uploadContent.innerHTML = `<div class="upload-icon" style="color: #22c55e;">✓</div><p class="upload-text-main">Enviando documento...</p>`;
-                uploadForm.submit();
-            }
-        });
+        if (dropZone && fileInput) {
+            // Destacar borda ao arrastar arquivo por cima
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    dropZone.classList.add('dragover');
+                }, false);
+            });
 
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropZone.addEventListener(eventName, (e) => {
-                e.preventDefault();
-                dropZone.classList.add('dragover');
-            }, false);
-        });
+            // Remover destaque quando o arquivo sair da zona
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    dropZone.classList.remove('dragover');
+                }, false);
+            });
 
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, (e) => {
-                e.preventDefault();
-                dropZone.classList.remove('dragover');
-            }, false);
-        });
-
-        dropZone.addEventListener('drop', (e) => {
-            const dt = e.dataTransfer;
-            const files = dt.files;
-            if (files.length > 0) {
-                fileInput.files = files;
-                uploadContent.innerHTML = `<div class="upload-icon" style="color: #22c55e;">✓</div><p class="upload-text-main">Enviando documento...</p>`;
-                uploadForm.submit();
-            }
-        });
-
-        // Apenas oculta temporariamente na sessão
-        function retirarDaTela(idElemento, idBanco) {
-            const card = document.getElementById(idElemento);
-            if (!card) return;
-
-            fetch(`/ocultar/${idBanco}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === "sucesso") {
-                    fazerSumirCardDoPainel(card);
+            // Lidar com o arquivo solto na zona
+            dropZone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if(files.length > 0) {
+                    fileInput.files = files;
+                    uploadForm.submit(); // Envia automaticamente
                 }
-            })
-            .catch(err => console.error("Erro ao retirar candidato:", err));
+            });
+
+            // Enviar automaticamente se o usuário apenas clicar e selecionar o arquivo
+            fileInput.addEventListener('change', () => {
+                if (fileInput.files.length > 0) {
+                    uploadForm.submit();
+                }
+            });
         }
 
-        // Deleta em definitivo do Banco de Dados
-        function excluirDoBanco(idElemento, idBanco, nomeCandidato) {
-            const card = document.getElementById(idElemento);
-            if (!card) return;
-
-            if (confirm(`Tem certeza absoluta de que deseja EXCLUIR DEFINITIVAMENTE o currículo de "${nomeCandidato}" do banco de dados? Esta ação não pode ser desfeita.`)) {
-                fetch(`/excluir/${idBanco}`, {
+        // Requisição Assíncrona (AJAX) para Ocultar Candidatos dinamicamente
+        function ocultarCandidato(idCandidato) {
+            if (confirm("Deseja ocultar este candidato da visualização atual?")) {
+                fetch(`/ocultar/${idCandidato}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
                 })
                 .then(response => response.json())
                 .then(data => {
-                    if (data.status === "sucesso") {
-                        fazerSumirCardDoPainel(card);
+                    if (data.status === 'sucesso') {
+                        const elementoCard = document.getElementById(`candidato-box-${idCandidato}`);
+                        if (elementoCard) {
+                            // Efeito visual suave de transição antes de remover
+                            elementoCard.style.opacity = '0';
+                            elementoCard.style.transform = 'scale(0.95)';
+                            setTimeout(() => {
+                                elementoCard.remove();
+                                // Atualiza dinamicamente o badge de contagem no topo
+                                const badgeSpan = document.querySelector('.badge-triados span');
+                                if (badgeSpan) {
+                                    let totalAtual = parseInt(badgeSpan.textContent) || 0;
+                                    badgeSpan.textContent = totalAtual > 0 ? totalAtual - 1 : 0;
+                                }
+                            }, 300);
+                        }
                     } else {
-                        alert("Erro ao excluir: " + data.mensagem);
+                        alert("Erro ao ocultar candidato.");
                     }
                 })
-                .catch(err => console.error("Erro ao deletar candidato:", err));
+                .catch(error => {
+                    console.error("Erro:", error);
+                    alert("Não foi possível conectar com o servidor.");
+                });
             }
-        }
-
-        function fazerSumirCardDoPainel(card) {
-            card.style.opacity = '0';
-            card.style.transform = 'scale(0.95)';
-            setTimeout(() => {
-                card.remove();
-                const totalBadge = document.querySelector('.badge-triados span');
-                if (totalBadge) {
-                    let totalAtual = parseInt(totalBadge.innerText) || 0;
-                    if (totalAtual > 0) totalBadge.innerText = totalAtual - 1;
-                }
-            }, 300);
         }
     </script>
 </body>
