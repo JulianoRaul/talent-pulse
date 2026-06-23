@@ -1,9 +1,9 @@
 Flask
-Flask-SQLAlchemy
-pypdf
-docx2txt
+flask-login
+werkzeug
 google-genai
 pydantic
+pypdf
+docx2txt
 psycopg2-binary
 gunicorn
-dj-database-url==2.1.0
