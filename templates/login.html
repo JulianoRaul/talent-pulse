@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TalentPulse - Login</title>
+    <link href="https://fonts.googleapis.com/css2 family=Inter:wght=400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background-color: #f8fafc; color: #334155; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+        .auth-card { background: #ffffff; padding: 40px; border-radius: 16px; border: 1px solid #e2e8f0; width: 100%; max-width: 400px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .brand { text-align: center; margin-bottom: 32px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; margin-bottom: 6px; }
+        .form-control { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; }
+        .form-control:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+        .btn-submit { width: 100%; padding: 12px; background: #0f172a; color: #ffffff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 12px; }
+        .btn-submit:hover { background: #1e293b; }
+        .auth-footer { text-align: center; margin-top: 24px; font-size: 13px; color: #64748b; }
+        .auth-footer a { color: #4f46e5; text-decoration: none; font-weight: 500; }
+        .alert { padding: 12px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; text-align: center; border: 1px solid #fca5a5; background: #fef2f2; color: #991b1b; }
+        .alert-success { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
+    </style>
+</head>
+<body>
+    <div class="auth-card">
+        <div class="brand">
+            <h1 style="font-size: 26px; font-weight: 700; color: #0f172a;">Talent<span style="color: #4f46e5;">Pulse</span></h1>
+            <p style="font-size: 13px; color: #64748b; margin-top: 4px;">Entre com suas credenciais de acesso</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for categoria, message in messages %}
+                    <div class="alert {% if categoria == 'success' %}alert-success{% endif %}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form action="/login" method="POST">
+            <div class="form-group">
+                <label for="email">E-mail</label>
+                <input type="email" id="email" name="email" class="form-control" placeholder="seu@email.com" required>
+            </div>
+            <div class="form-group">
+                <label for="senha">Senha</label>
+                <input type="password" id="senha" name="senha" class="form-control" placeholder="••••••••" required>
+            </div>
+            <button type="submit" class="btn-submit">Acessar Sistema</button>
+        </form>
+
+        <div class="auth-footer">
+            Não tem uma conta? <a href="/cadastro">Cadastre-se</a>
+        </div>
+    </div>
+</body>
+</html>
