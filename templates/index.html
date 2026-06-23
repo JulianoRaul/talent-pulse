@@ -6,7 +6,7 @@
     <title>TalentPulse - Extração Inteligente de Currículos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=300;400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
         * {
@@ -209,6 +209,14 @@
             box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
         }
 
+        /* Grupo de botões de ações do Filtro */
+        .filter-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
         .btn-filtrar {
             width: 100%;
             padding: 12px;
@@ -219,12 +227,32 @@
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            margin-top: 8px;
             transition: background-color 0.15s ease;
         }
 
         .btn-filtrar:hover {
             background: #1e293b;
+        }
+
+        .btn-limpar {
+            width: 100%;
+            padding: 10px;
+            background: #ffffff;
+            color: #64748b;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            text-align: center;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .btn-limpar:hover {
+            background: #f1f5f9;
+            color: #1e293b;
+            border-color: #94a3b8;
         }
 
         .results-column {
@@ -454,7 +482,12 @@
                             </select>
                         </div>
 
-                        <button type="submit" class="btn-filtrar">Filtrar Perfis</button>
+                        <div class="filter-actions">
+                            <button type="submit" class="btn-filtrar">Filtrar Perfis</button>
+                            {% if request.args.get('busca') or request.args.get('localizacao') or request.args.get('formacao') or request.args.get('genero') or request.args.get('idioma') or request.args.get('nivel_idioma') %}
+                                <a href="/" class="btn-limpar">❌ Limpar Filtros</a>
+                            {% endif %}
+                        </div>
                     </form>
                 </div>
             </div>
@@ -515,11 +548,16 @@
                             </div>
 
                         </div>
-                    {% endfor %} {% else %}
+                    {% endfor %}
+                {% else %}
                     <div class="card" style="text-align: center; padding: 40px; color: #64748b;">
                         <p style="font-size: 15px; font-weight: 500;">Nenhum candidato encontrado com os filtros aplicados.</p>
+                        {% if request.args.get('busca') or request.args.get('localizacao') or request.args.get('formacao') or request.args.get('genero') or request.args.get('idioma') or request.args.get('nivel_idioma') %}
+                            <a href="/" class="btn-limpar" style="display: inline-block; width: auto; margin-top: 12px; padding: 8px 16px;">❌ Limpar Filtros</a>
+                        {% endif %}
                     </div>
-                {% endif %} </div>
+                {% endif %}
+            </div>
         </main>
     </div>
 
