@@ -5,6 +5,7 @@ import io
 import json
 import base64
 import unicodedata
+import time
 from urllib.parse import urlparse
 from flask import Flask, render_template, request, redirect, url_for, flash, Response, jsonify, send_file, session
 from google import genai
@@ -152,47 +153,58 @@ def estruturar_curriculo_com_ia(texto_bruto):
             "cursos": "Nenhum", "hard_skills": "Nenhuma", "soft_skills": "Nenhuma", "idiomas": "Não informado"
         }
         
-    try:
-        system_prompt = (
-            "Você é um especialista em recrutamento avançado e triagem de currículos.\n"
-            "Sua tarefa é analisar o texto do candidato e extrair os dados dividindo estritamente as competências conforme as diretrizes abaixo:\n\n"
-            "1. HARD SKILLS:\n"
-            "Identifique e liste apenas habilidades técnicas palpáveis, conhecimentos operacionais, ferramentas, metodologias profissionais, frameworks e linguagens de programação. Separe-as por vírgula.\n"
-            "Exemplos: Python, JavaScript, Excel Avançado, SQL, Contabilidade, Gestão de Tráfego, Photoshop, CRM Pipedrive.\n\n"
-            "2. SOFT SKILLS:\n"
-            "Classifique e liste exclusivamente as características e competências comportamentais baseadas estritamente nos seguintes tipos mapeados:\n"
-            "- Comunicação (expressar ideias claras/concisas, saber ouvir)\n"
-            "- Liderança (influenciar, motivar pessoas, guiar equipes)\n"
-            "- Trabalho em equipe (colaborar com terceiros, alcançar resultados juntos)\n"
-            "- Resolução de problemas (analisar situações complexas, soluções criativas)\n"
-            "- Inteligência emocional (gerenciar emoções, lidar com o estresse, relações saudáveis)\n"
-            "- Adaptabilidade (ajustar-se a mudanças, aprender rápido)\n"
-            "- Criatividade (pensar fora da caixa, ideias originais)\n"
-            "Adicione na lista de soft_skills apenas os termos identificados que correspondam ou derivem desse grupo conceitual, separados por vírgula.\n\n"
-            "Mapeie também o campo 'idiomas' (Iniciante, Intermediário ou Avançado/Fluente). Se algum campo não existir, marque 'Não informado'."
-        )
+    system_prompt = (
+        "Você é um especialista em recrutamento avançado e triagem de currículos.\n"
+        "Sua tarefa é analisar o texto do candidato e extrair os dados dividindo estritamente as competências conforme as diretrizes abaixo:\n\n"
+        "1. HARD SKILLS:\n"
+        "Identifique e liste apenas habilidades técnicas palpáveis, conhecimentos operacionais, ferramentas, metodologias profissionais, frameworks e linguagens de programação. Separe-as por vírgula.\n"
+        "Exemplos: Python, JavaScript, Excel Avançado, SQL, Contabilidade, Gestão de Tráfego, Photoshop, CRM Pipedrive.\n\n"
+        "2. SOFT SKILLS:\n"
+        "Classifique e liste exclusivamente as características e competências comportamentais baseadas estritamente nos seguintes tipos mapeados:\n"
+        "- Comunicação (expressar ideias claras/concisas, saber ouvir)\n"
+        "- Liderança (influenciar, motivar pessoas, guiar equipes)\n"
+        "- Trabalho em equipe (colaborar com terceiros, alcançar resultados juntos)\n"
+        "- Resolução de problemas (analisar situações complexas, soluções criativas)\n"
+        "- Inteligência emocional (gerenciar emoções, lidar com o estresse, relações saudáveis)\n"
+        "- Adaptabilidade (ajustar-se a mudanças, aprender rápido)\n"
+        "- Criatividade (pensar fora da caixa, ideias originais)\n"
+        "Adicione na lista de soft_skills apenas os termos identificados que correspondam ou derivem desse grupo conceitual, separados por vírgula.\n\n"
+        "Mapeie também o campo 'idiomas' (Iniciante, Intermediário ou Avançado/Fluente). Se algum campo não existir, marque 'Não informado'."
+    )
 
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=f"Analise o seguinte currículo:\n\n{texto_limitado}",
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=EstruturaCurriculo,
-                system_instruction=system_prompt
+    max_tentativas = 3
+    tempo_espera = 2  # segundos inicial
+
+    for tentativa in range(max_tentativas):
+        try:
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=f"Analise o seguinte currículo:\n\n{texto_limitado}",
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=EstruturaCurriculo,
+                    system_instruction=system_prompt,
+                    temperature=0.1
+                )
             )
-        )
-        
-        texto_resposta = response.text.strip() if response.text else ""
-        if texto_resposta:
-            dados = json.loads(texto_resposta)
-            return {k: limpar_caracteres_invalidos(str(v)) for k, v in dados.items()}
             
-    except Exception as e:
-        print(f"Erro na análise com o Gemini GenAI: {e}")
+            texto_resposta = response.text.strip() if response.text else ""
+            if texto_resposta:
+                dados = json.loads(texto_resposta)
+                return {k: limpar_caracteres_invalidos(str(v)) for k, v in dados.items()}
+                
+        except Exception as e:
+            print(f"[AVISO] Tentativa {tentativa + 1} de {max_tentativas} falhou devido a instabilidade na API (Erro: {e})")
+            if tentativa < max_tentativas - 1:
+                print(f"Aguardando {tempo_espera} segundos antes da próxima tentativa...")
+                time.sleep(tempo_espera)
+                tempo_espera *= 2  # Dobra o tempo (Backoff Exponencial: 2s -> 4s)
+            else:
+                print("Número máximo de retentativas atingido no Gemini GenAI. Aplicando proteção de fallback.")
         
     return {
         "nome": "Nome provisório", "idade": "Não Informado", "sexo": "Não Informado",
-        "localizacao": "Manual necessário", "formacao": "Estrutura complexa de leitura.",
+        "localizacao": "Manual necessário", "formacao": "O servidor da IA estava instável no momento do processamento.",
         "cursos": "Consulte o arquivo original", "hard_skills": "Análise Manual", "soft_skills": "Análise Manual", "idiomas": "Não informado"
     }
 
@@ -341,40 +353,4 @@ def ocultar(id_candidato):
         session['ocultados'] = lista
     return jsonify({"status": "sucesso", "mensagem": "Candidato ocultado da tela"})
 
-@app.route('/excluir/<int:id_candidato>', methods=['POST'])
-def excluir(id_candidato):
-    try:
-        with get_db_connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute("DELETE FROM curriculos WHERE id = %s", (id_candidato,))
-                conn.commit()
-        return jsonify({"status": "sucesso", "mensagem": "Candidato removido definitivamente do banco de dados."})
-    except Exception as e:
-        print(f"Erro ao excluir do banco: {e}")
-        return jsonify({"status": "erro", "mensagem": "Falha ao apagar registro do banco de dados."}), 500
-
-@app.route('/visualizar/<int:id_candidato>')
-def visualizar(id_candidato):
-    try:
-        with get_db_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute("SELECT nome_arquivo, arquivo_binario FROM curriculos WHERE id = %s", (id_candidato,))
-                resultado = cursor.fetchone()
-                
-                if resultado and resultado['arquivo_binario']:
-                    dados_decodificados = base64.b64decode(resultado['arquivo_binario'])
-                    extensao = resultado['nome_arquivo'].rsplit('.', 1)[1].lower()
-                    mime = 'application/pdf' if extensao == 'pdf' else 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-                    
-                    return send_file(
-                        io.BytesIO(dados_decodificados),
-                        mimetype=mime,
-                        as_attachment=False,
-                        download_name=resultado['nome_arquivo']
-                    )
-    except Exception as e:
-        print(f"Erro ao renderizar arquivo: {e}")
-    return "Arquivo ou candidato indisponível", 404
-
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+@app.
