@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TalentPulse - Criar Conta</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background-color: #f8fafc; color: #334155; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+        .auth-card { background: #ffffff; padding: 40px; border-radius: 16px; border: 1px solid #e2e8f0; width: 100%; max-width: 400px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .brand { text-align: center; margin-bottom: 32px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; margin-bottom: 6px; }
+        .form-control { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; }
+        .form-control:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+        .btn-submit { width: 100%; padding: 12px; background: #4f46e5; color: #ffffff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 12px; }
+        .btn-submit:hover { background: #4338ca; }
+        .auth-footer { text-align: center; margin-top: 24px; font-size: 13px; color: #64748b; }
+        .auth-footer a { color: #0f172a; text-decoration: none; font-weight: 500; }
+        .alert { padding: 12px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; text-align: center; border: 1px solid #fca5a5; background: #fef2f2; color: #991b1b; }
+    </style>
+</head>
+<body>
+    <div class="auth-card">
+        <div class="brand">
+            <h1 style="font-size: 26px; font-weight: 700; color: #0f172a;">Criar <span style="color: #4f46e5;">Conta</span></h1>
+            <p style="font-size: 13px; color: #64748b; margin-top: 4px;">Cadastre um novo usuário administrador</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for categoria, message in messages %}
+                    <div class="alert">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form action="/cadastro" method="POST">
+            <div class="form-group">
+                <label for="nome">Nome Completo</label>
+                <input type="text" id="nome" name="nome" class="form-control" placeholder="João Silva" required>
+            </div>
+            <div class="form-group">
+                <label for="email">E-mail Corporativo</label>
+                <input type="email" id="email" name="email" class="form-control" placeholder="nome@empresa.com" required>
+            </div>
+            <div class="form-group">
+                <label for="senha">Defina uma Senha</label>
+                <input type="password" id="senha" name="senha" class="form-control" placeholder="Mínimo 6 caracteres" minlength="6" required>
+            </div>
+            <button type="submit" class="btn-submit">Registrar Usuário</button>
+        </form>
+
+        <div class="auth-footer">
+            Já possui cadastro? <a href="/login">Fazer Login</a>
+        </div>
+    </div>
+</body>
+</html>
