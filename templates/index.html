@@ -6,7 +6,7 @@
     <title>TalentPulse - Extração Inteligente de Currículos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
         * {
@@ -209,14 +209,6 @@
             box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
         }
 
-        /* Grupo de botões de ações do Filtro */
-        .filter-actions {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            margin-top: 12px;
-        }
-
         .btn-filtrar {
             width: 100%;
             padding: 12px;
@@ -227,32 +219,12 @@
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
+            margin-top: 8px;
             transition: background-color 0.15s ease;
         }
 
         .btn-filtrar:hover {
             background: #1e293b;
-        }
-
-        .btn-limpar {
-            width: 100%;
-            padding: 10px;
-            background: #ffffff;
-            color: #64748b;
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 500;
-            text-align: center;
-            text-decoration: none;
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-
-        .btn-limpar:hover {
-            background: #f1f5f9;
-            color: #1e293b;
-            border-color: #94a3b8;
         }
 
         .results-column {
@@ -321,6 +293,18 @@
             color: #1e293b;
         }
 
+        .btn-retirar {
+            background: #fff7ed;
+            color: #c2410c;
+            border-color: #fed7aa;
+        }
+
+        .btn-retirar:hover {
+            background: #ffedd5;
+            border-color: #fdba74;
+            color: #9a3412;
+        }
+
         .btn-excluir {
             background: #fef2f2;
             color: #b91c1c;
@@ -340,6 +324,8 @@
 
         .info-section strong {
             color: #1e293b;
+            display: block;
+            margin-bottom: 6px;
             font-weight: 600;
         }
 
@@ -482,12 +468,7 @@
                             </select>
                         </div>
 
-                        <div class="filter-actions">
-                            <button type="submit" class="btn-filtrar">Filtrar Perfis</button>
-                            {% if request.args.get('busca') or request.args.get('localizacao') or request.args.get('formacao') or request.args.get('genero') or request.args.get('idioma') or request.args.get('nivel_idioma') %}
-                                <a href="/" class="btn-limpar">❌ Limpar Filtros</a>
-                            {% endif %}
-                        </div>
+                        <button type="submit" class="btn-filtrar">Filtrar Perfis</button>
                     </form>
                 </div>
             </div>
@@ -500,64 +481,84 @@
                                 <div class="candidato-info">
                                     <h3>{{ candidato.nome if candidato.nome and candidato.nome != 'Manual necessário' else (candidato.nome_arquivo or 'Currículo Processado') }}</h3>
                                     <div class="candidato-meta">
-                                        <span>📍 {{ candidato.localizacao or 'Não informada' }}</span>
-                                        <span>🎓 {{ candidato.formacao or 'Não informada' }}</span>
-                                        <span>🗣️ {{ candidato.idioma or 'Não informado' }} {% if candidato.nivel_idioma %}({{ candidato.nivel_idioma }}){% endif %}</span>
+                                        <span>📍 {{ candidato.localizacao or 'Não informado' }}</span>
+                                        <span>🎂 {{ candidato.idade or 'Não informado' }}</span>
+                                        <span>👤 Gênero: {{ candidato.sexo or 'Não informado' }}</span>
+                                        {% if candidato.idiomas and candidato.idiomas != 'Não informado' %}
+                                            <span>🗣️ {{ candidato.idiomas }}</span>
+                                        {% endif %}
                                     </div>
                                 </div>
+                                
                                 <div class="actions-group">
-                                    <a href="/visualizar/{{ loop.index }}" class="btn-action">👁️ Ver Original</a>
-                                    <form action="/excluir/{{ loop.index }}" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja excluir este perfil?');">
-                                        <button type="submit" class="btn-action btn-excluir">🗑️ Excluir</button>
-                                    </form>
+                                    {% if candidato.id %}
+                                        <a href="/visualizar/{{ candidato.id }}" target="_blank" class="btn-action">
+                                            👁️ Abrir
+                                        </a>
+                                    {% else %}
+                                        <button class="btn-action" disabled style="opacity: 0.5; cursor: not-allowed;">
+                                            👁️ Indisponível
+                                        </button>
+                                    {% endif %}
+                                    
+                                    <button onclick="retirarDaTela('candidato-{{ loop.index }}', {{ candidato.id }})" class="btn-action btn-retirar" title="Ocultar temporariamente do painel de visualização">
+                                        👁️‍🗨️ Retirar
+                                    </button>
+
+                                    <button onclick="excluirDoBanco('candidato-{{ loop.index }}', {{ candidato.id }}, '{{ candidato.nome }}')" class="btn-action btn-excluir" title="Apagar permanentemente do banco de dados">
+                                        🗑️ Excluir
+                                    </button>
                                 </div>
                             </div>
-
-                            <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 4px 0;">
 
                             <div class="info-section">
-                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                                    <span style="background: #eff6ff; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 12px; border: 1px solid #bfdbfe;">💻</span>
-                                    <strong style="margin: 0;">Hard Skills (Técnicas):</strong>
-                                </div>
+                                <strong>Formação Acadêmica:</strong>
+                                <div style="white-space: pre-line; color: #475569;">{{ candidato.formacao or 'Não informada' }}</div>
+                            </div>
+
+                            <div class="info-section">
+                                <strong>Hard Skills (Competências Técnicas):</strong>
                                 <div class="skills-container">
-                                    {% if candidato.hard_skills and candidato.hard_skills != 'Nenhuma' and candidato.hard_skills != 'Análise Manual' %}
+                                    {% if candidato.hard_skills %}
                                         {% for skill in candidato.hard_skills.split(',') %}
-                                            <span class="skill-badge hard" style="background: #eff6ff; color: #1e40af; border-color: #bfdbfe;">{{ skill.strip() }}</span>
+                                            {% if skill.strip() %}
+                                                <span class="skill-badge" style="background: #e0e7ff; color: #4338ca; border-color: #c7d2fe;">
+                                                    🛠️ {{ skill.strip() }}
+                                                </span>
+                                            {% endif %}
                                         {% endfor %}
                                     {% else %}
-                                        <span class="skill-badge" style="color: #64748b; background: #f8fafc;">Consulte o arquivo original</span>
+                                        <p style="color: #94a3b8; font-style: italic; font-size: 13px;">Nenhuma competência técnica mapeada</p>
                                     {% endif %}
                                 </div>
                             </div>
 
-                            <div class="info-section" style="margin-top: 12px;">
-                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                                    <span style="background: #f5f3ff; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 12px; border: 1px solid #ddd6fe;">🧠</span>
-                                    <strong style="margin: 0;">Soft Skills (Comportamentais):</strong>
-                                </div>
+                            <div class="info-section">
+                                <strong>Soft Skills (Habilidades Comportamentais):</strong>
                                 <div class="skills-container">
-                                    {% if candidato.soft_skills and candidato.soft_skills != 'Nenhuma' and candidato.soft_skills != 'Análise Manual' %}
+                                    {% if candidato.soft_skills %}
                                         {% for skill in candidato.soft_skills.split(',') %}
-                                            <span class="skill-badge soft" style="background: #f5f3ff; color: #5b21b6; border-color: #ddd6fe;">{{ skill.strip() }}</span>
+                                            {% if skill.strip() %}
+                                                <span class="skill-badge" style="background: #fdf2f8; color: #9d174d; border-color: #fbcfe8;">
+                                                    🧠 {{ skill.strip() }}
+                                                </span>
+                                            {% endif %}
                                         {% endfor %}
                                     {% else %}
-                                        <span class="skill-badge" style="color: #64748b; background: #f8fafc;">Consulte o arquivo original</span>
+                                        <p style="color: #94a3b8; font-style: italic; font-size: 13px;">Nenhuma habilidade comportamental mapeada</p>
                                     {% endif %}
                                 </div>
                             </div>
-
                         </div>
                     {% endfor %}
                 {% else %}
-                    <div class="card" style="text-align: center; padding: 40px; color: #64748b;">
-                        <p style="font-size: 15px; font-weight: 500;">Nenhum candidato encontrado com os filtros aplicados.</p>
-                        {% if request.args.get('busca') or request.args.get('localizacao') or request.args.get('formacao') or request.args.get('genero') or request.args.get('idioma') or request.args.get('nivel_idioma') %}
-                            <a href="/" class="btn-limpar" style="display: inline-block; width: auto; margin-top: 12px; padding: 8px 16px;">❌ Limpar Filtros</a>
-                        {% endif %}
+                    <div class="card" style="text-align: center; padding: 48px; color: #64748b;">
+                        <span style="font-size: 32px; display: block; margin-bottom: 12px;">📁</span>
+                        Nenhum candidato cadastrado ou compatível com os filtros.
                     </div>
                 {% endif %}
             </div>
+
         </main>
     </div>
 
@@ -565,32 +566,90 @@
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         const uploadForm = document.getElementById('upload-form');
+        const uploadContent = document.getElementById('upload-content');
 
-        if (dropZone && fileInput) {
-            ['dragenter', 'dragover'].forEach(eventName => {
-                dropZone.addEventListener(eventName, (e) => {
-                    e.preventDefault();
-                    dropZone.classList.add('dragover');
-                }, false);
-            });
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                uploadContent.innerHTML = `<div class="upload-icon" style="color: #22c55e;">✓</div><p class="upload-text-main">Enviando documento...</p>`;
+                uploadForm.submit();
+            }
+        });
 
-            ['dragleave', 'drop'].forEach(eventName => {
-                dropZone.addEventListener(eventName, (e) => {
-                    e.preventDefault();
-                    dropZone.classList.remove('dragover');
-                }, false);
-            });
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            }, false);
+        });
 
-            dropZone.addEventListener('drop', (e) => {
-                const dt = e.dataTransfer;
-                const files = dt.files;
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
                 fileInput.files = files;
-                if (files.length > 0) uploadForm.submit();
-            });
+                uploadContent.innerHTML = `<div class="upload-icon" style="color: #22c55e;">✓</div><p class="upload-text-main">Enviando documento...</p>`;
+                uploadForm.submit();
+            }
+        });
 
-            fileInput.addEventListener('change', () => {
-                if (fileInput.files.length > 0) uploadForm.submit();
-            });
+        // Apenas oculta temporariamente na sessão
+        function retirarDaTela(idElemento, idBanco) {
+            const card = document.getElementById(idElemento);
+            if (!card) return;
+
+            fetch(`/ocultar/${idBanco}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "sucesso") {
+                    fazerSumirCardDoPainel(card);
+                }
+            })
+            .catch(err => console.error("Erro ao retirar candidato:", err));
+        }
+
+        // Deleta em definitivo do Banco de Dados
+        function excluirDoBanco(idElemento, idBanco, nomeCandidato) {
+            const card = document.getElementById(idElemento);
+            if (!card) return;
+
+            if (confirm(`Tem certeza absoluta de que deseja EXCLUIR DEFINITIVAMENTE o currículo de "${nomeCandidato}" do banco de dados? Esta ação não pode ser desfeita.`)) {
+                fetch(`/excluir/${idBanco}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "sucesso") {
+                        fazerSumirCardDoPainel(card);
+                    } else {
+                        alert("Erro ao excluir: " + data.mensagem);
+                    }
+                })
+                .catch(err => console.error("Erro ao deletar candidato:", err));
+            }
+        }
+
+        function fazerSumirCardDoPainel(card) {
+            card.style.opacity = '0';
+            card.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                card.remove();
+                const totalBadge = document.querySelector('.badge-triados span');
+                if (totalBadge) {
+                    let totalAtual = parseInt(totalBadge.innerText) || 0;
+                    if (totalAtual > 0) totalBadge.innerText = totalAtual - 1;
+                }
+            }, 300);
         }
     </script>
 </body>
