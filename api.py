@@ -339,6 +339,7 @@ def upload():
                     
             flash(f"Currículo de '{dados_ia['nome']}' processado e salvo com sucesso!", "success")
         except Exception as e:
+            print(f"Erro no upload: {e}")
             flash("Falha interna ao processar documento.", "error")
             
     return redirect(url_for('index'))
@@ -347,10 +348,34 @@ def upload():
 def ocultar(id_candidato):
     if 'ocultados' not in session:
         session['ocultados'] = []
-    lista = session['ocultados']
+    lista = list(session['ocultados'])
     if id_candidato not in lista:
         lista.append(id_candidato)
         session['ocultados'] = lista
     return jsonify({"status": "sucesso", "mensagem": "Candidato ocultado da tela"})
 
-@app.
+@app.route('/download/<int:id_candidato>', methods=['GET'])
+def download(id_candidato):
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("SELECT nome_arquivo, arquivo_binario FROM curriculos WHERE id = %s", (id_candidato,))
+                resultado = cursor.fetchone()
+                
+                if resultado and resultado['arquivo_binario']:
+                    dados_arquivos = base64.b64decode(resultado['arquivo_binario'])
+                    return send_file(
+                        io.BytesIO(dados_arquivos),
+                        download_name=resultado['nome_arquivo'],
+                        as_attachment=True
+                    )
+                else:
+                    flash("Arquivo original não encontrado.", "error")
+                    return redirect(url_for('index'))
+    except Exception as e:
+        print(f"Erro no download: {e}")
+        flash("Erro ao resgatar arquivo do banco de dados.", "error")
+        return redirect(url_for('index'))
+
+if __name__ == '__main__':
+    app.run(debug=True)
