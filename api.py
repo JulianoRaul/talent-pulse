@@ -124,7 +124,7 @@ client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 class EstruturaCurriculo(BaseModel):
     nome: str
-    id_idade: str
+    idade: str  # <--- Corrigido aqui de id_idade para idade
     sexo: str
     localizacao: str
     formacao: str
