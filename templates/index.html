@@ -6,7 +6,7 @@
     <title>TalentPulse - Extração Inteligente de Currículos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=300;400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
         * {
@@ -45,6 +45,12 @@
             gap: 14px;
         }
 
+        .topbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
         .badge-triados {
             background: #ecfdf5;
             color: #047857;
@@ -53,6 +59,23 @@
             font-size: 14px;
             font-weight: 600;
             border: 1px solid #a7f3d0;
+        }
+
+        .btn-logout {
+            font-size: 13px;
+            color: #64748b;
+            text-decoration: none;
+            font-weight: 500;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid transparent;
+            transition: all 0.15s ease;
+        }
+
+        .btn-logout:hover {
+            color: #b91c1c;
+            background: #fef2f2;
+            border-color: #fca5a5;
         }
 
         .main-grid {
@@ -389,8 +412,11 @@
                 </div>
             </div>
 
-            <div class="badge-triados">
-                Candidatos Triados: <span>{{ candidatos|length if candidatos else 0 }}</span>
+            <div class="topbar-actions">
+                <div class="badge-triados">
+                    Candidatos Triados: <span>{{ candidatos|length if candidatos else 0 }}</span>
+                </div>
+                <a href="/logout" class="btn-logout">🚪 Sair</a>
             </div>
         </header>
 
@@ -599,7 +625,6 @@
             }
         });
 
-        // Apenas oculta temporariamente na sessão
         function retirarDaTela(idElemento, idBanco) {
             const card = document.getElementById(idElemento);
             if (!card) return;
@@ -617,7 +642,6 @@
             .catch(err => console.error("Erro ao retirar candidato:", err));
         }
 
-        // Deleta em definitivo do Banco de Dados
         function excluirDoBanco(idElemento, idBanco, nomeCandidato) {
             const card = document.getElementById(idElemento);
             if (!card) return;
