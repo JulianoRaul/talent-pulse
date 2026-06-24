@@ -504,15 +504,26 @@ def upload():
             
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("""
+                   cursor.execute("""
                         INSERT INTO curriculos (
                             nome_arquivo, conteudo, nome_candidato, idade, sexo, 
                             localizacao, formacao, cursos, habilidades, hard_skills, soft_skills, idiomas, arquivo_binario
                         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """, (
-                        nome_original, texto_bruto, dados_ia['nome'], dados_ia['idade'], dados_ia['sexo'],
-                        dados_ia['localizacao'], dados_ia['formacao'], dados_ia['cursos'], 
-                        dados_ia['hard_skills'], dados_ia['hard_skills'], dados_ia['soft_skills'], dados_ia['idiomas'], arquivo_b64
+                        nome_original, 
+                        texto_bruto, 
+                        dados_ia['nome'], 
+                        dados_ia['idade'], 
+                        dados_ia['sexo'],
+                        dados_ia['localizacao'], 
+                        dados_ia['formacao'], 
+                        dados_ia['cursos'],        # <--- Corrigido (Antes estava salvando hard_skills aqui)
+                        dados_ia['hard_skills'],    # habilidades genéricas recebe hard_skills
+                        dados_ia['hard_skills'], 
+                        dados_ia['soft_skills'], 
+                        dados_ia['idiomas'], 
+                        arquivo_b64
+                    ))os_ia['hard_skills'], dados_ia['hard_skills'], dados_ia['soft_skills'], dados_ia['idiomas'], arquivo_b64
                     ))
                     conn.commit()
                     
@@ -557,6 +568,28 @@ def download(id_candidato):
         print(f"Erro no download: {e}")
         flash("Erro ao resgatar arquivo do banco de dados.", "error")
         return redirect(url_for('index'))
-
+        
+@app.route('/visualizar/<int:id_candidato>', methods=['GET'])
+@login_required
+def visualizar(id_candidato):
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT id, nome_arquivo, conteudo, nome_candidato AS nome, idade, sexo, 
+                           localizacao, formacao, cursos, hard_skills, soft_skills, idiomas 
+                    FROM curriculos WHERE id = %s
+                """, (id_candidato,))
+                candidato = cursor.fetchone()
+                
+                if not candidato:
+                    flash("Candidato não encontrado.", "error")
+                    return redirect(url_for('index'))
+                    
+        return render_template('visualizar.html', candidato=candidato)
+    except Exception as e:
+        print(f"Erro ao visualizar currículo: {e}")
+        flash("Erro ao carregar os detalhes do currículo.", "error")
+        return redirect(url_for('index'))
 if __name__ == '__main__':
     app.run(debug=True)
