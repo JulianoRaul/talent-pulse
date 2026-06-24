@@ -513,9 +513,16 @@
                                         <a href="/visualizar/{{ candidato.id }}" target="_blank" class="btn-action">
                                             👁️ Abrir
                                         </a>
+                                        <!-- Nova rota integrada de Visualização Direta do Original -->
+                                        <a href="{{ url_for('visualizar_original', id_candidato=candidato.id) }}" target="_blank" class="btn-action">
+                                            📄 Original
+                                        </a>
                                     {% else %}
                                         <button class="btn-action" disabled style="opacity: 0.5; cursor: not-allowed;">
                                             👁️ Indisponível
+                                        </button>
+                                        <button class="btn-action" disabled style="opacity: 0.5; cursor: not-allowed;">
+                                            📄 Indisponível
                                         </button>
                                     {% endif %}
                                     
@@ -660,10 +667,14 @@
             card.style.transform = 'scale(0.95)';
             setTimeout(() => {
                 card.remove();
-                const totalBadge = document.querySelector('.badge-triados span');
+                const totalBadge = document.querySelector('.badge-triados');
                 if (totalBadge) {
-                    let totalAtual = parseInt(totalBadge.innerText) || 0;
-                    if (totalAtual > 0) totalBadge.innerText = totalAtual - 1;
+                    // Atualização simples de texto caso queira decrementar sem recarregar a página
+                    let partes = totalBadge.innerText.split(':');
+                    if(partes.length > 1) {
+                        let totalAtual = parseInt(partes[1].trim()) || 0;
+                        if (totalAtual > 0) totalBadge.innerText = `Candidatos Triados: ${totalAtual - 1}`;
+                    }
                 }
             }, 300);
         }
