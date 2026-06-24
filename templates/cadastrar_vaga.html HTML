@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Cadastrar Vaga - TalentPulse</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background-color: #f8fafc; color: #334155; padding: 40px; }
+        .box { max-width: 600px; margin: 0 auto; background: white; padding: 32px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        h2 { margin-bottom: 24px; color: #0f172a; font-size: 22px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; margin-bottom: 8px; }
+        .form-control { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; }
+        textarea.form-control { height: 120px; resize: vertical; }
+        .btn-submit { background: #4f46e5; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%; font-size: 15px; }
+        .btn-submit:hover { background: #4338ca; }
+        .back-link { display: inline-block; margin-top: 16px; color: #64748b; font-size: 14px; text-decoration: none; }
+        .back-link:hover { color: #4f46e5; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h2>Cadastrar Nova Vaga</h2>
+        <form method="POST" action="{{ url_for('cadastrar_vaga') }}">
+            <div class="form-group">
+                <label>Título da Vaga</label>
+                <input type="text" name="titulo" class="form-control" placeholder="Ex: Desenvolvedor Python Pleno" required>
+            </div>
+            <div class="form-group">
+                <label>Localização / Modelo</label>
+                <input type="text" name="localizacao" class="form-control" placeholder="Ex: Remoto / São Paulo - SP">
+            </div>
+            <div class="form-group">
+                <label>Descrição das Atividades</label>
+                <textarea name="descricao" class="form-control" placeholder="Descreva as responsabilidades da vaga..." required></textarea>
+            </div>
+            <div class="form-group">
+                <label>Requisitos e Qualificações</label>
+                <textarea name="requisitos" class="form-control" placeholder="Ex: Python, Flask, SQL Avançado..."></textarea>
+            </div>
+            <button type="submit" class="btn-submit">Salvar e Publicar Vaga</button>
+        </form>
+        <a href="{{ url_for('index') }}" class="back-link">← Voltar para o Painel</a>
+    </div>
+</body>
+</html>
