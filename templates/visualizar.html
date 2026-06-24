@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Visualizar Candidato - {{ candidato.nome }}</title>
+</head>
+<body>
+    <h1>Perfil do Candidato: {{ candidato.nome }}</h1>
+    <p><strong>Idade:</strong> {{ candidato.idade }}</p>
+    <p><strong>Gênero:</strong> {{ candidato.sexo }}</p>
+    <p><strong>Localização:</strong> {{ candidato.localizacao }}</p>
+    <p><strong>Formação:</strong> {{ candidato.formacao }}</p>
+    <p><strong>Cursos:</strong> {{ candidato.cursos }}</p>
+    <p><strong>Hard Skills:</strong> {{ candidato.hard_skills }}</p>
+    <p><strong>Soft Skills:</strong> {{ candidato.soft_skills }}</p>
+    <p><strong>Idiomas:</strong> {{ candidato.idiomas }}</p>
+    <br>
+    <a href="{{ url_for('index') }}">Voltar para a listagem</a>
+</body>
+</html>
