@@ -52,9 +52,33 @@ def load_user(user_id):
     return None
 
 # ==============================================================================
-# CONFIGURAÇÃO DO BANCO DE DADOS (POSTGRESQL) - ATUALIZADO
+# CONFIGURAÇÃO DO BANCO DE DADOS (POSTGRESQL)
 # ==============================================================================
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
+# 1. Primeiro definimos COMO se conectar
+def get_db_connection():
+    if DATABASE_URL:
+        url_conexao = DATABASE_URL.strip()
+        if url_conexao.startswith("postgres://"):
+            url_conexao = url_conexao.replace("postgres://", "postgresql://", 1)
+        try:
+            return psycopg2.connect(url_conexao)
+        except Exception as e:
+            url_limpa = url_conexao.split('?')[0]
+            parsed = urlparse(url_limpa)
+            return psycopg2.connect(
+                database=parsed.path[1:],
+                user=parsed.username,
+                password=parsed.password,
+                host=parsed.hostname,
+                port=parsed.port or 5432,
+                sslmode='require'
+            )
+    else:
+        return psycopg2.connect("dbname=talent_pulse user=postgres password=postgres host=localhost")
+
+# 2. Depois definimos a estrutura das tabelas
 def init_db():
     try:
         with get_db_connection() as conn:
@@ -89,7 +113,7 @@ def init_db():
                     );
                 ''')
 
-                # NOVA: Tabela de Vagas
+                # Tabela de Vagas
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS vagas (
                         id SERIAL PRIMARY KEY,
@@ -104,6 +128,7 @@ def init_db():
     except Exception as e:
         print(f"Erro ao inicializar o banco de dados: {e}")
 
+# 3. E por último, chamamos a função globalmente para rodar na inicialização
 init_db()
 
 # ... (Mantenha o restante do código igual até o final das rotas) ...
