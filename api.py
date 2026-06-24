@@ -52,30 +52,8 @@ def load_user(user_id):
     return None
 
 # ==============================================================================
-# CONFIGURAÇÃO DO BANCO DE DADOS (POSTGRESQL)
+# CONFIGURAÇÃO DO BANCO DE DADOS (POSTGRESQL) - ATUALIZADO
 # ==============================================================================
-DATABASE_URL = os.environ.get("DATABASE_URL")
-
-def get_db_connection():
-    if DATABASE_URL:
-        url_conexao = DATABASE_URL.strip()
-        if url_conexao.startswith("postgres://"):
-            url_conexao = url_conexao.replace("postgres://", "postgresql://", 1)
-        try:
-            return psycopg2.connect(url_conexao)
-        except Exception as e:
-            url_limpa = url_conexao.split('?')[0]
-            parsed = urlparse(url_limpa)
-            return psycopg2.connect(
-                database=parsed.path[1:],
-                user=parsed.username,
-                password=parsed.password,
-                host=parsed.hostname,
-                port=parsed.port or 5432,
-                sslmode='require'
-            )
-    else:
-        return psycopg2.connect("dbname=talent_pulse user=postgres password=postgres host=localhost")
 
 def init_db():
     try:
@@ -101,7 +79,7 @@ def init_db():
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS hard_skills TEXT;')
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS soft_skills TEXT;')
                 
-                # Nova Tabela de Usuários do Sistema
+                # Tabela de Usuários do Sistema
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS usuarios (
                         id SERIAL PRIMARY KEY,
@@ -110,11 +88,73 @@ def init_db():
                         senha_hash TEXT NOT NULL
                     );
                 ''')
+
+                # NOVA: Tabela de Vagas
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS vagas (
+                        id SERIAL PRIMARY KEY,
+                        titulo TEXT NOT NULL,
+                        descricao TEXT NOT NULL,
+                        requisitos TEXT,
+                        localizacao TEXT,
+                        data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                ''')
                 conn.commit()
     except Exception as e:
         print(f"Erro ao inicializar o banco de dados: {e}")
 
 init_db()
+
+# ... (Mantenha o restante do código igual até o final das rotas) ...
+
+# ==============================================================================
+# NOVAS ROTAS DE GESTÃO DE VAGAS
+# ==============================================================================
+
+@app.route('/cadastrar_vaga', methods=['GET', 'POST'])
+@login_required
+def cadastrar_vaga():
+    if request.method == 'POST':
+        titulo = request.form.get('titulo')
+        descricao = request.form.get('descricao')
+        requisitos = request.form.get('requisitos')
+        localizacao = request.form.get('localizacao')
+        
+        if not titulo or not descricao:
+            flash("Título e Descrição são obrigatórios.", "error")
+            return redirect(url_for('cadastrar_vaga'))
+            
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        INSERT INTO vagas (titulo, descricao, requisitos, localizacao)
+                        VALUES (%s, %s, %s, %s)
+                    """, (titulo, descricao, requisitos, localizacao))
+                    conn.commit()
+            flash("Vaga cadastrada com sucesso!", "success")
+            return redirect(url_for('listar_vagas'))
+        except Exception as e:
+            print(f"Erro ao cadastrar vaga: {e}")
+            flash("Erro interno ao salvar vaga.", "error")
+            
+    return render_template('cadastrar_vaga.html')
+
+@app.route('/vagas', methods=['GET'])
+@login_required
+def listar_vagas():
+    vagas_disponiveis = []
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("SELECT id, titulo, descricao, requisitos, localizacao, data_criacao FROM vagas ORDER BY id DESC")
+                vagas_disponiveis = cursor.fetchall()
+    except Exception as e:
+        print(f"Erro ao buscar vagas: {e}")
+        flash("Erro ao carregar as vagas.", "error")
+        
+    return render_template('vagas.html', vagas=vagas_disponiveis)
 
 # ==============================================================================
 # CONFIGURAÇÃO DO GOOGLE GEMINI AI
