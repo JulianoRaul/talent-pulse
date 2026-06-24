@@ -504,7 +504,7 @@ def upload():
             
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
-                   cursor.execute("""
+                    cursor.execute("""
                         INSERT INTO curriculos (
                             nome_arquivo, conteudo, nome_candidato, idade, sexo, 
                             localizacao, formacao, cursos, habilidades, hard_skills, soft_skills, idiomas, arquivo_binario
@@ -517,13 +517,12 @@ def upload():
                         dados_ia['sexo'],
                         dados_ia['localizacao'], 
                         dados_ia['formacao'], 
-                        dados_ia['cursos'],        # <--- Corrigido (Antes estava salvando hard_skills aqui)
-                        dados_ia['hard_skills'],    # habilidades genéricas recebe hard_skills
+                        dados_ia['cursos'], 
+                        dados_ia['hard_skills'], 
                         dados_ia['hard_skills'], 
                         dados_ia['soft_skills'], 
                         dados_ia['idiomas'], 
                         arquivo_b64
-                    ))os_ia['hard_skills'], dados_ia['hard_skills'], dados_ia['soft_skills'], dados_ia['idiomas'], arquivo_b64
                     ))
                     conn.commit()
                     
