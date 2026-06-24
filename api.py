@@ -504,6 +504,9 @@ def excluir(id_candidato):
         flash("Erro interno ao excluir o currículo.", "error")
         return redirect(url_for('index'))
 
+# ==============================================================================
+# VISUALIZAÇÃO E DOWNLOAD DE ARQUIVOS ORIGINAIS
+# ==============================================================================
 @app.route('/download/<int:id_candidato>', methods=['GET'])
 @login_required
 def download(id_candidato):
@@ -527,10 +530,45 @@ def download(id_candidato):
         print(f"Erro no download: {e}")
         flash("Erro ao resgatar arquivo do banco de dados.", "error")
         return redirect(url_for('index'))
-        
+
+
+@app.route('/visualizar_original/<int:id_candidato>', methods=['GET'])
+@login_required
+def visualizar_original(id_candidato):
+    """Rota que abre o arquivo PDF/DOCX original diretamente no navegador."""
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("SELECT nome_arquivo, arquivo_binario FROM curriculos WHERE id = %s", (id_candidato,))
+                resultado = cursor.fetchone()
+                
+                if resultado and resultado['arquivo_binario']:
+                    dados_arquivos = base64.b64decode(resultado['arquivo_binario'])
+                    nome_arquivo = resultado['nome_arquivo']
+                    extensao = nome_arquivo.rsplit('.', 1)[1].lower() if '.' in nome_arquivo else ''
+                    
+                    # Define o tipo de conteúdo para o navegador saber como renderizar
+                    mimetype = 'application/pdf' if extensao == 'pdf' else 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                    
+                    return send_file(
+                        io.BytesIO(dados_arquivos),
+                        mimetype=mimetype,
+                        download_name=nome_arquivo,
+                        as_attachment=False  # Crucial para abrir no navegador
+                    )
+                else:
+                    flash("Arquivo original não encontrado.", "error")
+                    return redirect(url_for('index'))
+    except Exception as e:
+        print(f"Erro ao visualizar arquivo original: {e}")
+        flash("Erro ao abrir o arquivo original.", "error")
+        return redirect(url_for('index'))
+
+
 @app.route('/visualizar/<int:id_candidato>', methods=['GET'])
 @login_required
 def visualizar(id_candidato):
+    """Mantém a visualização do perfil estruturado pela IA."""
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
@@ -550,7 +588,6 @@ def visualizar(id_candidato):
         print(f"Erro ao visualizar currículo: {e}")
         flash("Erro ao carregar os detalhes do currículo.", "error")
         return redirect(url_for('index'))
-
 # ==============================================================================
 # GESTÃO DE VAGAS
 # ==============================================================================
