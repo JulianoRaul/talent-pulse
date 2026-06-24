@@ -56,7 +56,6 @@ def load_user(user_id):
 # ==============================================================================
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
-# 1. Primeiro definimos COMO se conectar
 def get_db_connection():
     if DATABASE_URL:
         url_conexao = DATABASE_URL.strip()
@@ -78,7 +77,6 @@ def get_db_connection():
     else:
         return psycopg2.connect("dbname=talent_pulse user=postgres password=postgres host=localhost")
 
-# 2. Depois definimos a estrutura das tabelas
 def init_db():
     try:
         with get_db_connection() as conn:
@@ -128,58 +126,8 @@ def init_db():
     except Exception as e:
         print(f"Erro ao inicializar o banco de dados: {e}")
 
-# 3. E por último, chamamos a função globalmente para rodar na inicialização
+# Inicializa o banco de dados
 init_db()
-
-# ... (Mantenha o restante do código igual até o final das rotas) ...
-
-# ==============================================================================
-# NOVAS ROTAS DE GESTÃO DE VAGAS
-# ==============================================================================
-
-@app.route('/cadastrar_vaga', methods=['GET', 'POST'])
-@login_required
-def cadastrar_vaga():
-    if request.method == 'POST':
-        titulo = request.form.get('titulo')
-        descricao = request.form.get('descricao')
-        requisitos = request.form.get('requisitos')
-        localizacao = request.form.get('localizacao')
-        
-        if not titulo or not descricao:
-            flash("Título e Descrição são obrigatórios.", "error")
-            return redirect(url_for('cadastrar_vaga'))
-            
-        try:
-            with get_db_connection() as conn:
-                with conn.cursor() as cursor:
-                    cursor.execute("""
-                        INSERT INTO vagas (titulo, descricao, requisitos, localizacao)
-                        VALUES (%s, %s, %s, %s)
-                    """, (titulo, descricao, requisitos, localizacao))
-                    conn.commit()
-            flash("Vaga cadastrada com sucesso!", "success")
-            return redirect(url_for('listar_vagas'))
-        except Exception as e:
-            print(f"Erro ao cadastrar vaga: {e}")
-            flash("Erro interno ao salvar vaga.", "error")
-            
-    return render_template('cadastrar_vaga.html')
-
-@app.route('/vagas', methods=['GET'])
-@login_required
-def listar_vagas():
-    vagas_disponiveis = []
-    try:
-        with get_db_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute("SELECT id, titulo, descricao, requisitos, localizacao, data_criacao FROM vagas ORDER BY id DESC")
-                vagas_disponiveis = cursor.fetchall()
-    except Exception as e:
-        print(f"Erro ao buscar vagas: {e}")
-        flash("Erro ao carregar as vagas.", "error")
-        
-    return render_template('vagas.html', vagas=vagas_disponiveis)
 
 # ==============================================================================
 # CONFIGURAÇÃO DO GOOGLE GEMINI AI
@@ -189,7 +137,7 @@ client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 class EstruturaCurriculo(BaseModel):
     nome: str
-    idade: str  # <--- Corrigido aqui de id_idade para idade
+    idade: str  
     sexo: str
     localizacao: str
     formacao: str
@@ -281,7 +229,7 @@ def estruturar_curriculo_com_ia(texto_bruto):
     )
 
     max_tentativas = 3
-    tempo_espera = 2  # segundos inicial
+    tempo_espera = 2
 
     for tentativa in range(max_tentativas):
         try:
@@ -354,16 +302,13 @@ def cadastro():
         try:
             with get_db_connection() as conn:
                 with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                    # Verifica se o e-mail já existe
                     cursor.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
                     if cursor.fetchone():
                         flash("Este e-mail já está cadastrado.", "error")
                         return redirect(url_for('cadastro'))
                     
-                    # Criptografa a senha antes de salvar
                     senha_hash = generate_password_hash(senha)
                     
-                    # Salva no banco de dados real
                     cursor.execute(
                         "INSERT INTO usuarios (nome, email, senha_hash) VALUES (%s, %s, %s) RETURNING id",
                         (nome, email, senha_hash)
@@ -590,5 +535,53 @@ def visualizar(id_candidato):
         print(f"Erro ao visualizar currículo: {e}")
         flash("Erro ao carregar os detalhes do currículo.", "error")
         return redirect(url_for('index'))
+
+# ==============================================================================
+# GESTÃO DE VAGAS
+# ==============================================================================
+@app.route('/cadastrar_vaga', methods=['GET', 'POST'])
+@login_required
+def cadastrar_vaga():
+    if request.method == 'POST':
+        titulo = request.form.get('titulo')
+        descricao = request.form.get('descricao')
+        requisitos = request.form.get('requisitos')
+        localizacao = request.form.get('localizacao')
+        
+        if not titulo or not descricao:
+            flash("Título e Descrição são obrigatórios.", "error")
+            return redirect(url_for('cadastrar_vaga'))
+            
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        INSERT INTO vagas (titulo, descricao, requisitos, localizacao)
+                        VALUES (%s, %s, %s, %s)
+                    """, (titulo, descricao, requisitos, localizacao))
+                    conn.commit()
+            flash("Vaga cadastrada com sucesso!", "success")
+            return redirect(url_for('listar_vagas'))
+        except Exception as e:
+            print(f"Erro ao cadastrar vaga: {e}")
+            flash("Erro interno ao salvar vaga.", "error")
+            
+    return render_template('cadastrar_vaga.html')
+
+@app.route('/vagas', methods=['GET'])
+@login_required
+def listar_vagas():
+    vagas_disponiveis = []
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("SELECT id, titulo, descricao, requisitos, localizacao, data_criacao FROM vagas ORDER BY id DESC")
+                vagas_disponiveis = cursor.fetchall()
+    except Exception as e:
+        print(f"Erro ao buscar vagas: {e}")
+        flash("Erro ao carregar as vagas.", "error")
+        
+    return render_template('vagas.html', vagas=vagas_disponiveis)
+
 if __name__ == '__main__':
     app.run(debug=True)
