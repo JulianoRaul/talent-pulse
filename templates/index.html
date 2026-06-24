@@ -387,36 +387,28 @@
 
     <div class="container">
         
-        <header class="topbar">
+       <header class="topbar">
             <div class="brand">
                 <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
                     <rect width="40" height="40" rx="10" fill="url(#gradient-bg)"/>
                     <path d="M10 21H14.5L17.5 13L21.5 27L24.5 19.5L26.5 21H30" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    <circle cx="21.5" cy="27" r="2" fill="#22c55e" stroke="#ffffff" stroke-width="1"/>
-                    <circle cx="17.5" cy="13" r="2" fill="#22c55e" stroke="#ffffff" stroke-width="1"/>
                     <defs>
                         <linearGradient id="gradient-bg" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-                            <stop offset="0%" stop-color="#022c22"/>
-                            <stop offset="100%" stop-color="#0f172a"/>
+                            <stop stop-color="#4f46e5"/>
+                            <stop offset="1" stop-color="#06b6d4"/>
                         </linearGradient>
                     </defs>
                 </svg>
-
-                <div class="brand-text">
-                    <h1 style="font-size: 20px; font-weight: 700; color: #0f172a; margin: 0; letter-spacing: -0.5px;">
-                        Talent<span style="color: #4f46e5;">Pulse</span>
-                    </h1>
-                    <p style="font-size: 10px; color: #64748b; margin: 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
-                        Extração Inteligente de Currículos
-                    </p>
-                </div>
+                <h1 style="font-size: 20px; font-weight: 700; color: #0f172a;">TalentPulse</h1>
             </div>
-
+            
             <div class="topbar-actions">
-                <div class="badge-triados">
-                    Candidatos Triados: <span>{{ candidatos|length if candidatos else 0 }}</span>
-                </div>
-                <a href="/logout" class="btn-logout">🚪 Sair</a>
+                <span class="badge-triados">Candidatos Triados: {{ candidatos|length }}</span>
+                
+                <a href="{{ url_for('cadastrar_vaga') }}" class="btn-action" style="background: #e0e7ff; color: #4338ca; border-color: #c7d2fe;">+ Cadastrar Vaga</a>
+                <a href="{{ url_for('listar_vagas') }}" class="btn-action" style="background: #ffffff; color: #334155;">Ver Vagas</a>
+                
+                <a href="{{ url_for('logout') }}" class="btn-logout">Sair</a>
             </div>
         </header>
 
