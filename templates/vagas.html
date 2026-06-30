@@ -45,11 +45,39 @@
                         <strong>Descrição:</strong>
                         <p style="white-space: pre-line;">{{ vaga.descricao }}</p>
                     </div>
+
+                    {% if vaga.atividades %}
+                    <div class="vaga-secao">
+                        <strong>Principais Atividades:</strong>
+                        <p style="white-space: pre-line;">{{ vaga.atividades }}</p>
+                    </div>
+                    {% endif %}
                     
                     {% if vaga.requisitos %}
                     <div class="vaga-secao">
                         <strong>Requisitos:</strong>
                         <p style="white-space: pre-line;">{{ vaga.requisitos }}</p>
+                    </div>
+                    {% endif %}
+
+                    {% if vaga.remuneracao %}
+                    <div class="vaga-secao">
+                        <strong>Remuneração:</strong>
+                        <p style="white-space: pre-line;">{{ vaga.remuneracao }}</p>
+                    </div>
+                    {% endif %}
+
+                    {% if vaga.beneficios %}
+                    <div class="vaga-secao">
+                        <strong>Benefícios:</strong>
+                        <p style="white-space: pre-line;">{{ vaga.beneficios }}</p>
+                    </div>
+                    {% endif %}
+
+                    {% if vaga.expediente %}
+                    <div class="vaga-secao">
+                        <strong>Expediente:</strong>
+                        <p style="white-space: pre-line;">{{ vaga.expediente }}</p>
                     </div>
                     {% endif %}
 
