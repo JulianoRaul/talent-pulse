@@ -1,0 +1,25 @@
+<h2>Análise de Compatibilidade para a Vaga: {{ vaga.titulo }}</h2>
+<p><strong>Descrição:</strong> {{ vaga.descricao }}</p>
+<hr>
+
+<h3>Candidatos Cadastrados no Sistema (Ordenados por Match)</h3>
+{% if resultados %}
+    <div class="lista-candidatos">
+    {% for item in resultados %}
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title">
+                    {{ item.nome }} 
+                    <span class="badge bg-success">{{ item.porcentagem_compatibilidade }}% Match</span>
+                </h5>
+                <p class="card-text"><strong>Justificativa do sistema:</strong> {{ item.justificativa }}</p>
+                <a href="{{ url_for('visualizar', id_candidato=item.id_candidato) }}" class="btn btn-sm btn-secondary" target="_blank">
+                    Ver Perfil do Candidato
+                </a>
+            </div>
+        </div>
+    {% endfor %}
+    </div>
+{% else %}
+    <p>Nenhum resultado gerado para esta vaga.</p>
+{% endif %}
