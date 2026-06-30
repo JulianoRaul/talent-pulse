@@ -122,6 +122,12 @@ def init_db():
                         data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     );
                 ''')
+                # Adicionando as novas colunas à tabela de vagas de forma segura
+                cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS atividades TEXT;')
+                cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS beneficios TEXT;')
+                cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS remuneracao TEXT;')
+                cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS expediente TEXT;')
+                
                 conn.commit()
     except Exception as e:
         print(f"Erro ao inicializar o banco de dados: {e}")
@@ -219,7 +225,7 @@ def estruturar_curriculo_com_ia(texto_bruto):
         }
         
     system_prompt = (
-        "Você é um especialista em recrutamento avançado e triagem de currículos.\n"
+        "Você é um specialist em recrutamento avançado e triagem de currículos.\n"
         "Sua tarefa é analisar o texto do candidato e extrair os dados dividindo estritamente as competências conforme as diretrizes abaixo:\n\n"
         "1. HARD SKILLS:\n"
         "Identifique e liste apenas habilidades técnicas palpáveis, conhecimentos operacionais, ferramentas, metodologias profissionais, frameworks e linguagens de programação. Separe-as por vírgula.\n"
@@ -608,6 +614,10 @@ def cadastrar_vaga():
         descricao = request.form.get('descricao')
         requisitos = request.form.get('requisitos')
         localizacao = request.form.get('localizacao')
+        atividades = request.form.get('atividades')
+        beneficios = request.form.get('beneficios')
+        remuneracao = request.form.get('remuneracao')
+        expediente = request.form.get('expediente')
         
         if not titulo or not descricao:
             flash("Título e Descrição são obrigatórios.", "error")
@@ -617,9 +627,9 @@ def cadastrar_vaga():
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("""
-                        INSERT INTO vagas (titulo, descricao, requisitos, localizacao)
-                        VALUES (%s, %s, %s, %s)
-                    """, (titulo, descricao, requisitos, localizacao))
+                        INSERT INTO vagas (titulo, descricao, requisitos, localizacao, atividades, beneficios, remuneracao, expediente)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (titulo, descricao, requisitos, localizacao, atividades, beneficios, remuneracao, expediente))
                     conn.commit()
             flash("Vaga cadastrada com sucesso!", "success")
             return redirect(url_for('listar_vagas'))
@@ -636,7 +646,7 @@ def listar_vagas():
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute("SELECT id, titulo, descricao, requisitos, localizacao, data_criacao FROM vagas ORDER BY id DESC")
+                cursor.execute("SELECT id, titulo, descricao, requisitos, localizacao, atividades, beneficios, remuneracao, expediente, data_criacao FROM vagas ORDER BY id DESC")
                 vagas_disponiveis = cursor.fetchall()
     except Exception as e:
         print(f"Erro ao buscar vagas: {e}")
@@ -656,8 +666,8 @@ def analisar_vaga(id_vaga):
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                # 1. Busca os detalhes da vaga selecionada
-                cursor.execute("SELECT id, titulo, descricao, requisitos, localizacao FROM vagas WHERE id = %s", (id_vaga,))
+                # 1. Busca os detalhes da vaga selecionada com os novos parâmetros
+                cursor.execute("SELECT id, titulo, descricao, requisitos, localizacao, atividades, beneficios, remuneracao, expediente FROM vagas WHERE id = %s", (id_vaga,))
                 vaga = cursor.fetchone()
                 
                 if not vaga:
@@ -676,11 +686,15 @@ def analisar_vaga(id_vaga):
             flash("Nenhum candidato cadastrado no sistema para realizar a análise.", "warning")
             return render_template('analise_vaga.html', vaga=vaga, resultados=[])
 
-        # 3. Prepara o contexto de dados para enviar à IA
+        # 3. Prepara o contexto de dados para enviar à IA com as novas informações
         dados_vaga_txt = (
             f"TÍTULO DA VAGA: {vaga['titulo']}\n"
             f"DESCRIÇÃO: {vaga['descricao']}\n"
+            f"PRINCIPAIS ATIVIDADES: {vaga.get('atividades') or 'Não informado'}\n"
             f"REQUISITOS: {vaga['requisitos']}\n"
+            f"REMUNERAÇÃO: {vaga.get('remuneracao') or 'Não informado'}\n"
+            f"BENEFÍCIOS: {vaga.get('beneficios') or 'Não informado'}\n"
+            f"EXPEDIENTE: {vaga.get('expediente') or 'Não informado'}\n"
             f"LOCALIZAÇÃO DA VAGA: {vaga['localizacao']}\n"
         )
 
@@ -702,7 +716,7 @@ def analisar_vaga(id_vaga):
             "Você é um Headhunter de TI e Especialista em Recrutamento e Seleção avançado.\n"
             "Sua missão é realizar o cruzamento de dados (matching) entre uma vaga de emprego específica e a lista de candidatos fornecida.\n\n"
             "Diretrizes:\n"
-            "1. Avalie cuidadosamente a compatibilidade de cada candidato considerando hard skills, soft skills, localização e formação exigidas.\n"
+            "1. Avalie cuidadosamente a compatibilidade de cada candidato considerando hard skills, soft skills, localização, expediente e se a remuneração/atividades batem com o perfil.\n"
             "2. Atribua uma porcentagem de compatibilidade (0 a 100) baseada puramente em critérios técnicos e de negócios.\n"
             "3. Crie uma justificativa direta, profissional e clara (máximo 3 linhas) explicando o porquê dessa pontuação.\n"
             "4. Retorne a lista ordenada de forma decrescente, colocando os candidatos mais compatíveis no topo."
@@ -725,26 +739,20 @@ def analisar_vaga(id_vaga):
             )
         )
 
-        # 6. Trata o retorno JSON da IA
+        # 6. Trata o retorno JSON
         texto_resposta = response.text.strip() if response.text else ""
         if texto_resposta:
             dados_analise = json.loads(texto_resposta)
-            # Ordena no Python por garantia os candidatos com maior porcentagem de match
-            resultados = sorted(
-                dados_analise.get('candidatos_compativeis', []),
-                key=lambda x: x['porcentagem_compatibilidade'],
-                reverse=True
-            )
+            resultados = dados_analise.get("candidatos_compativeis", [])
+            return render_template('analise_vaga.html', vaga=vaga, resultados=resultados)
         else:
-            resultados = []
-            flash("Não foi possível gerar a análise inteligente neste momento.", "error")
-
-        return render_template('analise_vaga.html', vaga=vaga, resultados=resultados)
+            flash("Erro ao processar análise inteligente.", "error")
+            return redirect(url_for('listar_vagas'))
 
     except Exception as e:
-        print(f"Erro ao processar análise inteligente: {e}")
-        flash("Erro interno ao processar o cruzamento de dados.", "error")
+        print(f"Erro ao analisar vaga: {e}")
+        flash("Erro interno ao gerar análise de match.", "error")
         return redirect(url_for('listar_vagas'))
-        
+
 if __name__ == '__main__':
     app.run(debug=True)
