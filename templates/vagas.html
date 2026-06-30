@@ -37,13 +37,15 @@
 
         {% if vagas %}
             {% for vaga in vagas %}
-                <div class="vaga-card">
-                    <div class="vaga-titulo">{{ vaga.titulo }}</div>
-                    <div class="vaga-local">📍 {{ vaga.localizacao or 'Não informado' }}</div>
-                    
-                    <div class="vaga-secao">
-                        <strong>Descrição:</strong>
-                        <p style="white-space: pre-line;">{{ vaga.descricao }}</p>
+    <div class="card-vaga">
+        <h3>{{ vaga.titulo }}</h3>
+        <p>{{ vaga.descricao }}</p>
+        
+        <a href="{{ url_for('editar_vaga', id_vaga=vaga.id) }}" class="seu-botao-style">Editar Vaga</a>
+    </div>
+{% else %}
+    <p>Nenhuma vaga cadastrada.</p>
+{% endfor %}
                     </div>
 
                     {% if vaga.atividades %}
