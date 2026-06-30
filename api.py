@@ -161,6 +161,7 @@ class CandidatoCompatibilidade(BaseModel):
 class ResultadoAnaliseVaga(BaseModel):
     vaga_id: int
     candidatos_compativeis: list[CandidatoCompatibilidade]
+
 # ==============================================================================
 # FUNÇÕES AUXILIARES DE TEXTO
 # ==============================================================================
@@ -175,7 +176,7 @@ def limpar_caracteres_invalidos(texto):
         return ""
     return texto.replace('\x00', '')
 
-def obter_variacoes_busca(termo_busca):
+def obtener_variacoes_busca(termo_busca):
     termo_limpo = remover_acentos(termo_busca).strip()
     palavras = termo_limpo.split()
     variacoes = set()
@@ -478,7 +479,7 @@ def upload():
                         dados_ia['localizacao'], 
                         dados_ia['formacao'], 
                         dados_ia['cursos'], 
-                        dados_ia['hard_skills'], 
+                        dados_ia['hard_skills'], # Mapeado para habilidades antigas
                         dados_ia['hard_skills'], 
                         dados_ia['soft_skills'], 
                         dados_ia['idiomas'], 
@@ -546,7 +547,6 @@ def download(id_candidato):
         flash("Erro ao resgatar arquivo do banco de dados.", "error")
         return redirect(url_for('index'))
 
-
 @app.route('/visualizar_original/<int:id_candidato>', methods=['GET'])
 @login_required
 def visualizar_original(id_candidato):
@@ -579,7 +579,6 @@ def visualizar_original(id_candidato):
         flash("Erro ao abrir o arquivo original.", "error")
         return redirect(url_for('index'))
 
-
 @app.route('/visualizar/<int:id_candidato>', methods=['GET'])
 @login_required
 def visualizar(id_candidato):
@@ -610,6 +609,37 @@ def visualizar(id_candidato):
 @app.route('/cadastrar_vaga', methods=['GET', 'POST'])
 @login_required
 def cadastrar_vaga():
+    if request.method == 'POST':
+        titulo = request.form.get('titulo')
+        descricao = request.form.get('descricao')
+        requisitos = request.form.get('requisitos')
+        localizacao = request.form.get('localizacao')
+        
+        # CAPTURA DOS NOVOS CAMPOS DO FORMULÁRIO HTML
+        atividades = request.form.get('atividades')
+        beneficios = request.form.get('beneficios')
+        remuneracao = request.form.get('remuneracao')
+        expediente = request.form.get('expediente')
+        
+        if not titulo or not descricao:
+            flash("Título e Descrição são obrigatórios.", "error")
+            return render_template('cadastrar_vaga.html')
+            
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        INSERT INTO vagas (titulo, descricao, requisitos, localizacao, atividades, beneficios, remuneracao, expediente)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (titulo, descricao, requisitos, localizacao, atividades, beneficios, remuneracao, expediente))
+                    conn.commit()
+            flash("Vaga cadastrada com sucesso!", "success")
+            return redirect(url_for('listar_vagas'))
+        except Exception as e:
+            print(f"Erro ao cadastrar vaga: {e}")
+            flash("Erro interno ao salvar vaga.", "error")
+            
+    return render_template('cadastrar_vaga.html')
 
 @app.route('/vagas/<int:id_vaga>/editar', methods=['GET', 'POST'])
 @login_required
@@ -659,44 +689,13 @@ def editar_vaga(id_vaga):
                         WHERE id = %s
                     """, (titulo, localizacao, descricao, atividades, requisitos, remuneracao, beneficios, expediente, id_vaga))
                     conn.commit()
-            flash("Vaga atualizada com sucesso!", "success")
+            flash("Vaga updated com sucesso!", "success")
             return redirect(url_for('listar_vagas'))
         except Exception as e:
             print(f"Erro ao atualizar vaga: {e}")
             flash("Erro interno ao salvar as alterações da vaga.", "error")
 
     return render_template('editar_vaga.html', vaga=vaga)
-    if request.method == 'POST':
-        titulo = request.form.get('titulo')
-        descricao = request.form.get('descricao')
-        requisitos = request.form.get('requisitos')
-        localizacao = request.form.get('localizacao')
-        
-        # CAPTURA DOS NOVOS CAMPOS DO FORMULÁRIO HTML
-        atividades = request.form.get('atividades')
-        beneficios = request.form.get('beneficios')
-        remuneracao = request.form.get('remuneracao')
-        expediente = request.form.get('expediente')
-        
-        if not titulo or not descricao:
-            flash("Título e Descrição são obrigatórios.", "error")
-            return redirect(url_for('cadastrar_vaga'))
-            
-        try:
-            with get_db_connection() as conn:
-                with conn.cursor() as cursor:
-                    cursor.execute("""
-                        INSERT INTO vagas (titulo, descricao, requisitos, localizacao, atividades, beneficios, remuneracao, expediente)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (titulo, descricao, requisitos, localizacao, atividades, beneficios, remuneracao, expediente))
-                    conn.commit()
-            flash("Vaga cadastrada com sucesso!", "success")
-            return redirect(url_for('listar_vagas'))
-        except Exception as e:
-            print(f"Erro ao cadastrar vaga: {e}")
-            flash("Erro interno ao salvar vaga.", "error")
-            
-    return render_template('cadastrar_vaga.html')
 
 @app.route('/vagas', methods=['GET'])
 @login_required
@@ -724,104 +723,5 @@ def listar_vagas():
 @app.route('/vagas/<int:id_vaga>/analise', methods=['GET'])
 @login_required
 def analisar_vaga(id_vaga):
-    if not client:
-        flash("A chave da API do Gemini não está configurada.", "error")
-        return redirect(url_for('listar_vagas'))
-
-    try:
-        with get_db_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                # 1. Busca os detalhes da vaga selecionada incluindo os novos campos
-                cursor.execute("""
-                    SELECT id, titulo, descricao, requisitos, localizacao, 
-                           atividades, beneficios, remuneracao, expediente 
-                    FROM vagas WHERE id = %s
-                """, (id_vaga,))
-                vaga = cursor.fetchone()
-                
-                if not vaga:
-                    flash("Vaga não encontrada.", "error")
-                    return redirect(url_for('listar_vagas'))
-                
-                # 2. Busca todos os candidatos/currículos estruturados do sistema
-                cursor.execute("""
-                    SELECT id, nome_candidato AS nome, localizacao, formacao, 
-                           cursos, hard_skills, soft_skills, idiomas 
-                    FROM curriculos
-                """)
-                candidatos = cursor.fetchall()
-
-        if not candidatos:
-            flash("Nenhum candidato cadastrado no sistema para realizar a análise.", "warning")
-            return render_template('analise_vaga.html', vaga=vaga, resultados=[])
-
-        # 3. Prepara o contexto de dados adicionando os novos parâmetros na string de envio para a IA
-        dados_vaga_txt = (
-            f"TÍTULO DA VAGA: {vaga['titulo']}\n"
-            f"DESCRIÇÃO: {vaga['descricao']}\n"
-            f"PRINCIPAIS ATIVIDADES: {vaga.get('atividades') or 'Não informadas'}\n"
-            f"REQUISITOS: {vaga['requisitos']}\n"
-            f"REMUNERAÇÃO: {vaga.get('remuneracao') or 'Não informada'}\n"
-            f"BENEFÍCIOS: {vaga.get('beneficios') or 'Não informados'}\n"
-            f"EXPEDIENTE: {vaga.get('expediente') or 'Não informado'}\n"
-            f"LOCALIZAÇÃO DA VAGA: {vaga['localizacao']}\n"
-        )
-
-        lista_candidatos_txt = ""
-        for c in candidatos:
-            lista_candidatos_txt += (
-                f"--- CANDIDATO ID: {c['id']} ---\n"
-                f"Nome: {c['nome']}\n"
-                f"Localização: {c['localizacao']}\n"
-                f"Formação: {c['formacao']}\n"
-                f"Cursos: {c['cursos']}\n"
-                f"Hard Skills: {c['hard_skills']}\n"
-                f"Soft Skills: {c['soft_skills']}\n"
-                f"Idiomas: {c['idiomas']}\n\n"
-            )
-
-        # 4. Prompt do sistema para orientar o Gemini (Instruções atualizadas)
-        system_prompt = (
-            "Você é um Headhunter de TI e Especialista em Recrutamento e Seleção avançado.\n"
-            "Sua missão é realizar o cruzamento de dados (matching) entre uma vaga de emprego específica e a lista de candidatos fornecida.\n\n"
-            "Diretrizes:\n"
-            "1. Avalie cuidadosamente a compatibilidade de cada candidato considerando as hard skills, soft skills, localização, as principais atividades exigidas e se há match com o expediente/remuneração.\n"
-            "2. Atribua uma porcentagem de compatibilidade (0 a 100) baseada puramente em critérios técnicos e de negócios.\n"
-            "3. Crie uma justificativa direta, profissional e clara (máximo 3 linhas) explicando o porquê dessa pontuação.\n"
-            "4. Retorne a lista ordenada de forma decrescente, colocando os candidatos mais compatíveis no topo."
-        )
-
-        conteudo_requisicao = (
-            f"Aqui estão os detalhes da vaga:\n\n{dados_vaga_txt}\n"
-            f"Aqui está a lista de candidatos cadastrados:\n\n{lista_candidatos_txt}"
-        )
-
-        # 5. Chamada ao modelo Gemini utilizando a estrutura Pydantic configurada
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=conteudo_requisicao,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=ResultadoAnaliseVaga,
-                system_instruction=system_prompt,
-                temperature=0.2
-            )
-        )
-
-        # 6. Trata o retorno JSON
-        texto_resposta = response.text.strip() if response.text else ""
-        if texto_resposta:
-            dados_analise = json.loads(texto_resposta)
-            resultados = dados_analise.get("candidatos_compativeis", [])
-            return render_template('analise_vaga.html', vaga=vaga, resultados=resultados)
-        else:
-            flash("Erro ao processar análise inteligente.", "error")
-            return redirect(url_for('listar_vagas'))
-
-    except Exception as e:
-        print(f"Erro ao analisar vaga: {e}")
-        flash("Erro interno ao gerar análise de match.", "error")
-        return redirect(url_for('listar_vagas'))
-
-if __name__ == '__main__':
-    app.run(debug=True)
+    # Logica para analise de vaga pendente
+    pass
