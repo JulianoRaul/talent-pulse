@@ -122,7 +122,7 @@ def init_db():
                         data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     );
                 ''')
-                # Adicionando as novas colunas à tabela de vagas de forma segura
+                # NOVAS COLUNAS ADICIONADAS AUTOMATICAMENTE
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS atividades TEXT;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS beneficios TEXT;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS remuneracao TEXT;')
@@ -225,7 +225,7 @@ def estruturar_curriculo_com_ia(texto_bruto):
         }
         
     system_prompt = (
-        "Você é um specialist em recrutamento avançado e triagem de currículos.\n"
+        "Você é um especialista em recrutamento avançado e triagem de currículos.\n"
         "Sua tarefa é analisar o texto do candidato e extrair os dados dividindo estritamente as competências conforme as diretrizes abaixo:\n\n"
         "1. HARD SKILLS:\n"
         "Identifique e liste apenas habilidades técnicas palpáveis, conhecimentos operacionais, ferramentas, metodologias profissionais, frameworks e linguagens de programação. Separe-as por vírgula.\n"
@@ -603,8 +603,9 @@ def visualizar(id_candidato):
         print(f"Erro ao visualizar currículo: {e}")
         flash("Erro ao carregar os detalhes do currículo.", "error")
         return redirect(url_for('index'))
+
 # ==============================================================================
-# GESTÃO DE VAGAS
+# GESTÃO DE VAGAS (CAMPOS ADICIONAIS ATUALIZADOS)
 # ==============================================================================
 @app.route('/cadastrar_vaga', methods=['GET', 'POST'])
 @login_required
@@ -614,6 +615,8 @@ def cadastrar_vaga():
         descricao = request.form.get('descricao')
         requisitos = request.form.get('requisitos')
         localizacao = request.form.get('localizacao')
+        
+        # CAPTURA DOS NOVOS CAMPOS DO FORMULÁRIO HTML
         atividades = request.form.get('atividades')
         beneficios = request.form.get('beneficios')
         remuneracao = request.form.get('remuneracao')
@@ -646,15 +649,21 @@ def listar_vagas():
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute("SELECT id, titulo, descricao, requisitos, localizacao, atividades, beneficios, remuneracao, expediente, data_criacao FROM vagas ORDER BY id DESC")
+                # SELECT ATUALIZADO PARA RESGATAR AS NOVAS INFORMAÇÕES
+                cursor.execute("""
+                    SELECT id, titulo, descricao, requisitos, localizacao, 
+                           atividades, beneficios, remuneracao, expediente, data_criacao 
+                    FROM vagas ORDER BY id DESC
+                """)
                 vagas_disponiveis = cursor.fetchall()
     except Exception as e:
         print(f"Erro ao buscar vagas: {e}")
         flash("Erro ao carregar as vagas.", "error")
         
     return render_template('vagas.html', vagas=vagas_disponiveis)
+
 # ==============================================================================
-# CRUZAMENTO E ANÁLISE DE VAGAS VS CANDIDATOS
+# CRUZAMENTO E ANÁLISE DE VAGAS VS CANDIDATOS (INTEGRAÇÃO DE NOVOS CAMPOS)
 # ==============================================================================
 @app.route('/vagas/<int:id_vaga>/analise', methods=['GET'])
 @login_required
@@ -666,8 +675,12 @@ def analisar_vaga(id_vaga):
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                # 1. Busca os detalhes da vaga selecionada com os novos parâmetros
-                cursor.execute("SELECT id, titulo, descricao, requisitos, localizacao, atividades, beneficios, remuneracao, expediente FROM vagas WHERE id = %s", (id_vaga,))
+                # 1. Busca os detalhes da vaga selecionada incluindo os novos campos
+                cursor.execute("""
+                    SELECT id, titulo, descricao, requisitos, localizacao, 
+                           atividades, beneficios, remuneracao, expediente 
+                    FROM vagas WHERE id = %s
+                """, (id_vaga,))
                 vaga = cursor.fetchone()
                 
                 if not vaga:
@@ -686,14 +699,14 @@ def analisar_vaga(id_vaga):
             flash("Nenhum candidato cadastrado no sistema para realizar a análise.", "warning")
             return render_template('analise_vaga.html', vaga=vaga, resultados=[])
 
-        # 3. Prepara o contexto de dados para enviar à IA com as novas informações
+        # 3. Prepara o contexto de dados adicionando os novos parâmetros na string de envio para a IA
         dados_vaga_txt = (
             f"TÍTULO DA VAGA: {vaga['titulo']}\n"
             f"DESCRIÇÃO: {vaga['descricao']}\n"
-            f"PRINCIPAIS ATIVIDADES: {vaga.get('atividades') or 'Não informado'}\n"
+            f"PRINCIPAIS ATIVIDADES: {vaga.get('atividades') or 'Não informadas'}\n"
             f"REQUISITOS: {vaga['requisitos']}\n"
-            f"REMUNERAÇÃO: {vaga.get('remuneracao') or 'Não informado'}\n"
-            f"BENEFÍCIOS: {vaga.get('beneficios') or 'Não informado'}\n"
+            f"REMUNERAÇÃO: {vaga.get('remuneracao') or 'Não informada'}\n"
+            f"BENEFÍCIOS: {vaga.get('beneficios') or 'Não informados'}\n"
             f"EXPEDIENTE: {vaga.get('expediente') or 'Não informado'}\n"
             f"LOCALIZAÇÃO DA VAGA: {vaga['localizacao']}\n"
         )
@@ -711,12 +724,12 @@ def analisar_vaga(id_vaga):
                 f"Idiomas: {c['idiomas']}\n\n"
             )
 
-        # 4. Prompt do sistema para orientar o Gemini
+        # 4. Prompt do sistema para orientar o Gemini (Instruções atualizadas)
         system_prompt = (
             "Você é um Headhunter de TI e Especialista em Recrutamento e Seleção avançado.\n"
             "Sua missão é realizar o cruzamento de dados (matching) entre uma vaga de emprego específica e a lista de candidatos fornecida.\n\n"
             "Diretrizes:\n"
-            "1. Avalie cuidadosamente a compatibilidade de cada candidato considerando hard skills, soft skills, localização, expediente e se a remuneração/atividades batem com o perfil.\n"
+            "1. Avalie cuidadosamente a compatibilidade de cada candidato considerando as hard skills, soft skills, localização, as principais atividades exigidas e se há match com o expediente/remuneração.\n"
             "2. Atribua uma porcentagem de compatibilidade (0 a 100) baseada puramente em critérios técnicos e de negócios.\n"
             "3. Crie uma justificativa direta, profissional e clara (máximo 3 linhas) explicando o porquê dessa pontuação.\n"
             "4. Retorne a lista ordenada de forma decrescente, colocando os candidatos mais compatíveis no topo."
