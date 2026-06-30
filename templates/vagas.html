@@ -20,9 +20,12 @@
         .vaga-secao { margin-top: 14px; font-size: 14px; line-height: 1.5; }
         .vaga-secao strong { color: #0f172a; display: block; margin-bottom: 4px; }
         
-        .vaga-acoes { margin-top: 20px; display: flex; justify-content: flex-end; border-top: 1px solid #f1f5f9; padding-top: 16px; }
+        .vaga-acoes { margin-top: 20px; display: flex; justify-content: flex-end; align-items: center; gap: 12px; border-top: 1px solid #f1f5f9; padding-top: 16px; }
         .btn-match { background: #4f46e5; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; transition: background 0.2s; }
         .btn-match:hover { background: #4338ca; }
+        
+        .btn-edit { background: #e2e8f0; color: #334155; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px; transition: background 0.2s; }
+        .btn-edit:hover { background: #cbd5e1; }
         
         .back-link { color: #64748b; text-decoration: none; font-size: 14px; display: inline-block; margin-top: 20px; }
         .back-link:hover { color: #4f46e5; }
@@ -37,54 +40,59 @@
 
         {% if vagas %}
             {% for vaga in vagas %}
-    <div class="card-vaga">
-        <h3>{{ vaga.titulo }}</h3>
-        <p>{{ vaga.descricao }}</p>
-        
-        <a href="{{ url_for('editar_vaga', id_vaga=vaga.id) }}" class="seu-botao-style">Editar Vaga</a>
-    </div>
-{% else %}
-    <p>Nenhuma vaga cadastrada.</p>
-{% endfor %}
+                <div class="vaga-card">
+                    <div class="vaga-titulo">{{ vaga['titulo'] }}</div>
+                    {% if vaga['localizacao'] %}
+                        <div class="vaga-local">📍 {{ vaga['localizacao'] }}</div>
+                    {% endif %}
+                    
+                    {% if vaga['descricao'] %}
+                    <div class="vaga-secao">
+                        <strong>Descrição Geral:</strong>
+                        <p>{{ vaga['descricao'] }}</p>
                     </div>
+                    {% endif %}
 
-                    {% if vaga.atividades %}
+                    {% if vaga['atividades'] %}
                     <div class="vaga-secao">
                         <strong>Principais Atividades:</strong>
-                        <p style="white-space: pre-line;">{{ vaga.atividades }}</p>
+                        <p style="white-space: pre-line;">{{ vaga['atividades'] }}</p>
                     </div>
                     {% endif %}
                     
-                    {% if vaga.requisitos %}
+                    {% if vaga['requisitos'] %}
                     <div class="vaga-secao">
                         <strong>Requisitos:</strong>
-                        <p style="white-space: pre-line;">{{ vaga.requisitos }}</p>
+                        <p style="white-space: pre-line;">{{ vaga['requisitos'] }}</p>
                     </div>
                     {% endif %}
 
-                    {% if vaga.remuneracao %}
+                    {% if vaga['remuneracao'] %}
                     <div class="vaga-secao">
                         <strong>Remuneração:</strong>
-                        <p style="white-space: pre-line;">{{ vaga.remuneracao }}</p>
+                        <p style="white-space: pre-line;">{{ vaga['remuneracao'] }}</p>
                     </div>
                     {% endif %}
 
-                    {% if vaga.beneficios %}
+                    {% if vaga['beneficios'] %}
                     <div class="vaga-secao">
                         <strong>Benefícios:</strong>
-                        <p style="white-space: pre-line;">{{ vaga.beneficios }}</p>
+                        <p style="white-space: pre-line;">{{ vaga['beneficios'] }}</p>
                     </div>
                     {% endif %}
 
-                    {% if vaga.expediente %}
+                    {% if vaga['expediente'] %}
                     <div class="vaga-secao">
                         <strong>Expediente:</strong>
-                        <p style="white-space: pre-line;">{{ vaga.expediente }}</p>
+                        <p style="white-space: pre-line;">{{ vaga['expediente'] }}</p>
                     </div>
                     {% endif %}
 
                     <div class="vaga-acoes">
-                        <a href="{{ url_for('analisar_vaga', id_vaga=vaga.id) }}" class="btn-match">
+                        <a href="{{ url_for('editar_vaga', id_vaga=vaga['id']) }}" class="btn-edit">
+                            ✏️ Editar Vaga
+                        </a>
+                        <a href="{{ url_for('analisar_vaga', id_vaga=vaga['id']) }}" class="btn-match">
                             🧠 Análise Inteligente de Match
                         </a>
                     </div>
@@ -97,7 +105,6 @@
         {% endif %}
         
         <a href="{{ url_for('index') }}" class="back-link">← Voltar para o Painel</a>
-        <a href="{{ url_for('editar_vaga', id_vaga=vaga['id']) }}" class="seu-botao-style">Editar Vaga</a>
     </div>
 </body>
 </html>
