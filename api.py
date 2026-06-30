@@ -296,4 +296,528 @@ def login():
                     user_data = cursor.fetchone()
                     
             if user_data and check_password_hash(user_data['senha_hash'], senha):
-                usuario = User(id=str(user_data['id']), email=user_data
+                usuario = User(id=str(user_data['id']), email=user_data['email'], nome=user_data['nome'])
+                login_user(usuario)
+                flash(f"Bem-vindo de volta, {usuario.nome}!", "success")
+                return redirect(url_for('index'))
+            else:
+                flash("E-mail ou senha incorretos.", "error")
+        except Exception as e:
+            print(f"Erro no login: {e}")
+            flash("Erro interno ao processar login.", "error")
+            
+    return render_template('login.html')
+
+@app.route('/cadastro', methods=['GET', 'POST'])
+def cadastro():
+    if request.method == 'POST':
+        nome = request.form.get('nome')
+        email = request.form.get('email')
+        senha = request.form.get('senha')
+        
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                    cursor.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
+                    if cursor.fetchone():
+                        flash("Este e-mail já está cadastrado.", "error")
+                        return redirect(url_for('cadastro'))
+                    
+                    senha_hash = generate_password_hash(senha)
+                    
+                    cursor.execute(
+                        "INSERT INTO usuarios (nome, email, senha_hash) VALUES (%s, %s, %s) RETURNING id",
+                        (nome, email, senha_hash)
+                    )
+                    conn.commit()
+            
+            flash("Usuário criado com sucesso! Faça seu login.", "success")
+            return redirect(url_for('login'))
+        except Exception as e:
+            print(f"Erro no cadastro: {e}")
+            flash("Erro ao salvar novo usuário.", "error")
+        
+    return render_template('cadastro.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash("Sessão encerrada com sucesso.", "success")
+    return redirect(url_for('login'))
+
+# ==============================================================================
+# ROTAS DA APLICAÇÃO WEB (PROTEGIDAS)
+# ==============================================================================
+@app.route('/', methods=['GET'])
+@login_required
+def index():
+    busca_geral = request.args.get('busca', '').strip()
+    f_genero = request.args.get('genero', '').strip()
+    f_formacao = request.args.get('formacao', '').strip()
+    f_localizacao = request.args.get('localizacao', '').strip()
+    f_idioma = request.args.get('idioma', '').strip()
+    f_nivel = request.args.get('nivel_idioma', '').strip()
+    
+    algum_filtro_ativo = any([busca_geral, f_genero, f_formacao, f_localizacao, f_idioma, f_nivel])
+    
+    if algum_filtro_ativo:
+        session['ocultados'] = []
+    elif 'ocultados' not in session:
+        session['ocultados'] = []
+        
+    resultados_finais = []
+    
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT id, nome_arquivo, conteudo, nome_candidato AS nome, idade, sexo, 
+                           localizacao, formacao, cursos, habilidades, hard_skills, soft_skills, idiomas 
+                    FROM curriculos ORDER BY id DESC
+                """)
+                todos_candidatos = cursor.fetchall()
+                
+                for item in todos_candidatos:
+                    if not algum_filtro_ativo and item['id'] in session['ocultados']:
+                        continue
+                        
+                    texto_idiomas = remover_acentos(item.get('idiomas') or "")
+                    texto_completo_candidato = remover_acentos(
+                        f"{item['conteudo']} {item['nome']} {item.get('hard_skills', '')} {item.get('soft_skills', '')} {item['cursos']} {item.get('idiomas', '')}"
+                    )
+                    
+                    passou_filtro = True
+                    
+                    if busca_geral:
+                        termos = busca_geral.split(',') if ',' in busca_geral else busca_geral.split()
+                        for t in termos:
+                            t_limpo = t.strip()
+                            if t_limpo:
+                                variacoes = obter_variacoes_busca(t_limpo)
+                                if not any(v in texto_completo_candidato for v in variacoes):
+                                    passou_filtro = False
+                                    break
+
+                    if f_genero and passou_filtro:
+                        if remover_acentos(f_genero) != remover_acentos(item.get('sexo') or ""):
+                            passou_filtro = False
+
+                    if f_formacao and passou_filtro:
+                        if remover_acentos(f_formacao) not in remover_acentos(item.get('formacao') or ""):
+                            passou_filtro = False
+
+                    if f_localizacao and passou_filtro:
+                        if remover_acentos(f_localizacao) not in remover_acentos(item.get('localizacao') or ""):
+                            passou_filtro = False
+
+                    if f_idioma and passou_filtro:
+                        if remover_acentos(f_idioma) not in texto_idiomas:
+                            passou_filtro = False
+
+                    if f_nivel and passou_filtro:
+                        if remover_acentos(f_nivel) not in texto_idiomas:
+                            passou_filtro = False
+
+                    if passou_filtro:
+                        resultados_finais.append(item)
+                        
+    except Exception as e:
+        print(f"Erro ao buscar dados: {e}")
+        flash("Ocorreu um erro ao carregar os currículos.", "error")
+
+    return render_template('index.html', candidatos=resultados_finais)
+
+@app.route('/upload', methods=['POST'])
+@login_required
+def upload():
+    if 'file' not in request.files:
+        flash("Nenhum arquivo enviado.", "error")
+        return redirect(url_for('index'))
+        
+    arquivo = request.files['file']
+    if arquivo.filename == '':
+        flash("Nenhum arquivo selecionado.", "error")
+        return redirect(url_for('index'))
+        
+    if arquivo:
+        nome_original = arquivo.filename
+        extensao = nome_original.rsplit('.', 1)[1].lower() if '.' in nome_original else ''
+        
+        if extensao not in ['pdf', 'docx']:
+            flash("Formato inválido! Envie arquivos PDF ou DOCX.", "error")
+            return redirect(url_for('index'))
+            
+        try:
+            dados_bytes = arquivo.read()
+            arquivo_b64 = base64.b64encode(dados_bytes).decode('utf-8')
+            
+            if extensao == 'pdf':
+                texto_bruto = extrair_texto_pdf(dados_bytes)
+            else:
+                texto_bruto = extrair_texto_docx(dados_bytes)
+                
+            if not texto_bruto.strip():
+                flash(f"Não foi possível ler o texto do arquivo '{nome_original}'.", "error")
+                return redirect(url_for('index'))
+                
+            dados_ia = estruturar_curriculo_com_ia(texto_bruto)
+            
+            with get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        INSERT INTO curriculos (
+                            nome_arquivo, conteudo, nome_candidato, idade, sexo, 
+                            localizacao, formacao, cursos, habilidades, hard_skills, soft_skills, idiomas, arquivo_binario
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        nome_original, 
+                        texto_bruto, 
+                        dados_ia['nome'], 
+                        dados_ia['idade'], 
+                        dados_ia['sexo'],
+                        dados_ia['localizacao'], 
+                        dados_ia['formacao'], 
+                        dados_ia['cursos'], 
+                        dados_ia['hard_skills'], # Mapeado para habilidades antigas
+                        dados_ia['hard_skills'], 
+                        dados_ia['soft_skills'], 
+                        dados_ia['idiomas'], 
+                        arquivo_b64
+                    ))
+                    conn.commit()
+                    
+            flash(f"Currículo de '{dados_ia['nome']}' processado e salvo com sucesso!", "success")
+        except Exception as e:
+            print(f"Erro no upload: {e}")
+            flash("Falha interna ao processar documento.", "error")
+            
+    return redirect(url_for('index'))
+
+@app.route('/ocultar/<int:id_candidato>', methods=['POST'])
+@login_required
+def ocultar(id_candidato):
+    if 'ocultados' not in session:
+        session['ocultados'] = []
+    lista = list(session['ocultados'])
+    if id_candidato not in lista:
+        lista.append(id_candidato)
+        session['ocultados'] = lista
+    return jsonify({"status": "sucesso", "mensagem": "Candidato ocultado da tela"})
+
+@app.route('/excluir/<int:id_candidato>', methods=['POST'])
+@login_required
+def excluir(id_candidato):
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM curriculos WHERE id = %s", (id_candidato,))
+                conn.commit()
+        flash("Currículo excluído com sucesso!", "success")
+        return redirect(url_for('index'))
+    except Exception as e:
+        print(f"Erro ao excluir currículo: {e}")
+        flash("Erro interno ao excluir o currículo.", "error")
+        return redirect(url_for('index'))
+
+# ==============================================================================
+# VISUALIZAÇÃO E DOWNLOAD DE ARQUIVOS ORIGINAIS
+# ==============================================================================
+@app.route('/download/<int:id_candidato>', methods=['GET'])
+@login_required
+def download(id_candidato):
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("SELECT nome_arquivo, arquivo_binario FROM curriculos WHERE id = %s", (id_candidato,))
+                resultado = cursor.fetchone()
+                
+                if resultado and resultado['arquivo_binario']:
+                    dados_arquivos = base64.b64decode(resultado['arquivo_binario'])
+                    return send_file(
+                        io.BytesIO(dados_arquivos),
+                        download_name=resultado['nome_arquivo'],
+                        as_attachment=True
+                    )
+                else:
+                    flash("Arquivo original não encontrado.", "error")
+                    return redirect(url_for('index'))
+    except Exception as e:
+        print(f"Erro no download: {e}")
+        flash("Erro ao resgatar arquivo do banco de dados.", "error")
+        return redirect(url_for('index'))
+
+@app.route('/visualizar_original/<int:id_candidato>', methods=['GET'])
+@login_required
+def visualizar_original(id_candidato):
+    """Rota que abre o arquivo PDF/DOCX original diretamente no navegador."""
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("SELECT nome_arquivo, arquivo_binario FROM curriculos WHERE id = %s", (id_candidato,))
+                resultado = cursor.fetchone()
+                
+                if resultado and resultado['arquivo_binario']:
+                    dados_arquivos = base64.b64decode(resultado['arquivo_binario'])
+                    nome_arquivo = resultado['nome_arquivo']
+                    extensao = nome_arquivo.rsplit('.', 1)[1].lower() if '.' in nome_arquivo else ''
+                    
+                    # Define o tipo de conteúdo para o navegador saber como renderizar
+                    mimetype = 'application/pdf' if extensao == 'pdf' else 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                    
+                    return send_file(
+                        io.BytesIO(dados_arquivos),
+                        mimetype=mimetype,
+                        download_name=nome_arquivo,
+                        as_attachment=False  # Crucial para abrir no navegador
+                    )
+                else:
+                    flash("Arquivo original não encontrado.", "error")
+                    return redirect(url_for('index'))
+    except Exception as e:
+        print(f"Erro ao visualizar arquivo original: {e}")
+        flash("Erro ao abrir o arquivo original.", "error")
+        return redirect(url_for('index'))
+
+@app.route('/visualizar/<int:id_candidato>', methods=['GET'])
+@login_required
+def visualizar(id_candidato):
+    """Mantém a visualização do perfil estruturado pela IA."""
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT id, nome_arquivo, conteudo, nome_candidato AS nome, idade, sexo, 
+                           localizacao, formacao, cursos, hard_skills, soft_skills, idiomas 
+                    FROM curriculos WHERE id = %s
+                """, (id_candidato,))
+                candidato = cursor.fetchone()
+                
+                if not candidato:
+                    flash("Candidato não encontrado.", "error")
+                    return redirect(url_for('index'))
+                    
+        return render_template('visualizar.html', candidato=candidato)
+    except Exception as e:
+        print(f"Erro ao visualizar currículo: {e}")
+        flash("Erro ao carregar os detalhes do currículo.", "error")
+        return redirect(url_for('index'))
+
+# ==============================================================================
+# GESTÃO DE VAGAS (CAMPOS ADICIONAIS ATUALIZADOS)
+# ==============================================================================
+@app.route('/cadastrar_vaga', methods=['GET', 'POST'])
+@login_required
+def cadastrar_vaga():
+    if request.method == 'POST':
+        titulo = request.form.get('titulo')
+        descricao = request.form.get('descricao')
+        requisitos = request.form.get('requisitos')
+        localizacao = request.form.get('localizacao')
+        
+        # CAPTURA DOS NOVOS CAMPOS DO FORMULÁRIO HTML
+        atividades = request.form.get('atividades')
+        beneficios = request.form.get('beneficios')
+        remuneracao = request.form.get('remuneracao')
+        expediente = request.form.get('expediente')
+        
+        if not titulo or not descricao:
+            flash("Título e Descrição são obrigatórios.", "error")
+            return render_template('cadastrar_vaga.html')
+            
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        INSERT INTO vagas (titulo, descricao, requisitos, localizacao, atividades, beneficios, remuneracao, expediente)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (titulo, descricao, requisitos, localizacao, atividades, beneficios, remuneracao, expediente))
+                    conn.commit()
+            flash("Vaga cadastrada com sucesso!", "success")
+            return redirect(url_for('listar_vagas'))
+        except Exception as e:
+            print(f"Erro ao cadastrar vaga: {e}")
+            flash("Erro interno ao salvar vaga.", "error")
+            
+    return render_template('cadastrar_vaga.html')
+
+@app.route('/vagas/<int:id_vaga>/editar', methods=['GET', 'POST'])
+@login_required
+def editar_vaga(id_vaga):
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                # Busca os dados atuais da vaga para preencher o formulário
+                cursor.execute("""
+                    SELECT id, titulo, descricao, requisitos, localizacao, 
+                           atividades, beneficios, remuneracao, expediente 
+                    FROM vagas WHERE id = %s
+                """, (id_vaga,))
+                vaga = cursor.fetchone()
+
+        if not vaga:
+            flash("Vaga não encontrada.", "error")
+            return redirect(url_for('listar_vagas'))
+
+    except Exception as e:
+        print(f"Erro ao buscar vaga para edição: {e}")
+        flash("Erro ao carregar dados da vaga.", "error")
+        return redirect(url_for('listar_vagas'))
+
+    if request.method == 'POST':
+        titulo = request.form.get('titulo')
+        localizacao = request.form.get('localizacao')
+        descricao = request.form.get('descricao')
+        atividades = request.form.get('atividades')
+        requisitos = request.form.get('requisitos')
+        remuneracao = request.form.get('remuneracao')
+        beneficios = request.form.get('beneficios')
+        expediente = request.form.get('expediente')
+
+        if not titulo or not descricao:
+            flash("Título e Descrição são obrigatórios.", "error")
+            return render_template('editar_vaga.html', vaga=vaga)
+
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    # Updates no banco de dados
+                    cursor.execute("""
+                        UPDATE vagas 
+                        SET titulo = %s, localizacao = %s, descricao = %s, atividades = %s, 
+                            requisitos = %s, remuneracao = %s, beneficios = %s, expediente = %s
+                        WHERE id = %s
+                    """, (titulo, localizacao, descricao, atividades, requisitos, remuneracao, beneficios, expediente, id_vaga))
+                    conn.commit()
+            flash("Vaga atualizada com sucesso!", "success")
+            return redirect(url_for('listar_vagas'))
+        except Exception as e:
+            print(f"Erro ao atualizar vaga: {e}")
+            flash("Erro interno ao salvar as alterações da vaga.", "error")
+
+    return render_template('editar_vaga.html', vaga=vaga)
+
+@app.route('/vagas', methods=['GET'])
+@login_required
+def listar_vagas():
+    vagas_disponiveis = []
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                # SELECT ATUALIZADO PARA RESGATAR AS NOVAS INFORMAÇÕES
+                cursor.execute("""
+                    SELECT id, titulo, descricao, requisitos, localizacao, 
+                           atividades, beneficios, remuneracao, expediente, data_criacao 
+                    FROM vagas ORDER BY id DESC
+                """)
+                vagas_disponiveis = cursor.fetchall()
+    except Exception as e:
+        print(f"Erro ao buscar vagas: {e}")
+        flash("Erro ao carregar as vagas.", "error")
+        
+    return render_template('vagas.html', vagas=vagas_disponiveis)
+
+# ==============================================================================
+# CRUZAMENTO E ANÁLISE DE VAGAS VS CANDIDATOS (INTEGRAÇÃO DE NOVOS CAMPOS)
+# ==============================================================================
+@app.route('/vagas/<int:id_vaga>/analise', methods=['GET'])
+@login_required
+def analisar_vaga(id_vaga):
+    if not client:
+        flash("A chave da API do Gemini não está configurada.", "error")
+        return redirect(url_for('listar_vagas'))
+
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                # 1. Busca os detalhes da vaga selecionada incluindo os novos campos
+                cursor.execute("""
+                    SELECT id, titulo, descricao, requisitos, localizacao, 
+                           atividades, beneficios, remuneracao, expediente 
+                    FROM vagas WHERE id = %s
+                """, (id_vaga,))
+                vaga = cursor.fetchone()
+                
+                if not vaga:
+                    flash("Vaga não encontrada.", "error")
+                    return redirect(url_for('listar_vagas'))
+                
+                # 2. Busca todos os candidatos/currículos estruturados do sistema
+                cursor.execute("""
+                    SELECT id, nome_candidato AS nome, localizacao, formacao, 
+                           cursos, hard_skills, soft_skills, idiomas 
+                    FROM curriculos
+                """)
+                candidatos = cursor.fetchall()
+
+        if not candidatos:
+            flash("Nenhum candidato cadastrado no sistema para realizar a análise.", "warning")
+            return render_template('analise_vaga.html', vaga=vaga, resultados=[])
+
+        # 3. Prepara o contexto de dados adicionando os novos parâmetros
+        dados_vaga_txt = (
+            f"TÍTULO DA VAGA: {vaga['titulo']}\n"
+            f"DESCRIÇÃO: {vaga['descricao']}\n"
+            f"PRINCIPAIS ATIVIDADES: {vaga.get('atividades') or 'Não informadas'}\n"
+            f"REQUISITOS: {vaga['requisitos']}\n"
+            f"REMUNERAÇÃO: {vaga.get('remuneracao') or 'Não informada'}\n"
+            f"BENEFÍCIOS: {vaga.get('beneficios') or 'Não informados'}\n"
+            f"EXPEDIENTE: {vaga.get('expediente') or 'Não informado'}\n"
+            f"LOCALIZAÇÃO DA VAGA: {vaga['localizacao']}\n"
+        )
+
+        lista_candidatos_txt = ""
+        for c in candidatos:
+            lista_candidatos_txt += (
+                f"--- CANDIDATO ID: {c['id']} ---\n"
+                f"Nome: {c['nome']}\n"
+                f"Localização: {c['localizacao']}\n"
+                f"Formação: {c['formacao']}\n"
+                f"Cursos: {c['cursos']}\n"
+                f"Hard Skills: {c['hard_skills']}\n"
+                f"Soft Skills: {c['soft_skills']}\n"
+                f"Idiomas: {c['idiomas']}\n\n"
+            )
+
+        # 4. Prompt do sistema para orientar o Gemini
+        system_prompt = (
+            "Você é um Headhunter de TI e Especialista em Recrutamento e Seleção avançado.\n"
+            "Sua missão é realizar o cruzamento de dados (matching) entre uma vaga de emprego específica e a lista de candidatos fornecida.\n\n"
+            "Diretrizes:\n"
+            "1. Avalie cuidadosamente a compatibilidade de cada candidato considerando as hard skills, soft skills, localização, as principais atividades exigidas e se há match com o expediente/remuneração.\n"
+            "2. Atribua uma porcentagem de compatibilidade (0 a 100) baseada puramente em critérios técnicos e de negócios.\n"
+            "3. Crie uma justificativa direta, profissional e clara (máximo 3 linhas) explicando o porquê dessa pontuação.\n"
+            "4. Retorne a lista ordenada de forma decrescente, colocando os candidatos mais compatíveis no topo."
+        )
+
+        conteudo_requisicao = (
+            f"Aqui estão os detalhes da vaga:\n\n{dados_vaga_txt}\n"
+            f"Aqui está a lista de candidatos cadastrados:\n\n{lista_candidatos_txt}"
+        )
+
+        # 5. Chamada ao modelo Gemini utilizando a estrutura Pydantic configurada
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=conteudo_requisicao,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=ResultadoAnaliseVaga,
+                system_instruction=system_prompt,
+                temperature=0.2
+            )
+        )
+
+        # 6. Trata o retorno JSON
+        texto_resposta = response.text.strip() if response.text else ""
+        if texto_resposta:
+            dados_analise = json.loads(texto_resposta)
+            resultados = dados_analise.get("candidatos_compativeis", [])
+            return render_template('analise_vaga.html', vaga=vaga, resultados=resultados)
+        else:
+            flash("Erro ao processar análise inteligente.", "error")
+            return redirect(url_for('listar_vagas'))
+
+    except Exception as e:
+        print(f"Erro ao analisar vaga: {e}")
+        flash("Erro interno ao gerar análise de match.", "error")
+        return redirect(url_for('listar_vagas'))
