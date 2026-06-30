@@ -610,6 +610,62 @@ def visualizar(id_candidato):
 @app.route('/cadastrar_vaga', methods=['GET', 'POST'])
 @login_required
 def cadastrar_vaga():
+
+@app.route('/vagas/<int:id_vaga>/editar', methods=['GET', 'POST'])
+@login_required
+def editar_vaga(id_vaga):
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                # Busca os dados atuais da vaga para preencher o formulário
+                cursor.execute("""
+                    SELECT id, titulo, descricao, requisitos, localizacao, 
+                           atividades, beneficios, remuneracao, expediente 
+                    FROM vagas WHERE id = %s
+                """, (id_vaga,))
+                vaga = cursor.fetchone()
+
+        if not vaga:
+            flash("Vaga não encontrada.", "error")
+            return redirect(url_for('listar_vagas'))
+
+    except Exception as e:
+        print(f"Erro ao buscar vaga para edição: {e}")
+        flash("Erro ao carregar dados da vaga.", "error")
+        return redirect(url_for('listar_vagas'))
+
+    if request.method == 'POST':
+        titulo = request.form.get('titulo')
+        localizacao = request.form.get('localizacao')
+        descricao = request.form.get('descricao')
+        atividades = request.form.get('atividades')
+        requisitos = request.form.get('requisitos')
+        remuneracao = request.form.get('remuneracao')
+        beneficios = request.form.get('beneficios')
+        expediente = request.form.get('expediente')
+
+        if not titulo or not descricao:
+            flash("Título e Descrição são obrigatórios.", "error")
+            return render_template('editar_vaga.html', vaga=vaga)
+
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    # Atualiza os dados no banco de dados
+                    cursor.execute("""
+                        UPDATE vagas 
+                        SET titulo = %s, localizacao = %s, descricao = %s, atividades = %s, 
+                            requisitos = %s, remuneracao = %s, beneficios = %s, expediente = %s
+                        WHERE id = %s
+                    """, (titulo, localizacao, descricao, atividades, requisitos, remuneracao, beneficios, expediente, id_vaga))
+                    conn.commit()
+            flash("Vaga atualizada com sucesso!", "success")
+            return redirect(url_for('listar_vagas'))
+        except Exception as e:
+            print(f"Erro ao atualizar vaga: {e}")
+            flash("Erro interno ao salvar as alterações da vaga.", "error")
+
+    return render_template('editar_vaga.html', vaga=vaga)
     if request.method == 'POST':
         titulo = request.form.get('titulo')
         descricao = request.form.get('descricao')
