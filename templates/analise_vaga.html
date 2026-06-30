@@ -1,25 +1,100 @@
-<h2>Análise de Compatibilidade para a Vaga: {{ vaga.titulo }}</h2>
-<p><strong>Descrição:</strong> {{ vaga.descricao }}</p>
-<hr>
-
-<h3>Candidatos Cadastrados no Sistema (Ordenados por Match)</h3>
-{% if resultados %}
-    <div class="lista-candidatos">
-    {% for item in resultados %}
-        <div class="card mb-3">
-            <div class="card-body">
-                <h5 class="card-title">
-                    {{ item.nome }} 
-                    <span class="badge bg-success">{{ item.porcentagem_compatibilidade }}% Match</span>
-                </h5>
-                <p class="card-text"><strong>Justificativa do sistema:</strong> {{ item.justificativa }}</p>
-                <a href="{{ url_for('visualizar', id_candidato=item.id_candidato) }}" class="btn btn-sm btn-secondary" target="_blank">
-                    Ver Perfil do Candidato
-                </a>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Análise de Match - TalentPulse</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background-color: #f8fafc; color: #334155; padding: 40px; }
+        .container { max-width: 900px; margin: 0 auto; }
+        
+        /* Cabeçalho e Informações da Vaga */
+        .vaga-header { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 28px; margin-bottom: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+        .vaga-header h2 { color: #0f172a; font-size: 22px; font-weight: 700; margin-bottom: 12px; }
+        .vaga-info-box { font-size: 14px; line-height: 1.6; background: #f8fafc; border-radius: 8px; padding: 16px; border-left: 4px solid #4f46e5; }
+        .vaga-info-box strong { color: #1e293b; display: block; margin-bottom: 4px; }
+        
+        /* Seção de Candidatos */
+        .secao-titulo { color: #1e293b; font-size: 16px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .candidato-card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); position: relative; }
+        
+        /* Alinhamento do Nome e Badge de Match */
+        .candidato-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+        .candidato-nome { font-size: 16px; font-weight: 700; color: #0f172a; }
+        
+        /* Badges baseadas na pontuação */
+        .match-badge { background: #dcfce7; color: #15803d; font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 9999px; display: inline-block; }
+        
+        /* Barra de Progresso do Match */
+        .progress-container { width: 100%; background-color: #f1f5f9; height: 6px; border-radius: 3px; margin-bottom: 16px; overflow: hidden; }
+        .progress-bar { background: linear-gradient(90deg, #4f46e5, #6366f1); height: 100%; border-radius: 3px; }
+        
+        /* Justificativa e Texto */
+        .justificativa-box { font-size: 14px; line-height: 1.5; color: #475569; margin-bottom: 16px; }
+        .justificativa-box strong { color: #0f172a; }
+        
+        /* Ações e Links */
+        .card-acoes { display: flex; justify-content: flex-end; }
+        .btn-perfil { background: #f1f5f9; color: #475569; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px; transition: all 0.2s; border: 1px solid #e2e8f0; }
+        .btn-perfil:hover { background: #e2e8f0; color: #1e293b; }
+        
+        .back-link { color: #64748b; text-decoration: none; font-size: 14px; display: inline-block; margin-top: 20px; transition: color 0.2s; }
+        .back-link:hover { color: #4f46e5; }
+        
+        .sem-resultados { text-align: center; color: #64748b; padding: 40px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        <div class="vaga-header">
+            <h2>Análise de Compatibilidade</h2>
+            <div class="vaga-info-box">
+                <strong>Vaga: {{ vaga.titulo }}</strong>
+                {{ vaga.descricao }}
             </div>
         </div>
-    {% endfor %}
+
+        <h3 class="secao-titulo">🎯 Candidatos no Sistema (Ordenados por Match)</h3>
+
+        {% if resultados %}
+            <div class="lista-candidatos">
+            {% for item in resultados %}
+                <div class="candidato-card">
+                    
+                    <div class="candidato-top">
+                        <div class="candidato-nome">{{ item.nome }}</div>
+                        <div class="match-badge">
+                            {{ item.porcentagem_compatibilidade }}% Match
+                        </div>
+                    </div>
+
+                    <div class="progress-container">
+                        <div class="progress-bar" style="width: {{ item.porcentagem_compatibilidade }}%;"></div>
+                    </div>
+                    
+                    <div class="justificativa-box">
+                        <strong>Justificativa do sistema:</strong> 
+                        {{ item.justificativa }}
+                    </div>
+                    
+                    <div class="card-acoes">
+                        <a href="{{ url_for('visualizar', id_candidato=item.id_candidato) }}" class="btn-perfil" target="_blank">
+                            👤 Ver Perfil Completo
+                        </a>
+                    </div>
+                    
+                </div>
+            {% endfor %}
+            </div>
+        {% else %}
+            <div class="sem-resultados">
+                Nenhum resultado de match gerado para esta vaga até o momento.
+            </div>
+        {% endif %}
+        
+        <a href="{{ url_for('listar_vagas') }}" class="back-link">← Voltar para as Vagas</a>
     </div>
-{% else %}
-    <p>Nenhum resultado gerado para esta vaga.</p>
-{% endif %}
+</body>
+</html>
