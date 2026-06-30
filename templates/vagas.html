@@ -20,43 +20,37 @@
         .back-link:hover { color: #4f46e5; }
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="header-area">
-            <h2>Vagas Disponíveis</h2>
-            <a href="{{ url_for('cadastrar_vaga') }}" class="btn-add">+ Nova Vaga</a>
-        </div>
-
-        {% if vagas %}
-            {% for vaga in vagas %}
-                <div class="vaga-card">
-                    <div class="vaga-titulo">{{ vaga.titulo }}</div>
-                    <div class="vaga-local">📍 {{ vaga.localizacao or 'Não informado' }}</div>
-                    
-                    <div class="vaga-secao">
-                        <strong>Descrição:</strong>
-                        <p style="white-space: pre-line;">{{ vaga.descricao }}</p>
-                    </div>
-                    
-                    {% if vaga.requisitos %}
-                    <div class="vaga-secao">
-                        <strong>Requisitos:</strong>
-                        <p style="white-space: pre-line;">{{ vaga.requisitos }}</p>
-                    </div>
-                    {% endif %}
+<div class="container mt-4">
+    <h2>Vagas Disponíveis</h2>
+    
+    <div class="row">
+        {% for vaga in vagas %}
+        <div class="card mb-3 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title font-weight-bold">{{ vaga.titulo }}</h5>
+                <p class="text-muted"><i class="fas fa-map-marker-alt"></i> {{ vaga.localizacao }}</p>
+                
+                <p class="card-text">
+                    <strong>Descrição:</strong><br>
+                    {{ vaga.descricao }}
+                </p>
+                
+                <p class="card-text">
+                    <strong>Requisitos:</strong><br>
+                    {{ vaga.requisitos }}
+                </p>
+                
+                <div class="mt-3 text-right">
+                    <a href="{{ url_for('analisar_vaga', id_vaga=vaga.id) }}" class="btn btn-primary">
+                        <i class="fas fa-brain"></i> Análise Inteligente de Match
+                    </a>
                 </div>
-            {% endfor %}
-        {% else %}
-            <div class="vaga-card" style="text-align: center; color: #64748b; padding: 40px;">
-                Nenhuma vaga cadastrada no momento.
             </div>
-        {% endif %}
-        
-        <a href="{{ url_for('index') }}" class="back-link">← Voltar para o Painel</a>
-        {% for vaga_disponivel in vagas %}
-    <a href="{{ url_for('analisar_vaga', id_vaga=vaga_disponivel.id) }}" class="btn btn-primary">Análise Inteligente de Match</a>
-{% endfor %}
-</a>
+        </div>
+        {% endfor %}
     </div>
-</body>
-</html>
+    
+    <div class="mt-3">
+        <a href="{{ url_for('painel') }}" class="text-secondary">← Voltar para o Painel</a>
+    </div>
+</div>
