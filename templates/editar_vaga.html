@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Editar Vaga - TalentPulse</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background-color: #f8fafc; color: #334155; padding: 40px; }
+        .box { max-width: 700px; margin: 0 auto; background: white; padding: 32px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        h2 { margin-bottom: 24px; color: #0f172a; font-size: 22px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.3px; }
+        .form-control { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; color: #334155; background-color: #ffffff; transition: border-color 0.15s ease; }
+        .form-control:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+        textarea.form-control { height: 100px; resize: vertical; }
+        .btn-submit { background: #4f46e5; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%; font-size: 15px; margin-top: 10px; transition: background 0.2s; }
+        .btn-submit:hover { background: #4338ca; }
+        .back-link { display: inline-block; margin-top: 16px; color: #64748b; font-size: 14px; text-decoration: none; }
+        .back-link:hover { color: #4f46e5; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h2>Editar Vaga: {{ vaga.titulo }}</h2>
+        <form method="POST" action="{{ url_for('editar_vaga', id_vaga=vaga.id) }}">
+            
+            <div class="form-group">
+                <label>Título da Vaga</label>
+                <input type="text" name="titulo" class="form-control" value="{{ vaga.titulo }}" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Localização / Modelo</label>
+                <input type="text" name="localizacao" class="form-control" value="{{ vaga.localizacao or '' }}">
+            </div>
+            
+            <div class="form-group">
+                <label>Descrição Básica da Vaga</label>
+                <textarea name="descricao" class="form-control" required>{{ vaga.descricao }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Principais Atividades</label>
+                <textarea name="atividades" class="form-control">{{ vaga.atividades or '' }}</textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>Requisitos e Qualificações</label>
+                <textarea name="requisitos" class="form-control">{{ vaga.requisitos or '' }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Remuneração / Salário</label>
+                <input type="text" name="remuneracao" class="form-control" value="{{ vaga.remuneracao or '' }}">
+            </div>
+
+            <div class="form-group">
+                <label>Benefícios</label>
+                <textarea name="beneficios" class="form-control">{{ vaga.beneficios or '' }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Expediente / Horário</label>
+                <input type="text" name="expediente" class="form-control" value="{{ vaga.expediente or '' }}">
+            </div>
+
+            <button type="submit" class="btn-submit">Salvar Alterações</button>
+        </form>
+        <a href="{{ url_for('listar_vagas') }}" class="back-link">← Cancelar e Voltar</a>
+    </div>
+</body>
+</html>
