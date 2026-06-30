@@ -1,20 +1,109 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Visualizar Candidato - {{ candidato.nome }}</title>
+    <title>Perfil - {{ candidato.nome }} - TalentPulse</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background-color: #f8fafc; color: #334155; padding: 40px; }
+        .container { max-width: 850px; margin: 0 auto; }
+        
+        /* Cartão Principal do Perfil */
+        .profile-card { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 32px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -1px rgba(0,0,0,0.02); }
+        
+        /* Cabeçalho do Perfil */
+        .profile-header { border-bottom: 1px solid #f1f5f9; padding-bottom: 24px; margin-bottom: 24px; }
+        .profile-name { font-size: 24px; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; }
+        
+        /* Meta dados em linha (Local, Idade, Gênero) */
+        .profile-meta { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px; font-size: 14px; color: #64748b; font-weight: 500; }
+        .meta-item { display: inline-flex; align-items: center; gap: 4px; }
+        
+        /* Seções de Informação */
+        .profile-section { margin-bottom: 24px; }
+        .profile-section h3 { font-size: 14px; font-weight: 700; color: #0f172a; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+        .profile-section p { font-size: 15px; color: #475569; line-height: 1.6; }
+        
+        /* Container de Tags (Skills) */
+        .tags-container { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+        
+        /* Estilo das Badges de Skills (Baseado no seu layout original) */
+        .tag-hard { background: #e0e7ff; color: #4338ca; font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 6px; border: 1px solid #c7d2fe; }
+        .tag-soft { background: #fce7f3; color: #be185d; font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 6px; border: 1px solid #fbcfe8; }
+        .tag-generic { background: #f1f5f9; color: #475569; font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 6px; border: 1px solid #e2e8f0; }
+
+        /* Link de Voltar */
+        .back-link { color: #64748b; text-decoration: none; font-size: 14px; display: inline-block; margin-top: 24px; transition: color 0.2s; }
+        .back-link:hover { color: #4f46e5; }
+    </style>
 </head>
 <body>
-    <h1>Perfil do Candidato: {{ candidato.nome }}</h1>
-    <p><strong>Idade:</strong> {{ candidato.idade }}</p>
-    <p><strong>Gênero:</strong> {{ candidato.sexo }}</p>
-    <p><strong>Localização:</strong> {{ candidato.localizacao }}</p>
-    <p><strong>Formação:</strong> {{ candidato.formacao }}</p>
-    <p><strong>Cursos:</strong> {{ candidato.cursos }}</p>
-    <p><strong>Hard Skills:</strong> {{ candidato.hard_skills }}</p>
-    <p><strong>Soft Skills:</strong> {{ candidato.soft_skills }}</p>
-    <p><strong>Idiomas:</strong> {{ candidato.idiomas }}</p>
-    <br>
-    <a href="{{ url_for('index') }}">Voltar para a listagem</a>
+    <div class="container">
+        
+        <div class="profile-card">
+            <div class="profile-header">
+                <h1 class="profile-name">{{ candidato.nome }}</h1>
+                <div class="profile-meta">
+                    <span class="meta-item">📍 {{ candidato.localizacao or 'Não informada' }}</span>
+                    <span class="meta-item">🎂 {{ candidato.idade or 'Não informado' }} anos</span>
+                    <span class="meta-item">⚥ Gênero: {{ candidato.sexo or 'Não informado' }}</span>
+                </div>
+            </div>
+
+            <div class="profile-section">
+                <h3>Formação Acadêmica</h3>
+                <p>{{ candidato.formacao or 'Nenhuma formação registrada.' }}</p>
+            </div>
+
+            {% if candidato.cursos %}
+            <div class="profile-section">
+                <h3>Cursos e Certificações</h3>
+                <p>{{ candidato.cursos }}</p>
+            </div>
+            {% endif %}
+
+            <div class="profile-section">
+                <h3>Hard Skills (Competências Técnicas)</h3>
+                <div class="tags-container">
+                    {% if candidato.hard_skills %}
+                        {# Divide a string por vírgulas caso venha do banco como texto corrido #}
+                        {% for skill in candidato.hard_skills.split(',') %}
+                            <span class="tag-hard">🛠️ {{ skill.strip() }}</span>
+                        {% endfor %}
+                    {% else %}
+                        <span class="text-muted" style="font-size: 14px;">Nenhuma competência técnica registrada.</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="profile-section">
+                <h3>Soft Skills (Habilidades Comportamentais)</h3>
+                <div class="tags-container">
+                    {% if candidato.soft_skills %}
+                        {% for skill in candidato.soft_skills.split(',') %}
+                            <span class="tag-soft">🧠 {{ skill.strip() }}</span>
+                        {% endfor %}
+                    {% else %}
+                        <span class="text-muted" style="font-size: 14px;">Nenhuma habilidade comportamental registrada.</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if candidato.idiomas %}
+            <div class="profile-section" style="margin-bottom: 0;">
+                <h3>Idiomas</h3>
+                <div class="tags-container">
+                    {% for idioma in candidato.idiomas.split(',') %}
+                        <span class="tag-generic">🗣️ {{ idioma.strip() }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+        
+        <a href="{{ url_for('index') }}" class="back-link">← Voltar para a listagem</a>
+    </div>
 </body>
 </html>
