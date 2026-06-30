@@ -145,7 +145,16 @@ class EstruturaCurriculo(BaseModel):
     hard_skills: str   
     soft_skills: str   
     idiomas: str
+    
+class CandidatoCompatibilidade(BaseModel):
+    id_candidato: int
+    nome: str
+    porcentagem_compatibilidade: int
+    justificativa: str
 
+class ResultadoAnaliseVaga(BaseModel):
+    vaga_id: int
+    candidatos_compativeis: list[CandidatoCompatibilidade]
 # ==============================================================================
 # FUNÇÕES AUXILIARES DE TEXTO
 # ==============================================================================
@@ -634,6 +643,108 @@ def listar_vagas():
         flash("Erro ao carregar as vagas.", "error")
         
     return render_template('vagas.html', vagas=vagas_disponiveis)
+# ==============================================================================
+# CRUZAMENTO E ANÁLISE DE VAGAS VS CANDIDATOS
+# ==============================================================================
+@app.route('/vagas/<int:id_vaga>/analise', methods=['GET'])
+@login_required
+def analisar_vaga(id_vaga):
+    if not client:
+        flash("A chave da API do Gemini não está configurada.", "error")
+        return redirect(url_for('listar_vagas'))
 
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                # 1. Busca os detalhes da vaga selecionada
+                cursor.execute("SELECT id, titulo, descricao, requisitos, localizacao FROM vagas WHERE id = %s", (id_vaga,))
+                vaga = cursor.fetchone()
+                
+                if not vaga:
+                    flash("Vaga não encontrada.", "error")
+                    return redirect(url_for('listar_vagas'))
+                
+                # 2. Busca todos os candidatos/currículos estruturados do sistema
+                cursor.execute("""
+                    SELECT id, nome_candidato AS nome, localizacao, formacao, 
+                           cursos, hard_skills, soft_skills, idiomas 
+                    FROM curriculos
+                """)
+                candidatos = cursor.fetchall()
+
+        if not candidatos:
+            flash("Nenhum candidato cadastrado no sistema para realizar a análise.", "warning")
+            return render_template('analise_vaga.html', vaga=vaga, resultados=[])
+
+        # 3. Prepara o contexto de dados para enviar à IA
+        dados_vaga_txt = (
+            f"TÍTULO DA VAGA: {vaga['titulo']}\n"
+            f"DESCRIÇÃO: {vaga['descricao']}\n"
+            f"REQUISITOS: {vaga['requisitos']}\n"
+            f"LOCALIZAÇÃO DA VAGA: {vaga['localizacao']}\n"
+        )
+
+        lista_candidatos_txt = ""
+        for c in candidatos:
+            lista_candidatos_txt += (
+                f"--- CANDIDATO ID: {c['id']} ---\n"
+                f"Nome: {c['nome']}\n"
+                f"Localização: {c['localizacao']}\n"
+                f"Formação: {c['formacao']}\n"
+                f"Cursos: {c['cursos']}\n"
+                f"Hard Skills: {c['hard_skills']}\n"
+                f"Soft Skills: {c['soft_skills']}\n"
+                f"Idiomas: {c['idiomas']}\n\n"
+            )
+
+        # 4. Prompt do sistema para orientar o Gemini
+        system_prompt = (
+            "Você é um Headhunter de TI e Especialista em Recrutamento e Seleção avançado.\n"
+            "Sua missão é realizar o cruzamento de dados (matching) entre uma vaga de emprego específica e a lista de candidatos fornecida.\n\n"
+            "Diretrizes:\n"
+            "1. Avalie cuidadosamente a compatibilidade de cada candidato considerando hard skills, soft skills, localização e formação exigidas.\n"
+            "2. Atribua uma porcentagem de compatibilidade (0 a 100) baseada puramente em critérios técnicos e de negócios.\n"
+            "3. Crie uma justificativa direta, profissional e clara (máximo 3 linhas) explicando o porquê dessa pontuação.\n"
+            "4. Retorne a lista ordenada de forma decrescente, colocando os candidatos mais compatíveis no topo."
+        )
+
+        conteudo_requisicao = (
+            f"Aqui estão os detalhes da vaga:\n\n{dados_vaga_txt}\n"
+            f"Aqui está a lista de candidatos cadastrados:\n\n{lista_candidatos_txt}"
+        )
+
+        # 5. Chamada ao modelo Gemini utilizando a estrutura Pydantic configurada
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=conteudo_requisicao,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=ResultadoAnaliseVaga,
+                system_instruction=system_prompt,
+                temperature=0.2
+            )
+        )
+
+        # 6. Trata o retorno JSON da IA
+        texto_resposta = response.text.strip() if response.text else ""
+        if texto_resposta:
+            dados_analise = json.loads(texto_resposta)
+            # Ordena no Python por garantia os candidatos com maior porcentagem de match
+            resultados = sorted(
+                dados_analise.get('candidatos_compativeis', []),
+                key=lambda x: x['porcentagem_compatibilidade'],
+                reverse=True
+            )
+        else:
+            resultados = []
+            flash("Não foi possível gerar a análise inteligente neste momento.", "error")
+
+        return render_template('analise_vaga.html', vaga=vaga, resultados=resultados)
+
+    except Exception as e:
+        print(f"Erro ao processar análise inteligente: {e}")
+        flash("Erro interno ao processar o cruzamento de dados.", "error")
+        return redirect(url_for('listar_vagas'))
+        
 if __name__ == '__main__':
     app.run(debug=True)
