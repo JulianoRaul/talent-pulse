@@ -53,6 +53,9 @@
         {% endif %}
         
         <a href="{{ url_for('index') }}" class="back-link">← Voltar para o Painel</a>
+        <a href="{{ url_for('analisar_vaga', id_vaga=vaga.id) }}" class="btn btn-primary">
+    Análise Inteligente de Match
+</a>
     </div>
 </body>
 </html>
