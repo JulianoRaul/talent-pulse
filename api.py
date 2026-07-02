@@ -726,7 +726,7 @@ def editar_vaga(id_vaga):
                         WHERE id = %s AND empresa_id = %s
                     """, (titulo, localizacao, descricao, atividades, requisitos, remuneracao, beneficios, expediente, id_vaga, current_user.empresa_id))
                     conn.commit()
-            flash("Vaga atualizada com sucesso!", "success")
+            flash("Vaga updated com sucesso!", "success")
             return redirect(url_for('listar_vagas'))
         except Exception as e:
             print(f"Erro ao atualizar vaga: {e}")
@@ -833,3 +833,93 @@ def analisar_vaga(id_vaga):
         print(f"Erro na análise de vagas com IA: {e}")
         flash("Ocorreu um erro interno ao processar a inteligência artificial.", "error")
         return redirect(url_for('listar_vagas'))
+
+# ==============================================================================
+# CONTROLE MASTER ADMINISTRATIVO (GERENCIAMENTO DE TENANTS / CANCELAMENTOS)
+# ==============================================================================
+ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "pulse_admin_2026")
+
+@app.route('/master-admin/empresas', methods=['GET'])
+def admin_listar_empresas():
+    token = request.args.get('token')
+    if token != ADMIN_TOKEN:
+        return "Acesso não autorizado", 403
+        
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT e.id, e.nome_comercial, e.data_cadastro,
+                           (SELECT COUNT(*) FROM usuarios u WHERE u.empresa_id = e.id) as qtd_usuarios,
+                           (SELECT COUNT(*) FROM curriculos c WHERE c.empresa_id = e.id) as qtd_curriculos,
+                           (SELECT COUNT(*) FROM vagas v WHERE v.empresa_id = e.id) as qtd_vagas
+                    FROM empresas e
+                    ORDER BY e.id DESC
+                """)
+                empresas = cursor.fetchall()
+                
+        html_admin = f"""
+        <html>
+        <head>
+            <title>Master Admin - TalentPulse</title>
+            <style>
+                body {{ font-family: sans-serif; padding: 40px; background: #f4f6f8; color: #1e293b; }}
+                h2 {{ color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }}
+                table {{ width: 100%; border-collapse: collapse; background: #fff; margin-top: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 6px; overflow: hidden; }}
+                th, td {{ padding: 14px; border: 1px solid #e2e8f0; text-align: left; }}
+                th {{ background: #0f172a; color: white; font-weight: 600; }}
+                tr:nth-child(even) {{ background: #f8fafc; }}
+                .btn-delete {{ background: #dc2626; color: white; border: none; padding: 8px 14px; cursor: pointer; border-radius: 4px; font-weight: bold; transition: background 0.2s; }}
+                .btn-delete:hover {{ background: #b91c1c; }}
+            </style>
+        </head>
+        <body>
+            <h2>Painel de Controle de Clientes (Tenants)</h2>
+            <p>Gerencie os contratos ativos da plataforma TalentPulse de forma unificada.</p>
+            <table>
+                <tr>
+                    <th>ID</th><th>Nome da Empresa</th><th>Data Cadastro</th><th>Usuários</th><th>Currículos</th><th>Vagas</th><th>Ações</th>
+                </tr>
+        """
+        for emp in empresas:
+            html_admin += f"""
+                <tr>
+                    <td>{emp['id']}</td>
+                    <td><strong>{emp['nome_comercial']}</strong></td>
+                    <td>{emp['data_cadastro']}</td>
+                    <td>{emp['qtd_usuarios']}</td>
+                    <td>{emp['qtd_curriculos']}</td>
+                    <td>{emp['qtd_vagas']}</td>
+                    <td>
+                        <form action="/master-admin/empresas/{emp['id']}/excluir?token={token}" method="POST" onsubmit="return confirm('ATENÇÃO CRÍTICA: Deletar esta empresa apagará TODOS os usuários, currículos e vagas dela permanentemente. Confirmar cancelamento?');">
+                            <button class="btn-delete" type="submit">Cancelar Contrato</button>
+                        </form>
+                    </td>
+                </tr>
+            """
+        html_admin += "</table></body></html>"
+        return Response(html_admin, mimetype='text/html')
+    except Exception as e:
+        return f"Erro ao carregar o painel administrativo: {e}", 500
+
+@app.route('/master-admin/empresas/<int:id_empresa>/excluir', methods=['POST'])
+def admin_excluir_empresa(id_empresa):
+    token = request.args.get('token')
+    if token != ADMIN_TOKEN:
+        return "Acesso não autorizado", 403
+        
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM empresas WHERE id = %s", (id_empresa,))
+                conn.commit()
+                
+        return f"""
+        <div style="font-family: sans-serif; padding: 40px; text-align: center;">
+            <h3 style="color: #16a34a;">Empresa ID {id_empresa} e todos os seus dados associados foram excluídos com sucesso do banco!</h3>
+            <br>
+            <a href='/master-admin/empresas?token={token}' style="display: inline-block; background: #0f172a; color: white; text-decoration: none; padding: 10px 20px; border-radius: 4px;">Voltar ao Painel</a>
+        </div>
+        """
+    except Exception as e:
+        return f"Erro ao deletar empresa: {e}", 500
