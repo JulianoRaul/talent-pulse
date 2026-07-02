@@ -303,6 +303,7 @@
             display: flex;
             align-items: center;
             gap: 6px;
+            flex-wrap: wrap;
         }
 
         .btn-action {
@@ -324,6 +325,18 @@
         .btn-action:hover {
             background: #e2e8f0;
             color: #1e293b;
+        }
+
+        .btn-whatsapp {
+            background: #ecfdf5;
+            color: #047857;
+            border-color: #a7f3d0;
+        }
+
+        .btn-whatsapp:hover {
+            background: #d1fae5;
+            border-color: #34d399;
+            color: #065f46;
         }
 
         .btn-retirar {
@@ -416,7 +429,6 @@
             </div>
             
             <div class="topbar-actions">
-                <!-- Identificador do Inquilino/Empresa Logada -->
                 <span class="badge-empresa">🏢 {{ nome_empresa }}</span>
                 <span class="badge-triados">Candidatos Triados: {{ candidatos|length }}</span>
                 
@@ -524,6 +536,12 @@
                                 </div>
                                 
                                 <div class="actions-group">
+                                    {% if candidato.whatsapp %}
+                                        <a href="https://wa.me/55{{ candidato.whatsapp }}" target="_blank" class="btn-action btn-whatsapp" title="Abrir conversa no WhatsApp">
+                                            💬 WhatsApp
+                                        </a>
+                                    {% endif %}
+
                                     {% if candidato.id %}
                                         <a href="/visualizar/{{ candidato.id }}" target="_blank" class="btn-action">
                                             👁️ Abrir
