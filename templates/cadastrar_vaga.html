@@ -2,72 +2,93 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Cadastrar Vaga - TalentPulse</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulário de Vaga - TalentPulse</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-        body { background-color: #f8fafc; color: #334155; padding: 40px; }
-        .box { max-width: 700px; margin: 0 auto; background: white; padding: 32px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-        h2 { margin-bottom: 24px; color: #0f172a; font-size: 22px; }
-        .form-group { margin-bottom: 20px; }
-        label { display: block; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.3px; }
-        .form-control { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; color: #334155; background-color: #ffffff; transition: border-color 0.15s ease; }
+        body { background-color: #f8fafc; color: #334155; padding: 24px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .card { background: #ffffff; padding: 32px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+        
+        .header-form { margin-bottom: 24px; border-bottom: 1px solid #f1f5f9; padding-bottom: 16px; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+        @media(max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+        
+        .form-group { margin-bottom: 16px; }
+        .form-group.full-width { grid-column: span 2; }
+        @media(max-width: 600px) { .form-group.full-width { grid-column: span 1; } }
+
+        label { display: block; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px; }
+        .form-control { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; color: #334155; transition: all 0.15s ease; }
         .form-control:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
-        textarea.form-control { height: 100px; resize: vertical; }
-        .btn-submit { background: #4f46e5; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%; font-size: 15px; margin-top: 10px; transition: background 0.2s; }
-        .btn-submit:hover { background: #4338ca; }
-        .back-link { display: inline-block; margin-top: 16px; color: #64748b; font-size: 14px; text-decoration: none; }
-        .back-link:hover { color: #4f46e5; }
+        textarea.form-control { resize: vertical; min-height: 90px; }
+
+        .btn-group { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; border-top: 1px solid #f1f5f9; padding-top: 20px; }
+        .btn { padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; transition: all 0.15s ease; }
+        .btn-secondary { background: #ffffff; color: #475569; border: 1px solid #e2e8f0; }
+        .btn-secondary:hover { background: #f1f5f9; }
+        .btn-primary { background: #0f172a; color: #ffffff; border: none; }
+        .btn-primary:hover { background: #1e293b; }
     </style>
 </head>
 <body>
-    <div class="box">
-        <h2>Cadastrar Nova Vaga</h2>
-        <form method="POST" action="{{ url_for('cadastrar_vaga') }}">
-            
-            <div class="form-group">
-                <label>Título da Vaga</label>
-                <input type="text" name="titulo" class="form-control" placeholder="Ex: Desenvolvedor Python Pleno" required>
-            </div>
-            
-            <div class="form-group">
-                <label>Localização / Modelo</label>
-                <input type="text" name="localizacao" class="form-control" placeholder="Ex: Remoto / São Paulo - SP">
-            </div>
-            
-            <div class="form-group">
-                <label>Descrição Básica da Vaga</label>
-                <textarea name="descricao" class="form-control" placeholder="Resumo geral sobre o propósito e objetivo do cargo..." required></textarea>
+    <div class="container">
+        <div class="card">
+            <div class="header-form">
+                <h1 style="font-size: 22px; font-weight: 700; color: #0f172a;">
+                    {% if vaga is defined %} Editar Vaga de Emprego {% else %} Cadastrar Nova Vaga {% endif %}
+                </h1>
+                <p style="font-size: 13px; color: #64748b; margin-top: 4px;">Escreva o escopo e requisitos. A IA utilizará esses dados para mapear os candidatos adequados.</p>
             </div>
 
-            <div class="form-group">
-                <label>Principais Atividades</label>
-                <textarea name="atividades" class="form-control" placeholder="Descreva as tarefas e responsabilidades rotineiras da função..."></textarea>
-            </div>
-            
-            <div class="form-group">
-                <label>Requisitos e Qualificações</label>
-                <textarea name="requisitos" class="form-control" placeholder="Ex: Python, Flask, SQL Avançado, metodologias ágeis..."></textarea>
-            </div>
+            <form method="POST" action="{% if vaga is defined %}/vagas/{{ vaga.id }}/editar{% else %}{{ url_for('cadastrar_vaga') }}{% endif %}">
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label for="titulo">Título da Vaga *</label>
+                        <input type="text" id="titulo" name="titulo" class="form-control" placeholder="Ex: Desenvolvedor Full Stack Sênior" required value="{{ vaga.titulo if vaga is defined else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="localizacao">Localização</label>
+                        <input type="text" id="localizacao" name="localizacao" class="form-control" placeholder="Ex: São Paulo - SP (Híbrido)" value="{{ vaga.localizacao if vaga is defined else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="remuneracao">Remuneração / Salário</label>
+                        <input type="text" id="remuneracao" name="remuneracao" class="form-control" placeholder="Ex: R$ 8.000,00 a R$ 10.000,00" value="{{ vaga.remuneracao if vaga is defined else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="expediente">Jornada / Expediente</label>
+                        <input type="text" id="expediente" name="expediente" class="form-control" placeholder="Ex: Segunda a Sexta, 9h às 18h" value="{{ vaga.expediente if vaga is defined else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="beneficios">Benefícios</label>
+                        <input type="text" id="beneficios" name="beneficios" class="form-control" placeholder="Ex: Vale Refeição, Plano de Saúde" value="{{ vaga.beneficios if vaga is defined else '' }}">
+                    </div>
+                </div>
 
-            <div class="form-group">
-                <label>Remuneração / Salário</label>
-                <input type="text" name="remuneracao" class="form-control" placeholder="Ex: R$ 8.000,00 - R$ 10.000,00 ou A combinar">
-            </div>
+                <div class="form-group">
+                    <label for="descricao">Descrição da Vaga / Sumário *</label>
+                    <textarea id="descricao" name="descricao" class="form-control" rows="4" placeholder="Descreva brevemente o objetivo da vaga..." required>{{ vaga.descricao if vaga is defined else '' }}</textarea>
+                </div>
 
-            <div class="form-group">
-                <label>Benefícios</label>
-                <textarea name="beneficios" class="form-control" placeholder="Ex: Vale Refeição, Plano de Saúde, Auxílio Home Office..."></textarea>
-            </div>
+                <div class="form-group">
+                    <label for="atividades">Principais Responsabilidades e Atividades</label>
+                    <textarea id="atividades" name="atividades" class="form-control" rows="3" placeholder="O que o profissional fará no dia a dia...">{{ vaga.atividades if vaga is defined else '' }}</textarea>
+                </div>
 
-            <div class="form-group">
-                <label>Expediente / Horário</label>
-                <input type="text" name="expediente" class="form-control" placeholder="Ex: Segunda a sexta, das 09h às 18h">
-            </div>
+                <div class="form-group">
+                    <label for="requisitos">Requisitos e Qualificações Técnicas / Comportamentais</label>
+                    <textarea id="requisitos" name="requisitos" class="form-control" rows="3" placeholder="Ex: Conhecimento em Python, React, perfil proativo...">{{ vaga.requisitos if vaga is defined else '' }}</textarea>
+                </div>
 
-            <button type="submit" class="btn-submit">Salvar e Publicar Vaga</button>
-        </form>
-        <a href="{{ url_for('listar_vagas') }}" class="back-link">← Voltar para as Vagas</a>
+                <div class="btn-group">
+                    <a href="{{ url_for('listar_vagas') }}" class="btn btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary">Salvar Vaga</button>
+                </div>
+            </form>
+        </div>
     </div>
 </body>
 </html>
