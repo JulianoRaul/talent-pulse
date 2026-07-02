@@ -51,6 +51,16 @@
             gap: 16px;
         }
 
+        .badge-empresa {
+            background: #e0e7ff;
+            color: #4338ca;
+            padding: 8px 16px;
+            border-radius: 99px;
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px solid #c7d2fe;
+        }
+
         .badge-triados {
             background: #ecfdf5;
             color: #047857;
@@ -399,10 +409,15 @@
                         </linearGradient>
                     </defs>
                 </svg>
-                <h1 style="font-size: 20px; font-weight: 700; color: #0f172a;">TalentPulse</h1>
+                <div>
+                    <h1 style="font-size: 20px; font-weight: 700; color: #0f172a;">TalentPulse</h1>
+                    <p style="font-size: 11px; color: #64748b;">Olá, {{ current_user.nome.split(' ')[0] }}</p>
+                </div>
             </div>
             
             <div class="topbar-actions">
+                <!-- Identificador do Inquilino/Empresa Logada -->
+                <span class="badge-empresa">🏢 {{ nome_empresa }}</span>
                 <span class="badge-triados">Candidatos Triados: {{ candidatos|length }}</span>
                 
                 <a href="{{ url_for('cadastrar_vaga') }}" class="btn-action" style="background: #e0e7ff; color: #4338ca; border-color: #c7d2fe;">+ Cadastrar Vaga</a>
@@ -428,7 +443,7 @@
                 <div class="upload-card">
                     <div class="upload-header">
                         <h2>Upload Automatizado</h2>
-                        <p>Arraste ou selecione o arquivo. A IA lerá o documento e preencherá tudo sozinha no banco.</p>
+                        <p>Arraste ou selecione o arquivo. A IA lerá o documento e preencherá tudo sozinha no banco da sua empresa.</p>
                     </div>
                     
                     <form action="/upload" method="POST" enctype="multipart/form-data" id="upload-form">
@@ -513,7 +528,6 @@
                                         <a href="/visualizar/{{ candidato.id }}" target="_blank" class="btn-action">
                                             👁️ Abrir
                                         </a>
-                                        <!-- Nova rota integrada de Visualização Direta do Original -->
                                         <a href="{{ url_for('visualizar_original', id_candidato=candidato.id) }}" target="_blank" class="btn-action">
                                             📄 Original
                                         </a>
@@ -669,7 +683,6 @@
                 card.remove();
                 const totalBadge = document.querySelector('.badge-triados');
                 if (totalBadge) {
-                    // Atualização simples de texto caso queira decrementar sem recarregar a página
                     let partes = totalBadge.innerText.split(':');
                     if(partes.length > 1) {
                         let totalAtual = parseInt(partes[1].trim()) || 0;
