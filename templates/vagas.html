@@ -2,109 +2,113 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Vagas Disponíveis - TalentPulse</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Vagas - TalentPulse</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-        body { background-color: #f8fafc; color: #334155; padding: 40px; }
-        .container { max-width: 900px; margin: 0 auto; }
-        .header-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
-        h2 { color: #0f172a; }
-        .btn-add { background: #4f46e5; color: white; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; transition: background 0.2s; }
-        .btn-add:hover { background: #4338ca; }
+        body { background-color: #f8fafc; color: #334155; padding: 24px; }
+        .container { max-width: 1200px; margin: 0 auto; }
         
-        /* Estilos do Cartão e Botão Interno */
-        .vaga-card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
-        .vaga-titulo { font-size: 18px; font-weight: 700; color: #1e293b; }
-        .vaga-local { font-size: 13px; color: #64748b; margin-top: 4px; font-weight: 500; }
-        .vaga-secao { margin-top: 14px; font-size: 14px; line-height: 1.5; }
-        .vaga-secao strong { color: #0f172a; display: block; margin-bottom: 4px; }
+        .header-vagas {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        .btn-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            border: 1px solid #e2e8f0;
+            cursor: pointer;
+            background: #ffffff;
+            color: #475569;
+            transition: all 0.15s ease;
+        }
+        .btn-action:hover { background: #e2e8f0; color: #1e293b; }
+        .btn-primary { background: #0f172a; color: #ffffff; border: none; }
+        .btn-primary:hover { background: #1e293b; color: #ffffff; }
+        .btn-ai { background: #eef2ff; color: #4338ca; border-color: #c7d2fe; }
+        .btn-ai:hover { background: #e0e7ff; color: #3730a3; }
+
+        .vagas-grid { display: flex; flex-direction: column; gap: 16px; }
+        .vaga-card {
+            background: #ffffff;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            padding: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+        .vaga-info { flex: 1; }
+        .vaga-titulo { font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
+        .vaga-meta { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: #64748b; margin-bottom: 12px; }
+        .vaga-detalhes { font-size: 14px; color: #475569; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         
-        .vaga-acoes { margin-top: 20px; display: flex; justify-content: flex-end; align-items: center; gap: 12px; border-top: 1px solid #f1f5f9; padding-top: 16px; }
-        .btn-match { background: #4f46e5; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; transition: background 0.2s; }
-        .btn-match:hover { background: #4338ca; }
-        
-        .btn-edit { background: #e2e8f0; color: #334155; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px; transition: background 0.2s; }
-        .btn-edit:hover { background: #cbd5e1; }
-        
-        .back-link { color: #64748b; text-decoration: none; font-size: 14px; display: inline-block; margin-top: 20px; }
-        .back-link:hover { color: #4f46e5; }
+        .actions-group { display: flex; gap: 8px; align-items: center; }
+        .alert { padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; border: 1px solid #cbd5e1; background: #f8fafc; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header-area">
-            <h2>Vagas Disponíveis</h2>
-            <a href="{{ url_for('cadastrar_vaga') }}" class="btn-add">+ Nova Vaga</a>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for categoria, message in messages %}
+                    <div class="alert" style="{% if categoria == 'error' %}background: #fef2f2; color: #991b1b; border-color: #fca5a5;{% else %}background: #f0fdf4; color: #166534; border-color: #bbf7d0;{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="header-vagas">
+            <div>
+                <h1 style="font-size: 24px; font-weight: 700; color: #0f172a;">Painel de Vagas</h1>
+                <p style="font-size: 14px; color: #64748b; margin-top: 2px;">Gerencie suas oportunidades e realize cruzamentos com IA.</p>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <a href="{{ url_for('index') }}" class="btn-action">⬅️ Voltar ao Painel</a>
+                <a href="{{ url_for('cadastrar_vaga') }}" class="btn-action btn-primary">+ Criar Nova Vaga</a>
+            </div>
         </div>
 
-        {% if vagas %}
-            {% for vaga in vagas %}
-                <div class="vaga-card">
-                    <div class="vaga-titulo">{{ vaga['titulo'] }}</div>
-                    {% if vaga['localizacao'] %}
-                        <div class="vaga-local">📍 {{ vaga['localizacao'] }}</div>
-                    {% endif %}
-                    
-                    {% if vaga['descricao'] %}
-                    <div class="vaga-secao">
-                        <strong>Descrição Geral:</strong>
-                        <p>{{ vaga['descricao'] }}</p>
+        <div class="vagas-grid">
+            {% if vagas %}
+                {% for vaga in vagas %}
+                    <div class="vaga-card">
+                        <div class="vaga-info">
+                            <h2 class="vaga-titulo">{{ vaga.titulo }}</h2>
+                            <div class="vaga-meta">
+                                <span>📍 {{ vaga.localizacao or 'Remoto / Não informado' }}</span>
+                                {% if vaga.remuneracao %}<span>💰 {{ vaga.remuneracao }}</span>{% endif %}
+                                {% if vaga.expediente %}<span>🕒 {{ vaga.expediente }}</span>{% endif %}
+                            </div>
+                            <p class="vaga-detalhes"><strong>Descrição:</strong> {{ vaga.descricao }}</p>
+                        </div>
+                        <div class="actions-group">
+                            <a href="/vagas/{{ vaga.id }}/analise" class="btn-action btn-ai">✨ Match IA</a>
+                            <a href="/vagas/{{ vaga.id }}/editar" class="btn-action">✏️ Editar</a>
+                        </div>
                     </div>
-                    {% endif %}
-
-                    {% if vaga['atividades'] %}
-                    <div class="vaga-secao">
-                        <strong>Principais Atividades:</strong>
-                        <p style="white-space: pre-line;">{{ vaga['atividades'] }}</p>
-                    </div>
-                    {% endif %}
-                    
-                    {% if vaga['requisitos'] %}
-                    <div class="vaga-secao">
-                        <strong>Requisitos:</strong>
-                        <p style="white-space: pre-line;">{{ vaga['requisitos'] }}</p>
-                    </div>
-                    {% endif %}
-
-                    {% if vaga['remuneracao'] %}
-                    <div class="vaga-secao">
-                        <strong>Remuneração:</strong>
-                        <p style="white-space: pre-line;">{{ vaga['remuneracao'] }}</p>
-                    </div>
-                    {% endif %}
-
-                    {% if vaga['beneficios'] %}
-                    <div class="vaga-secao">
-                        <strong>Benefícios:</strong>
-                        <p style="white-space: pre-line;">{{ vaga['beneficios'] }}</p>
-                    </div>
-                    {% endif %}
-
-                    {% if vaga['expediente'] %}
-                    <div class="vaga-secao">
-                        <strong>Expediente:</strong>
-                        <p style="white-space: pre-line;">{{ vaga['expediente'] }}</p>
-                    </div>
-                    {% endif %}
-
-                    <div class="vaga-acoes">
-                        <a href="{{ url_for('editar_vaga', id_vaga=vaga['id']) }}" class="btn-edit">
-                            ✏️ Editar Vaga
-                        </a>
-                        <a href="{{ url_for('analisar_vaga', id_vaga=vaga['id']) }}" class="btn-match">
-                            🧠 Análise Inteligente de Match
-                        </a>
-                    </div>
+                {% endfor %}
+            {% else %}
+                <div style="background: #ffffff; text-align: center; padding: 48px; border-radius: 16px; border: 1px solid #e2e8f0; color: #64748b;">
+                    <span style="font-size: 36px; display: block; margin-bottom: 12px;">💼</span>
+                    Nenhuma vaga aberta no momento para a sua organização.
                 </div>
-            {% endfor %}
-        {% else %}
-            <div class="vaga-card" style="text-align: center; color: #64748b; padding: 40px;">
-                Nenhuma vaga cadastrada no momento.
-            </div>
-        {% endif %}
-        
-        <a href="{{ url_for('index') }}" class="back-link">← Voltar para o Painel</a>
+            {% endif %}
+        </div>
     </div>
 </body>
 </html>
