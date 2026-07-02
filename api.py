@@ -117,6 +117,7 @@ def init_db():
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS idiomas TEXT;')
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS hard_skills TEXT;')
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS soft_skills TEXT;')
+                cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS whatsapp TEXT;')
                 
                 # 3. Tabela de Usuários
                 cursor.execute('''
@@ -170,7 +171,8 @@ class EstruturaCurriculo(BaseModel):
     hard_skills: str   
     soft_skills: str   
     idiomas: str
-    
+    whatsapp: str # Nova propriedade para armazenar o número telefônico estruturado
+
 class CandidatoCompatibilidade(BaseModel):
     id_candidato: int
     nome: str
@@ -233,7 +235,8 @@ def estruturar_curriculo_com_ia(texto_bruto):
         return {
             "nome": "Nome provisório", "idade": "Não Informado", "sexo": "Não Informado",
             "localizacao": "Manual necessário", "formacao": "Texto vazio.",
-            "cursos": "Nenhum", "hard_skills": "Nenhuma", "soft_skills": "Nenhuma", "idiomas": "Não informado"
+            "cursos": "Nenhum", "hard_skills": "Nenhuma", "soft_skills": "Nenhuma", "idiomas": "Não informado",
+            "whatsapp": ""
         }
     
     texto_limitado = texto_bruto.strip()[:24000]
@@ -241,7 +244,8 @@ def estruturar_curriculo_com_ia(texto_bruto):
         return {
             "nome": "Sem Chave API", "idade": "Não Informado", "sexo": "Não Informado",
             "localizacao": "Configuração Pendente", "formacao": "A IA não pôde ser chamada.",
-            "cursos": "Nenhum", "hard_skills": "Nenhuma", "soft_skills": "Nenhuma", "idiomas": "Não informado"
+            "cursos": "Nenhum", "hard_skills": "Nenhuma", "soft_skills": "Nenhuma", "idiomas": "Não informado",
+            "whatsapp": ""
         }
         
     system_prompt = (
@@ -260,6 +264,9 @@ def estruturar_curriculo_com_ia(texto_bruto):
         "- Adaptabilidade (ajustar-se a mudanças, aprender rápido)\n"
         "- Criatividade (pensar fora da caixa, ideias originais)\n"
         "Adicione na lista de soft_skills apenas os termos identificados que correspondam ou derivem desse grupo conceitual, separados por vírgula.\n\n"
+        "3. WHATSAPP / TELEFONE:\n"
+        "Localize o telefone, celular ou contato de WhatsApp principal do candidato. Extraia apenas os dígitos numéricos incluindo o código de área (DDD). Remova espaços, parênteses e traços.\n"
+        "Exemplo: se o currículo tiver '(11) 99999-8888', retorne '11999998888'. Se não encontrar nenhum número válido, deixe o campo completamente vazio.\n\n"
         "Mapeie também o campo 'idiomas' (Iniciante, Intermediário ou Avançado/Fluente). Se algum campo não existir, marque 'Não informado'."
     )
 
@@ -296,7 +303,8 @@ def estruturar_curriculo_com_ia(texto_bruto):
     return {
         "nome": "Nome provisório", "idade": "Não Informado", "sexo": "Não Informado",
         "localizacao": "Manual necessário", "formacao": "O servidor da IA estava instável no momento do processamento.",
-        "cursos": "Consulte o arquivo original", "hard_skills": "Análise Manual", "soft_skills": "Análise Manual", "idiomas": "Não informado"
+        "cursos": "Consulte o arquivo original", "hard_skills": "Análise Manual", "soft_skills": "Análise Manual", "idiomas": "Não informado",
+        "whatsapp": ""
     }
 
 # ==============================================================================
@@ -414,7 +422,7 @@ def index():
 
                 cursor.execute("""
                     SELECT id, nome_arquivo, conteudo, nome_candidato AS nome, idade, sexo, 
-                           localizacao, formacao, cursos, habilidades, hard_skills, soft_skills, idiomas 
+                           localizacao, formacao, cursos, habilidades, hard_skills, soft_skills, idiomas, whatsapp 
                     FROM curriculos 
                     WHERE empresa_id = %s 
                     ORDER BY id DESC
@@ -511,8 +519,8 @@ def upload():
                     cursor.execute("""
                         INSERT INTO curriculos (
                             empresa_id, nome_arquivo, conteudo, nome_candidato, idade, sexo, 
-                            localizacao, formacao, cursos, habilidades, hard_skills, soft_skills, idiomas, arquivo_binario
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            localizacao, formacao, cursos, habilidades, hard_skills, soft_skills, idiomas, arquivo_binario, whatsapp
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """, (
                         current_user.empresa_id,
                         nome_original, 
@@ -527,7 +535,8 @@ def upload():
                         dados_ia['hard_skills'], 
                         dados_ia['soft_skills'], 
                         dados_ia['idiomas'], 
-                        arquivo_b64
+                        arquivo_b64,
+                        dados_ia['whatsapp']
                     ))
                     conn.commit()
                     
@@ -629,7 +638,7 @@ def visualizar(id_candidato):
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute("""
                     SELECT id, nome_arquivo, conteudo, nome_candidato AS nome, idade, sexo, 
-                           localizacao, formacao, cursos, hard_skills, soft_skills, idiomas 
+                           localizacao, formacao, cursos, hard_skills, soft_skills, idiomas, whatsapp 
                     FROM curriculos WHERE id = %s AND empresa_id = %s
                 """, (id_candidato, current_user.empresa_id))
                 candidato = cursor.fetchone()
