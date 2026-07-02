@@ -670,7 +670,7 @@ def cadastrar_vaga():
                     cursor.execute("""
                         INSERT INTO vagas (empresa_id, titulo, descricao, requisitos, localizacao, atividades, beneficios, remuneracao, expediente)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (current_user.empresa_id, titulo, descricao, requisitos, localizacao, activities, beneficios, remuneracao, expediente))
+                    """, (current_user.empresa_id, titulo, descricao, requisitos, localizacao, atividades, beneficios, remuneracao, expediente))
                     conn.commit()
             flash("Vaga cadastrada com sucesso!", "success")
             return redirect(url_for('listar_vagas'))
