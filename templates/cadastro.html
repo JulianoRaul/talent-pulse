@@ -25,7 +25,7 @@
     <div class="auth-card">
         <div class="brand">
             <h1 style="font-size: 26px; font-weight: 700; color: #0f172a;">Criar <span style="color: #4f46e5;">Conta</span></h1>
-            <p style="font-size: 13px; color: #64748b; margin-top: 4px;">Cadastre um novo usuário administrador</p>
+            <p style="font-size: 13px; color: #64748b; margin-top: 4px;">Cadastre sua empresa e usuário administrador</p>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -37,8 +37,14 @@
         {% endwith %}
 
         <form action="/cadastro" method="POST">
+            <!-- Novo Campo Adicionado para o modelo SaaS Multi-tenant -->
             <div class="form-group">
-                <label for="nome">Nome Completo</label>
+                <label for="nome_empresa">Nome da Empresa / Organização</label>
+                <input type="text" id="nome_empresa" name="nome_empresa" class="form-control" placeholder="Minha Empresa Ltda" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="nome">Nome Completo do Admin</label>
                 <input type="text" id="nome" name="nome" class="form-control" placeholder="João Silva" required>
             </div>
             <div class="form-group">
@@ -49,7 +55,7 @@
                 <label for="senha">Defina uma Senha</label>
                 <input type="password" id="senha" name="senha" class="form-control" placeholder="Mínimo 6 caracteres" minlength="6" required>
             </div>
-            <button type="submit" class="btn-submit">Registrar Usuário</button>
+            <button type="submit" class="btn-submit">Criar Conta Corporativa</button>
         </form>
 
         <div class="auth-footer">
