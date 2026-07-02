@@ -24,7 +24,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "chave_secreta_talent_pulse_a1")
 
 # ==============================================================================
-# CONFIGURAÇÃO DO FLASK-LOGIN (ATUALIZADO COM EMPRESA_ID)
+# CONFIGURAÇÃO DO FLASK-LOGIN
 # ==============================================================================
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -37,7 +37,7 @@ class User(UserMixin):
         self.id = id
         self.email = email
         self.nome = nome
-        self.empresa_id = empresa_id  # Guardamos a quem este usuário pertence
+        self.empresa_id = empresa_id  
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -87,7 +87,7 @@ def init_db():
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
-                # 1. Tabela de Cadastro das Empresas Inquilinas (Tenants)
+                # 1. Tabela de Empresas Inquilinas (Tenants)
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS empresas (
                         id SERIAL PRIMARY KEY,
@@ -96,7 +96,7 @@ def init_db():
                     );
                 ''')
 
-                # 2. Tabela de Currículos (Modificada com empresa_id)
+                # 2. Tabela de Currículos
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS curriculos (
                         id SERIAL PRIMARY KEY,
@@ -118,7 +118,7 @@ def init_db():
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS hard_skills TEXT;')
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS soft_skills TEXT;')
                 
-                # 3. Tabela de Usuários (Modificada com empresa_id)
+                # 3. Tabela de Usuários
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS usuarios (
                         id SERIAL PRIMARY KEY,
@@ -130,7 +130,7 @@ def init_db():
                 ''')
                 cursor.execute('ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS empresa_id INTEGER REFERENCES empresas(id) ON DELETE CASCADE;')
 
-                # 4. Tabela de Vagas (Modificada com empresa_id)
+                # 4. Tabela de Vagas
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS vagas (
                         id SERIAL PRIMARY KEY,
@@ -300,7 +300,7 @@ def estruturar_curriculo_com_ia(texto_bruto):
     }
 
 # ==============================================================================
-# ROTAS DE AUTENTICAÇÃO (ATUALIZADAS COM LOGICA DE EMPRESA)
+# ROTAS DE AUTENTICAÇÃO
 # ==============================================================================
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -338,7 +338,7 @@ def cadastro():
         nome = request.form.get('nome')
         email = request.form.get('email')
         senha = request.form.get('senha')
-        nome_empresa = request.form.get('nome_empresa')  # Novo input no formulário comercial
+        nome_empresa = request.form.get('nome_empresa')  
 
         if not nome_empresa:
             flash("O nome da empresa é obrigatório para a criação da conta.", "error")
@@ -352,14 +352,12 @@ def cadastro():
                         flash("Este e-mail já está cadastrado.", "error")
                         return redirect(url_for('cadastro'))
                     
-                    # 1. Cria a empresa inquilina primeiro
                     cursor.execute(
                         "INSERT INTO empresas (nome_comercial) VALUES (%s) RETURNING id", 
                         (nome_empresa,)
                     )
                     empresa_id = cursor.fetchone()[0]
 
-                    # 2. Cria o usuário administrador associado a essa empresa
                     senha_hash = generate_password_hash(senha)
                     cursor.execute(
                         "INSERT INTO usuarios (nome, email, senha_hash, empresa_id) VALUES (%s, %s, %s, %s)",
@@ -383,7 +381,7 @@ def logout():
     return redirect(url_for('login'))
 
 # ==============================================================================
-# ROTAS DA APLICAÇÃO WEB (FILTRADAS POR EMPRESA_ID)
+# ROTAS DA APLICAÇÃO WEB
 # ==============================================================================
 @app.route('/', methods=['GET'])
 @login_required
@@ -403,11 +401,17 @@ def index():
         session['ocultados'] = []
         
     resultados_finais = []
+    nome_empresa = "Sua Empresa"
     
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                # CRUCIAL: Filtro WHERE empresa_id = %s garante isolamento absoluto de dados
+                # Resgata o nome comercial do Tenant atual
+                cursor.execute("SELECT nome_comercial FROM empresas WHERE id = %s", (current_user.empresa_id,))
+                empresa_data = cursor.fetchone()
+                if empresa_data:
+                    nome_empresa = empresa_data['nome_comercial']
+
                 cursor.execute("""
                     SELECT id, nome_arquivo, conteudo, nome_candidato AS nome, idade, sexo, 
                            localizacao, formacao, cursos, habilidades, hard_skills, soft_skills, idiomas 
@@ -465,7 +469,7 @@ def index():
         print(f"Erro ao buscar dados: {e}")
         flash("Ocorreu um erro ao carregar os currículos.", "error")
 
-    return render_template('index.html', candidatos=resultados_finais)
+    return render_template('index.html', candidatos=resultados_finais, nome_empresa=nome_empresa)
 
 @app.route('/upload', methods=['POST'])
 @login_required
@@ -504,7 +508,6 @@ def upload():
             
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
-                    # Incluindo current_user.empresa_id para salvar no espólio do cliente correto
                     cursor.execute("""
                         INSERT INTO curriculos (
                             empresa_id, nome_arquivo, conteudo, nome_candidato, idade, sexo, 
@@ -552,7 +555,6 @@ def excluir(id_candidato):
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
-                # Protegido por empresa_id para evitar injeções maliciosas via URL
                 cursor.execute("DELETE FROM curriculos WHERE id = %s AND empresa_id = %s", (id_candidato, current_user.empresa_id))
                 conn.commit()
         flash("Currículo excluído com sucesso!", "success")
@@ -643,7 +645,7 @@ def visualizar(id_candidato):
         return redirect(url_for('index'))
 
 # ==============================================================================
-# GESTÃO DE VAGAS (CAMPOS ADICIONAIS E MULTI-TENANT)
+# GESTÃO DE VAGAS
 # ==============================================================================
 @app.route('/cadastrar_vaga', methods=['GET', 'POST'])
 @login_required
@@ -668,7 +670,7 @@ def cadastrar_vaga():
                     cursor.execute("""
                         INSERT INTO vagas (empresa_id, titulo, descricao, requisitos, localizacao, atividades, beneficios, remuneracao, expediente)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (current_user.empresa_id, titulo, descricao, requisitos, localizacao, atividades, beneficios, remuneracao, expediente))
+                    """, (current_user.empresa_id, titulo, descricao, requisitos, localizacao, activities, beneficios, remuneracao, expediente))
                     conn.commit()
             flash("Vaga cadastrada com sucesso!", "success")
             return redirect(url_for('listar_vagas'))
@@ -724,7 +726,7 @@ def editar_vaga(id_vaga):
                         WHERE id = %s AND empresa_id = %s
                     """, (titulo, localizacao, descricao, atividades, requisitos, remuneracao, beneficios, expediente, id_vaga, current_user.empresa_id))
                     conn.commit()
-            flash("Vaga updateda com sucesso!", "success")
+            flash("Vaga atualizada com sucesso!", "success")
             return redirect(url_for('listar_vagas'))
         except Exception as e:
             print(f"Erro ao atualizar vaga: {e}")
@@ -754,10 +756,80 @@ def listar_vagas():
     return render_template('vagas.html', vagas=vagas_disponiveis)
 
 # ==============================================================================
-# CRUZAMENTO E ANÁLISE DE VAGAS VS CANDIDATOS (CONTINUAÇÃO...)
+# CRUZAMENTO E ANÁLISE DE VAGAS VS CANDIDATOS
 # ==============================================================================
 @app.route('/vagas/<int:id_vaga>/analise', methods=['GET'])
 @login_required
 def analisar_vaga(id_vaga):
     if not client:
-        pass # Adicione aqui a sua lógica restante da rota de análise do Gemini...
+        flash("Integração com Inteligência Artificial não configurada.", "error")
+        return redirect(url_for('listar_vagas'))
+        
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                # 1. Busca os detalhes da vaga isolada por Tenant
+                cursor.execute("SELECT * FROM vagas WHERE id = %s AND empresa_id = %s", (id_vaga, current_user.empresa_id))
+                vaga = cursor.fetchone()
+                
+                if not vaga:
+                    flash("Vaga não encontrada ou acesso negado.", "error")
+                    return redirect(url_for('listar_vagas'))
+                
+                # 2. Resgata todos os candidatos vinculados a essa mesma empresa inquilina
+                cursor.execute("""
+                    SELECT id, nome_candidato AS nome, formacao, hard_skills, soft_skills, idiomas, conteudo 
+                    FROM curriculos 
+                    WHERE empresa_id = %s
+                """, (current_user.empresa_id,))
+                candidatos = cursor.fetchall()
+                
+        if not candidatos:
+            flash("Nenhum currículo cadastrado na sua empresa para cruzar com esta vaga.", "error")
+            return redirect(url_for('listar_vagas'))
+            
+        # Preparando payload compacto de candidatos para a IA processar em lote
+        dados_candidatos_prompt = []
+        for c in candidatos:
+            dados_candidatos_prompt.append({
+                "id_candidato": c['id'],
+                "nome": c['nome'] or "Sem Nome",
+                "perfil_resumido": f"Skills Técnicas: {c['hard_skills']}. Comportamental: {c['soft_skills']}. Idiomas: {c['idiomas']}. Formação: {c['formacao']}"
+            })
+
+        system_instruction = (
+            "Você é um Headhunter sênior focado em People Analytics.\n"
+            "Sua tarefa é analisar uma vaga de emprego específica e gerar um ranking comparativo em formato JSON contendo a porcentagem de "
+            "compatibilidade (de 0 a 100) e uma breve justificativa de aderência para cada candidato fornecido."
+        )
+
+        prompt_conteudo = (
+            f"VAGA ALVO:\n"
+            f"Título: {vaga['titulo']}\n"
+            f"Descrição: {vaga['descricao']}\n"
+            f"Requisitos: {vaga['requisitos']}\n\n"
+            f"LISTA DE CANDIDATOS:\n"
+            f"{json.dumps(dados_candidatos_prompt, ensure_ascii=False)}"
+        )
+
+        # 3. Chamada estruturada ao Gemini
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt_conteudo,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=ResultadoAnaliseVaga,
+                system_instruction=system_instruction,
+                temperature=0.2
+            )
+        )
+        
+        analise_json = json.loads(response.text.strip()) if response.text else {}
+        
+        # Renderiza a página passando a vaga analisada e a resposta estruturada pela IA
+        return render_template('analise.html', vaga=vaga, resultado=analise_json)
+        
+    except Exception as e:
+        print(f"Erro na análise de vagas com IA: {e}")
+        flash("Ocorreu um erro interno ao processar a inteligência artificial.", "error")
+        return redirect(url_for('listar_vagas'))
