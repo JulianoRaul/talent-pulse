@@ -2,99 +2,105 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Análise de Match - TalentPulse</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Match IA - TalentPulse</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-        body { background-color: #f8fafc; color: #334155; padding: 40px; }
-        .container { max-width: 900px; margin: 0 auto; }
+        body { background-color: #f8fafc; color: #334155; padding: 24px; }
+        .container { max-width: 1000px; margin: 0 auto; }
         
-        /* Cabeçalho e Informações da Vaga */
-        .vaga-header { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 28px; margin-bottom: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
-        .vaga-header h2 { color: #0f172a; font-size: 22px; font-weight: 700; margin-bottom: 12px; }
-        .vaga-info-box { font-size: 14px; line-height: 1.6; background: #f8fafc; border-radius: 8px; padding: 16px; border-left: 4px solid #4f46e5; }
-        .vaga-info-box strong { color: #1e293b; display: block; margin-bottom: 4px; }
+        .vaga-header-box { background: #0f172a; color: #ffffff; padding: 28px; border-radius: 16px; margin-bottom: 24px; }
+        .btn-voltar { display: inline-flex; align-items: center; gap: 6px; color: #94a3b8; text-decoration: none; font-size: 13px; font-weight: 500; margin-bottom: 12px; transition: color 0.15s ease; }
+        .btn-voltar:hover { color: #ffffff; }
+
+        .ranking-title { font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #1e293b; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
         
-        /* Seção de Candidatos */
-        .secao-titulo { color: #1e293b; font-size: 16px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-        .candidato-card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); position: relative; }
+        .ranking-list { display: flex; flex-direction: column; gap: 16px; }
+        .match-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); position: relative; overflow: hidden; }
         
-        /* Alinhamento do Nome e Badge de Match */
-        .candidato-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
-        .candidato-nome { font-size: 16px; font-weight: 700; color: #0f172a; }
+        /* Indicador de Score Alto */
+        .match-card.high-score { border-left: 4px solid #10b981; }
+        .match-card.mid-score { border-left: 4px solid #f59e0b; }
         
-        /* Badges baseadas na pontuação */
-        .match-badge { background: #dcfce7; color: #15803d; font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 9999px; display: inline-block; }
+        .match-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+        .candidato-nome { font-size: 18px; font-weight: 700; color: #0f172a; }
         
-        /* Barra de Progresso do Match */
-        .progress-container { width: 100%; background-color: #f1f5f9; height: 6px; border-radius: 3px; margin-bottom: 16px; overflow: hidden; }
-        .progress-bar { background: linear-gradient(90deg, #4f46e5, #6366f1); height: 100%; border-radius: 3px; }
+        .score-badge { font-size: 16px; font-weight: 700; padding: 6px 14px; border-radius: 8px; text-align: center; }
+        .score-high { background: #ecfdf5; color: #065f46; }
+        .score-mid { background: #fffbeb; color: #92400e; }
+        .score-low { background: #fef2f2; color: #991b1b; }
+
+        .progress-bar-container { background: #e2e8f0; height: 8px; width: 100%; border-radius: 99px; overflow: hidden; }
+        .progress-bar { height: 100%; border-radius: 99px; transition: width 1s ease-out; }
+        .bg-high { background: #10b981; }
+        .bg-mid { background: #f59e0b; }
+        .bg-low { background: #ef4444; }
+
+        .justificativa-box { background: #f8fafc; border: 1px solid #f1f5f9; padding: 16px; border-radius: 12px; font-size: 14px; line-height: 1.6; color: #475569; }
+        .justificativa-box strong { color: #0f172a; display: block; margin-bottom: 4px; }
         
-        /* Justificativa e Texto */
-        .justificativa-box { font-size: 14px; line-height: 1.5; color: #475569; margin-bottom: 16px; }
-        .justificativa-box strong { color: #0f172a; }
-        
-        /* Ações e Links */
-        .card-acoes { display: flex; justify-content: flex-end; }
-        .btn-perfil { background: #f1f5f9; color: #475569; padding: 8px 14px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px; transition: all 0.2s; border: 1px solid #e2e8f0; }
-        .btn-perfil:hover { background: #e2e8f0; color: #1e293b; }
-        
-        .back-link { color: #64748b; text-decoration: none; font-size: 14px; display: inline-block; margin-top: 20px; transition: color 0.2s; }
-        .back-link:hover { color: #4f46e5; }
-        
-        .sem-resultados { text-align: center; color: #64748b; padding: 40px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; }
+        .btn-view-profile { display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; background: #ffffff; border: 1px solid #cbd5e1; color: #334155; font-size: 13px; font-weight: 600; border-radius: 8px; text-decoration: none; margin-top: 4px; align-self: flex-start; transition: all 0.15s ease; }
+        .btn-view-profile:hover { background: #f8fafc; border-color: #94a3b8; color: #0f172a; }
     </style>
 </head>
 <body>
     <div class="container">
         
-        <div class="vaga-header">
-            <h2>Análise de Compatibilidade</h2>
-            <div class="vaga-info-box">
-                <strong>Vaga: {{ vaga.titulo }}</strong>
-                {{ vaga.descricao }}
-            </div>
+        <div class="vaga-header-box">
+            <a href="{{ url_for('listar_vagas') }}" class="btn-voltar">⬅️ Voltar para Vagas</a>
+            <h1 style="font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">{{ vaga.titulo }}</h1>
+            <p style="color: #94a3b8; font-size: 14px; margin-top: 4px; max-width: 800px; line-height: 1.4;">
+                Mapeamento de aderência gerado por Inteligência Artificial comparando os requisitos da vaga com o banco de talentos da sua organização.
+            </p>
         </div>
 
-        <h3 class="secao-titulo">🎯 Candidatos no Sistema (Ordenados por Match)</h3>
+        <h2 class="ranking-title">📊 Ranking de Aderência (Match IA)</h2>
 
-        {% if resultados %}
-            <div class="lista-candidatos">
-            {% for item in resultados %}
-                <div class="candidato-card">
+        <div class="ranking-list">
+            {# Ordena a exibição dos candidatos vindos do JSON pelo score de maior para menor #}
+            {% if resultado and resultado.candidatos_compativeis %}
+                {% for cand in resultado.candidatos_compativeis | sort(attribute='porcentagem_compatibilidade', reverse=true) %}
                     
-                    <div class="candidato-top">
-                        <div class="candidato-nome">{{ item.nome }}</div>
-                        <div class="match-badge">
-                            {{ item.porcentagem_compatibilidade }}% Match
+                    {% set score = cand.porcentagem_compatibilidade %}
+                    {% set classe_card = 'high-score' if score >= 75 else ('mid-score' if score >= 45 else 'low-score') %}
+                    {% set classe_badge = 'score-high' if score >= 75 else ('score-mid' if score >= 45 else 'score-low') %}
+                    {% set classe_bg = 'bg-high' if score >= 75 else ('bg-mid' if score >= 45 else 'bg-low') %}
+
+                    <div class="match-card {{ classe_card }}">
+                        <div class="match-header">
+                            <div>
+                                <span class="candidato-nome">{{ cand.nome }}</span>
+                            </div>
+                            <div class="score-badge {{ classe_badge }}">
+                                {{ score }}% Match
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="progress-container">
-                        <div class="progress-bar" style="width: {{ item.porcentagem_compatibilidade }}%;"></div>
-                    </div>
-                    
-                    <div class="justificativa-box">
-                        <strong>Justificativa do sistema:</strong> 
-                        {{ item.justificativa }}
-                    </div>
-                    
-                    <div class="card-acoes">
-                        <a href="{{ url_for('visualizar', id_candidato=item.id_candidato) }}" class="btn-perfil" target="_blank">
-                            👤 Ver Perfil Completo
+                        <div>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar {{ classe_bg }}" style="width: {{ score }}%"></div>
+                            </div>
+                        </div>
+
+                        <div class="justificativa-box">
+                            <strong>Parecer da IA:</strong>
+                            {{ cand.justificativa }}
+                        </div>
+
+                        <a href="/visualizar/{{ cand.id_candidato }}" target="_blank" class="btn-view-profile">
+                            👁️ Abrir Perfil Analisado
                         </a>
                     </div>
-                    
+                {% endfor %}
+            {% else %}
+                <div style="background: #ffffff; text-align: center; padding: 48px; border-radius: 16px; border: 1px solid #e2e8f0; color: #64748b;">
+                    ❌ Falha ao recuperar ou processar os dados de análise do Gemini para esta vaga.
                 </div>
-            {% endfor %}
-            </div>
-        {% else %}
-            <div class="sem-resultados">
-                Nenhum resultado de match gerado para esta vaga até o momento.
-            </div>
-        {% endif %}
-        
-        <a href="{{ url_for('listar_vagas') }}" class="back-link">← Voltar para as Vagas</a>
+            {% endif %}
+        </div>
     </div>
 </body>
 </html>
