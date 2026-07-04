@@ -408,11 +408,11 @@
             border: 1px solid #e2e8f0;
         }
 
-        /* NOVO: Estilo para o Selo do Tipo de Vaga no canto inferior esquerdo */
+        /* AJUSTADO: Alinhamento modificado para empurrar o selo para o canto direito */
         .vaga-badge-container {
             margin-top: 8px;
             display: flex;
-            justify-content: flex-start;
+            justify-content: flex-end; /* Alterado de flex-start para flex-end */
         }
 
         .vaga-badge {
@@ -430,7 +430,6 @@
             border: 1px solid #cbd5e1;
         }
 
-        /* Variantes de cores opcionais por categoria (Garante um visual impecável) */
         .vaga-ti { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
         .vaga-vendas { background: #fefce8; color: #a16207; border-color: #fef08a; }
         .vaga-adm { background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; }
@@ -519,7 +518,6 @@
                 <div class="card">
                     <div class="card-title">Filtrar Perfis</div>
                     <form action="/" method="GET">
-                        <!-- Campos de filtros ocultados no resumo por brevidade -->
                         <div class="form-group">
                             <label for="busca">Busca Global</label>
                             <input type="text" id="busca" name="busca" class="form-control" placeholder="Ex: Python, Comunicação" value="{{ request.args.get('busca', '') }}">
@@ -594,10 +592,9 @@
                                 </div>
                             </div>
 
-                            <!-- NOVO: Adição do Selo Classificador de Tipo de Vaga no canto inferior esquerdo -->
+                            <!-- MUDADO AQUI: Container com o selo do Tipo de Vaga alinhado perfeitamente no Canto Direito -->
                             <div class="vaga-badge-container">
                                 {% if candidato.tipo_vaga %}
-                                    {# Mapeia classes de cores dinâmicas com base no tipo para ficar visualmente limpo #}
                                     <span class="vaga-badge 
                                         {% if 'ti' in candidato.tipo_vaga.lower() or 'tecnologia' in candidato.tipo_vaga.lower() %}vaga-ti
                                         {% elif 'venda' in candidato.tipo_vaga.lower() or 'comercial' in candidato.tipo_vaga.lower() %}vaga-vendas
@@ -619,7 +616,6 @@
     </div>
 
     <script>
-        // Scripts mantidos sem alteração
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         const uploadForm = document.getElementById('upload-form');
