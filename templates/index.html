@@ -408,11 +408,10 @@
             border: 1px solid #e2e8f0;
         }
 
-        /* AJUSTADO: Alinhamento modificado para empurrar o selo para o canto direito */
         .vaga-badge-container {
             margin-top: 8px;
             display: flex;
-            justify-content: flex-end; /* Alterado de flex-start para flex-end */
+            justify-content: flex-end;
         }
 
         .vaga-badge {
@@ -560,7 +559,10 @@
                                         <a href="{{ url_for('visualizar_original', id_candidato=candidato.id) }}" target="_blank" class="btn-action">📄 Original</a>
                                     {% endif %}
                                     
-                                    <button onclick="retirarDaTela('candidato-{{ loop.index }}', {{ candidato.id }})" class="btn-action btn-retirar">👁️‍عون Retirar</button>
+                                    <!-- CORRIGIDO: Removido o símbolo árabe estranho daqui -->
+                                    <button onclick="retirarDaTela('candidato-{{ loop.index }}', {{ candidato.id }})" class="btn-action btn-retirar">
+                                        👁️‍🗨️ Retirar
+                                    </button>
                                     <button onclick="excluirDoBanco('candidato-{{ loop.index }}', {{ candidato.id }}, '{{ candidato.nome }}')" class="btn-action btn-excluir">🗑️ Excluir</button>
                                 </div>
                             </div>
@@ -592,16 +594,19 @@
                                 </div>
                             </div>
 
-                            <!-- MUDADO AQUI: Container com o selo do Tipo de Vaga alinhado perfeitamente no Canto Direito -->
+                            <!-- CORRIGIDO: Lógica inteligente baseada nas Hard Skills reais do banco para fazer a categorização funcionar -->
                             <div class="vaga-badge-container">
-                                {% if candidato.tipo_vaga %}
-                                    <span class="vaga-badge 
-                                        {% if 'ti' in candidato.tipo_vaga.lower() or 'tecnologia' in candidato.tipo_vaga.lower() %}vaga-ti
-                                        {% elif 'venda' in candidato.tipo_vaga.lower() or 'comercial' in candidato.tipo_vaga.lower() %}vaga-vendas
-                                        {% elif 'adm' in candidato.tipo_vaga.lower() or 'administração' in candidato.tipo_vaga.lower() %}vaga-adm
-                                        {% elif 'rh' in candidato.tipo_vaga.lower() or 'recursos' in candidato.tipo_vaga.lower() %}vaga-rh{% endif %}">
-                                        💼 {{ candidato.tipo_vaga }}
-                                    </span>
+                                {% set analise_tags = (candidato.tipo_vaga or '') ~ ' ' ~ (candidato.hard_skills or '') ~ ' ' ~ (candidato.formacao or '') %}
+                                {% set analise_tags = analise_tags.lower() %}
+                                
+                                {% if 'venda' in analise_tags or 'comercial' in analise_tags or 'prospecção' in analise_tags %}
+                                    <span class="vaga-badge vaga-vendas">💼 Vendas</span>
+                                {% elif 'ti' in analise_tags or 'tecnologia' in analise_tags or 'desenvolvimento' in analise_tags or 'software' in analise_tags %}
+                                    <span class="vaga-badge vaga-ti">💼 TI / Tecnologia</span>
+                                {% elif 'adm' in analise_tags or 'administração' in analise_tags or 'financeiro' in analise_tags %}
+                                    <span class="vaga-badge vaga-adm">💼 Administração</span>
+                                {% elif 'rh' in analise_tags or 'recursos humanos' in analise_tags %}
+                                    <span class="vaga-badge vaga-rh">💼 Recursos Humanos</span>
                                 {% else %}
                                     <span class="vaga-badge">💼 Geral / Não Categorizado</span>
                                 {% endif %}
