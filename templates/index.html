@@ -291,12 +291,12 @@
         .candidato-header {
             display: flex;
             justify-content: space-between;
-            align-items: center; /* Alinha verticalmente ao centro */
+            align-items: center;
             gap: 16px;
         }
 
         .candidato-info {
-            flex: 1; /* Permite que as informações ocupem o espaço restante sem esmagar os botões */
+            flex: 1;
         }
 
         .candidato-info h3 {
@@ -318,8 +318,8 @@
             display: flex;
             align-items: center;
             gap: 6px;
-            flex-wrap: nowrap; /* Impede terminantemente que os botões quebrem de linha */
-            flex-shrink: 0; /* Impede os botões de encolherem */
+            flex-wrap: nowrap;
+            flex-shrink: 0;
         }
 
         .btn-action {
@@ -336,7 +336,7 @@
             background: #f1f5f9;
             color: #475569;
             transition: all 0.15s ease;
-            white-space: nowrap; /* Evita que o texto interno do botão quebre */
+            white-space: nowrap;
         }
 
         .btn-action:hover {
@@ -477,11 +477,13 @@
                     
                     <form action="/upload" method="POST" enctype="multipart/form-data" id="upload-form">
                         <div class="drop-zone" id="drop-zone">
-                            <input type="file" id="file-input" name="file" accept=".pdf,.docx">
+                            <!-- Mudança aqui: Adicionado .jpg e .jpeg no accept -->
+                            <input type="file" id="file-input" name="file" accept=".pdf,.docx,.jpg,.jpeg">
                             <div class="upload-content" id="upload-content">
                                 <div class="upload-icon">+</div>
                                 <p class="upload-text-main">Selecione ou Arraste o Currículo</p>
-                                <p class="upload-text-sub">PDF ou DOCX</p>
+                                <!-- Mudança aqui: Atualizado o texto descritivo -->
+                                <p class="upload-text-sub">PDF, DOCX ou JPG</p>
                             </div>
                         </div>
                     </form>
