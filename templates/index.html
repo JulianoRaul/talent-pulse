@@ -253,7 +253,6 @@
             box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
         }
 
-        /* AJUSTE: Container para os botões de ação do filtro */
         .filter-buttons {
             display: flex;
             gap: 8px;
@@ -435,10 +434,22 @@
             border: 1px solid #e2e8f0;
         }
 
-        .vaga-badge-container {
+        /* AJUSTE: Rodapé inferior do card para abrigar a Data e a Categoria */
+        .candidato-footer {
             margin-top: 8px;
             display: flex;
-            justify-content: flex-end;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px dashed #f1f5f9;
+            padding-top: 12px;
+        }
+
+        .data-cadastro-badge {
+            font-size: 11px;
+            color: #94a3b8;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
         }
 
         .vaga-badge {
@@ -541,7 +552,6 @@
                     </form>
                 </div>
 
-                <!-- ADICIONADO/RESTAURADO: Filtros Laterais Completos + Botão Limpar -->
                 <div class="card">
                     <div class="card-title">Filtrar Perfis</div>
                     <form action="/" method="GET">
@@ -565,6 +575,17 @@
                                 <option value="ti" {% if request.args.get('tipo_vaga') == 'ti' %}selected{% endif %}>TI / Tecnologia</option>
                                 <option value="adm" {% if request.args.get('tipo_vaga') == 'adm' %}selected{% endif %}>Administração</option>
                                 <option value="rh" {% if request.args.get('tipo_vaga') == 'rh' %}selected{% endif %}>Recursos Humanos</option>
+                            </select>
+                        </div>
+
+                        <!-- ADICIONADO: Opção de ordenação dos candidatos -->
+                        <div class="form-group">
+                            <label for="ordem">Ordenar por</label>
+                            <select id="ordem" name="ordem" class="form-control">
+                                <option value="recente" {% if request.args.get('ordem') == 'recente' or not request.args.get('ordem') %}selected{% endif %}>📅 Mais Recentes</option>
+                                <option value="antigo" {% if request.args.get('ordem') == 'antigo' %}selected{% endif %}>📅 Mais Antigos</option>
+                                <option value="nome" {% if request.args.get('ordem') == 'nome' %}selected{% endif %}>🔤 Nome (A-Z)</option>
+                                <option value="categoria" {% if request.args.get('ordem') == 'categoria' %}selected{% endif %}>💼 Tipo de Candidato / Categoria</option>
                             </select>
                         </div>
                         
@@ -639,21 +660,28 @@
                                 </div>
                             </div>
 
-                            <div class="vaga-badge-container">
-                                {% set analise_tags = (candidato.tipo_vaga or '') ~ ' ' ~ (candidato.hard_skills or '') ~ ' ' ~ (candidato.formacao or '') %}
-                                {% set analise_tags = analise_tags.lower() %}
-                                
-                                {% if 'venda' in analise_tags or 'comercial' in analise_tags or 'prospecção' in analise_tags %}
-                                    <span class="vaga-badge vaga-vendas">💼 Vendas</span>
-                                {% elif 'ti' in analise_tags or 'tecnologia' in analise_tags or 'desenvolvimento' in analise_tags or 'software' in analise_tags %}
-                                    <span class="vaga-badge vaga-ti">💼 TI / Tecnologia</span>
-                                {% elif 'adm' in analise_tags or 'administração' in analise_tags or 'financeiro' in analise_tags %}
-                                    <span class="vaga-badge vaga-adm">💼 Administração</span>
-                                {% elif 'rh' in analise_tags or 'recursos humanos' in analise_tags %}
-                                    <span class="vaga-badge vaga-rh">💼 Recursos Humanos</span>
-                                {% else %}
-                                    <span class="vaga-badge">💼 Geral / Não Categorizado</span>
-                                {% endif %}
+                            <!-- MODIFICADO: Estrutura de rodapé para incluir data no canto esquerdo e selo no canto direito -->
+                            <div class="candidato-footer">
+                                <div class="data-cadastro-badge">
+                                    🕒 Cadastrado em: {{ candidato.data_cadastro.strftime('%d/%m/%Y %H:%M') if candidato.data_cadastro else 'Data indisponível' }}
+                                </div>
+
+                                <div class="vaga-badge-container" style="margin-top: 0;">
+                                    {% set analise_tags = (candidato.tipo_vaga or '') ~ ' ' ~ (candidato.hard_skills or '') ~ ' ' ~ (candidato.formacao or '') %}
+                                    {% set analise_tags = analise_tags.lower() %}
+                                    
+                                    {% if 'venda' in analise_tags or 'comercial' in analise_tags or 'prospecção' in analise_tags %}
+                                        <span class="vaga-badge vaga-vendas">💼 Vendas</span>
+                                    {% elif 'ti' in analise_tags or 'tecnologia' in analise_tags or 'desenvolvimento' in analise_tags or 'software' in analise_tags %}
+                                        <span class="vaga-badge vaga-ti">💼 TI / Tecnologia</span>
+                                    {% elif 'adm' in analise_tags or 'administração' in analise_tags or 'financeiro' in analise_tags %}
+                                        <span class="vaga-badge vaga-adm">💼 Administração</span>
+                                    {% elif 'rh' in analise_tags or 'recursos humanos' in analise_tags %}
+                                        <span class="vaga-badge vaga-rh">💼 Recursos Humanos</span>
+                                    {% else %}
+                                        <span class="vaga-badge">💼 Geral / Não Categorizado</span>
+                                    {% endif %}
+                                </div>
                             </div>
 
                         </div>
