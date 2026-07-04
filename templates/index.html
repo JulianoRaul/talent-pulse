@@ -95,6 +95,17 @@
             align-items: start;
         }
 
+        @media (max-width: 1200px) {
+            .candidato-header {
+                flex-direction: column;
+                gap: 12px;
+            }
+            .actions-group {
+                width: 100%;
+                justify-content: flex-start;
+            }
+        }
+
         @media (max-width: 900px) {
             .main-grid {
                 grid-template-columns: 1fr;
@@ -280,8 +291,12 @@
         .candidato-header {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
+            align-items: center; /* Alinha verticalmente ao centro */
             gap: 16px;
+        }
+
+        .candidato-info {
+            flex: 1; /* Permite que as informações ocupem o espaço restante sem esmagar os botões */
         }
 
         .candidato-info h3 {
@@ -303,7 +318,8 @@
             display: flex;
             align-items: center;
             gap: 6px;
-            flex-wrap: wrap;
+            flex-wrap: nowrap; /* Impede terminantemente que os botões quebrem de linha */
+            flex-shrink: 0; /* Impede os botões de encolherem */
         }
 
         .btn-action {
@@ -320,6 +336,7 @@
             background: #f1f5f9;
             color: #475569;
             transition: all 0.15s ease;
+            white-space: nowrap; /* Evita que o texto interno do botão quebre */
         }
 
         .btn-action:hover {
