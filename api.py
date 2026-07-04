@@ -119,6 +119,9 @@ def init_db():
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS soft_skills TEXT;')
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS whatsapp TEXT;')
                 
+                # ALTERAÇÃO: Adiciona a coluna de data automática se ela não existir
+                cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP;')
+                
                 # 3. Tabela de Usuários
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS usuarios (
@@ -171,7 +174,7 @@ class EstruturaCurriculo(BaseModel):
     hard_skills: str   
     soft_skills: str   
     idiomas: str
-    whatsapp: str # Nova propriedade para armazenar o número telefônico estruturado
+    whatsapp: str 
 
 class CandidatoCompatibilidade(BaseModel):
     id_candidato: int
@@ -420,9 +423,11 @@ def index():
                 if empresa_data:
                     nome_empresa = empresa_data['nome_comercial']
 
+                # ALTERAÇÃO: Adicionado data_cadastro na seleção de colunas para o painel principal
                 cursor.execute("""
                     SELECT id, nome_arquivo, conteudo, nome_candidato AS nome, idade, sexo, 
-                           localizacao, formacao, cursos, habilidades, hard_skills, soft_skills, idiomas, whatsapp 
+                           localizacao, formacao, cursos, habilidades, hard_skills, soft_skills, idiomas, whatsapp,
+                           data_cadastro
                     FROM curriculos 
                     WHERE empresa_id = %s 
                     ORDER BY id DESC
