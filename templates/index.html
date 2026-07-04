@@ -253,8 +253,15 @@
             box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
         }
 
+        /* AJUSTE: Container para os botões de ação do filtro */
+        .filter-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
         .btn-filtrar {
-            width: 100%;
+            flex: 2;
             padding: 12px;
             background: #0f172a;
             color: #ffffff;
@@ -263,12 +270,32 @@
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            margin-top: 8px;
             transition: background-color 0.15s ease;
         }
 
         .btn-filtrar:hover {
             background: #1e293b;
+        }
+
+        .btn-limpar {
+            flex: 1;
+            padding: 12px;
+            background: #ffffff;
+            color: #64748b;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .btn-limpar:hover {
+            background: #f8fafc;
+            color: #1e293b;
+            border-color: #94a3b8;
         }
 
         .results-column {
@@ -514,6 +541,7 @@
                     </form>
                 </div>
 
+                <!-- ADICIONADO/RESTAURADO: Filtros Laterais Completos + Botão Limpar -->
                 <div class="card">
                     <div class="card-title">Filtrar Perfis</div>
                     <form action="/" method="GET">
@@ -525,7 +553,25 @@
                             <label for="localizacao">Localização</label>
                             <input type="text" id="localizacao" name="localizacao" class="form-control" placeholder="Cidade ou Estado" value="{{ request.args.get('localizacao', '') }}">
                         </div>
-                        <button type="submit" class="btn-filtrar">Filtrar Perfis</button>
+                        <div class="form-group">
+                            <label for="idioma">Idioma</label>
+                            <input type="text" id="idioma" name="idioma" class="form-control" placeholder="Ex: Inglês, Espanhol" value="{{ request.args.get('idioma', '') }}">
+                        </div>
+                        <div class="form-group">
+                            <label for="tipo_vaga">Tipo de Vaga / Categoria</label>
+                            <select id="tipo_vaga" name="tipo_vaga" class="form-control">
+                                <option value="">Todas as Categorias</option>
+                                <option value="vendas" {% if request.args.get('tipo_vaga') == 'vendas' %}selected{% endif %}>Vendas</option>
+                                <option value="ti" {% if request.args.get('tipo_vaga') == 'ti' %}selected{% endif %}>TI / Tecnologia</option>
+                                <option value="adm" {% if request.args.get('tipo_vaga') == 'adm' %}selected{% endif %}>Administração</option>
+                                <option value="rh" {% if request.args.get('tipo_vaga') == 'rh' %}selected{% endif %}>Recursos Humanos</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-buttons">
+                            <button type="submit" class="btn-filtrar">Filtrar Perfis</button>
+                            <a href="/" class="btn-limpar" title="Limpar todos os filtros">Limpar</a>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -559,7 +605,6 @@
                                         <a href="{{ url_for('visualizar_original', id_candidato=candidato.id) }}" target="_blank" class="btn-action">📄 Original</a>
                                     {% endif %}
                                     
-                                    <!-- CORRIGIDO: Removido o símbolo árabe estranho daqui -->
                                     <button onclick="retirarDaTela('candidato-{{ loop.index }}', {{ candidato.id }})" class="btn-action btn-retirar">
                                         👁️‍🗨️ Retirar
                                     </button>
@@ -594,7 +639,6 @@
                                 </div>
                             </div>
 
-                            <!-- CORRIGIDO: Lógica inteligente baseada nas Hard Skills reais do banco para fazer a categorização funcionar -->
                             <div class="vaga-badge-container">
                                 {% set analise_tags = (candidato.tipo_vaga or '') ~ ' ' ~ (candidato.hard_skills or '') ~ ' ' ~ (candidato.formacao or '') %}
                                 {% set analise_tags = analise_tags.lower() %}
