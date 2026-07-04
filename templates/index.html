@@ -434,7 +434,6 @@
             border: 1px solid #e2e8f0;
         }
 
-        /* AJUSTE: Rodapé inferior do card para abrigar a Data e a Categoria */
         .candidato-footer {
             margin-top: 8px;
             display: flex;
@@ -578,7 +577,6 @@
                             </select>
                         </div>
 
-                        <!-- ADICIONADO: Opção de ordenação dos candidatos -->
                         <div class="form-group">
                             <label for="ordem">Ordenar por</label>
                             <select id="ordem" name="ordem" class="form-control">
@@ -660,10 +658,23 @@
                                 </div>
                             </div>
 
-                            <!-- MODIFICADO: Estrutura de rodapé para incluir data no canto esquerdo e selo no canto direito -->
+                            <!-- AJUSTADO: Checagem inteligente e flexível da data de cadastro -->
                             <div class="candidato-footer">
                                 <div class="data-cadastro-badge">
-                                    🕒 Cadastrado em: {{ candidato.data_cadastro.strftime('%d/%m/%Y %H:%M') if candidato.data_cadastro else 'Data indisponível' }}
+                                    🕒 Cadastrado em: 
+                                    {% if candidato.data_cadastro %}
+                                        {% if candidato.data_cadastro.strftime %}
+                                            {{ candidato.data_cadastro.strftime('%d/%m/%Y %H:%M') }}
+                                        {% else %}
+                                            {{ candidato.data_cadastro }}
+                                        {% endif %}
+                                    {% elif candidato.data_envio %}
+                                        {{ candidato.data_envio }}
+                                    {% elif candidato.created_at %}
+                                        {{ candidato.created_at }}
+                                    {% else %}
+                                        Data indisponível
+                                    {% endif %}
                                 </div>
 
                                 <div class="vaga-badge-container" style="margin-top: 0;">
