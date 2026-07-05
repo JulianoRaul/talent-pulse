@@ -410,9 +410,10 @@ def index():
     f_idioma = request.args.get('idioma', '').strip()
     f_nivel = request.args.get('nivel_idioma', '').strip()
     
-    f_ordenar = request.args.get('ordenar', '').strip().lower()
+    # Captura o parâmetro 'ordem' sincronizado com o elemento <select> do index.html
+    f_ordem = request.args.get('ordem', '').strip().lower()
     
-    algum_filtro_ativo = any([busca_geral, f_genero, f_formacao, f_localizacao, f_idioma, f_nivel, f_ordenar])
+    algum_filtro_ativo = any([busca_geral, f_genero, f_formacao, f_localizacao, f_idioma, f_nivel, f_ordem])
     
     if algum_filtro_ativo:
         session['ocultados'] = []
@@ -430,13 +431,13 @@ def index():
                 if empresa_data:
                     nome_empresa = empresa_data['nome_comercial']
 
+                # Removido ORDER BY engessado para permitir que a ordenação seja processada dinamicamente
                 cursor.execute("""
                     SELECT id, nome_arquivo, conteudo, nome_candidato AS nome, idade, sexo, 
                            localizacao, formacao, cursos, habilidades, hard_skills, soft_skills, idiomas, whatsapp,
                            data_cadastro
                     FROM curriculos 
-                    WHERE empresa_id = %s 
-                    ORDER BY id DESC
+                    WHERE empresa_id = %s
                 """, (current_user.empresa_id,))
                 todos_candidatos = cursor.fetchall()
                 
@@ -484,10 +485,16 @@ def index():
                     if passou_filtro:
                         resultados_finais.append(item)
                 
-                if f_ordenar == 'az':
+                # Executa a regra de ordenação escolhida no painel
+                if f_ordem == 'nome':
                     resultados_finais.sort(key=lambda x: remover_acentos(x['nome'] or ""))
-                elif f_ordenar == 'za':
+                elif f_ordem == 'nome_za':
                     resultados_finais.sort(key=lambda x: remover_acentos(x['nome'] or ""), reverse=True)
+                elif f_ordem == 'antigo':
+                    resultados_finais.sort(key=lambda x: x['id'])
+                else:
+                    # Padrão ou 'recente': ID mais alto primeiro
+                    resultados_finais.sort(key=lambda x: x['id'], reverse=True)
                         
     except Exception as e:
         print(f"Erro ao buscar dados: {e}")
@@ -582,12 +589,10 @@ def excluir(id_candidato):
             with conn.cursor() as cursor:
                 cursor.execute("DELETE FROM curriculos WHERE id = %s AND empresa_id = %s", (id_candidato, current_user.empresa_id))
                 conn.commit()
-        flash("Currículo excluído com sucesso!", "success")
-        return redirect(url_for('index'))
+        return jsonify({"status": "sucesso", "mensagem": "Currículo excluído com sucesso"})
     except Exception as e:
         print(f"Erro ao excluir currículo: {e}")
-        flash("Erro interno ao excluir o currículo.", "error")
-        return redirect(url_for('index'))
+        return jsonify({"status": "erro", "mensagem": "Erro interno ao excluir o currículo"}), 500
 
 # ==============================================================================
 # VISUALIZAÇÃO E DOWNLOAD DE ARQUIVOS ORIGINAIS
@@ -695,7 +700,7 @@ def cadastrar_vaga():
                     cursor.execute("""
                         INSERT INTO vagas (empresa_id, titulo, descricao, requisitos, localizacao, atividades, beneficios, remuneracao, expediente)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (current_user.empresa_id, titulo, descricao, requisitos, localizacao, atividades, beneficios, remuneracao, expediente))
+                    """, (current_user.empresa_id, titulo, descricao, requisitos, localizacao, activities, beneficios, remuneracao, expediente))
                     conn.commit()
             flash("Vaga cadastrada com sucesso!", "success")
             return redirect(url_for('listar_vagas'))
