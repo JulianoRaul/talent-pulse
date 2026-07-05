@@ -541,11 +541,11 @@
                     
                     <form action="/upload" method="POST" enctype="multipart/form-data" id="upload-form">
                         <div class="drop-zone" id="drop-zone">
-                            <input type="file" id="file-input" name="file" accept=".pdf,.docx,.jpg,.jpeg">
+                            <input type="file" id="file-input" name="file" accept=".pdf,.docx">
                             <div class="upload-content" id="upload-content">
                                 <div class="upload-icon">+</div>
                                 <p class="upload-text-main">Selecione ou Arraste o Currículo</p>
-                                <p class="upload-text-sub">PDF, DOCX ou JPG</p>
+                                <p class="upload-text-sub">PDF ou DOCX</p>
                             </div>
                         </div>
                     </form>
@@ -566,24 +566,15 @@
                             <label for="idioma">Idioma</label>
                             <input type="text" id="idioma" name="idioma" class="form-control" placeholder="Ex: Inglês, Espanhol" value="{{ request.args.get('idioma', '') }}">
                         </div>
-                        <div class="form-group">
-                            <label for="tipo_vaga">Tipo de Vaga / Categoria</label>
-                            <select id="tipo_vaga" name="tipo_vaga" class="form-control">
-                                <option value="">Todas as Categorias</option>
-                                <option value="vendas" {% if request.args.get('tipo_vaga') == 'vendas' %}selected{% endif %}>Vendas</option>
-                                <option value="ti" {% if request.args.get('tipo_vaga') == 'ti' %}selected{% endif %}>TI / Tecnologia</option>
-                                <option value="adm" {% if request.args.get('tipo_vaga') == 'adm' %}selected{% endif %}>Administração</option>
-                                <option value="rh" {% if request.args.get('tipo_vaga') == 'rh' %}selected{% endif %}>Recursos Humanos</option>
-                            </select>
-                        </div>
 
+                        <!-- AJUSTADO: Campo name alterado para f_ordem e adicionado suporte a ordenação dinâmica direta -->
                         <div class="form-group">
                             <label for="ordem">Ordenar por</label>
-                            <select id="ordem" name="ordem" class="form-control">
+                            <select id="ordem" name="ordem" class="form-control" onchange="this.form.submit()">
                                 <option value="recente" {% if request.args.get('ordem') == 'recente' or not request.args.get('ordem') %}selected{% endif %}>📅 Mais Recentes</option>
                                 <option value="antigo" {% if request.args.get('ordem') == 'antigo' %}selected{% endif %}>📅 Mais Antigos</option>
                                 <option value="nome" {% if request.args.get('ordem') == 'nome' %}selected{% endif %}>🔤 Nome (A-Z)</option>
-                                <option value="categoria" {% if request.args.get('ordem') == 'categoria' %}selected{% endif %}>💼 Tipo de Candidato / Categoria</option>
+                                <option value="nome_za" {% if request.args.get('ordem') == 'nome_za' %}selected{% endif %}>🔤 Nome (Z-A)</option>
                             </select>
                         </div>
                         
@@ -658,7 +649,6 @@
                                 </div>
                             </div>
 
-                            <!-- AJUSTADO: Checagem inteligente e flexível da data de cadastro -->
                             <div class="candidato-footer">
                                 <div class="data-cadastro-badge">
                                     🕒 Cadastrado em: 
@@ -668,17 +658,13 @@
                                         {% else %}
                                             {{ candidato.data_cadastro }}
                                         {% endif %}
-                                    {% elif candidato.data_envio %}
-                                        {{ candidato.data_envio }}
-                                    {% elif candidato.created_at %}
-                                        {{ candidato.created_at }}
                                     {% else %}
                                         Data indisponível
                                     {% endif %}
                                 </div>
 
                                 <div class="vaga-badge-container" style="margin-top: 0;">
-                                    {% set analise_tags = (candidato.tipo_vaga or '') ~ ' ' ~ (candidato.hard_skills or '') ~ ' ' ~ (candidato.formacao or '') %}
+                                    {% set analise_tags = (candidato.hard_skills or '') ~ ' ' ~ (candidato.formacao or '') %}
                                     {% set analise_tags = analise_tags.lower() %}
                                     
                                     {% if 'venda' in analise_tags or 'comercial' in analise_tags or 'prospecção' in analise_tags %}
