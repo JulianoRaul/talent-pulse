@@ -451,25 +451,37 @@
             gap: 4px;
         }
 
+        .vaga-badge-container {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
         .vaga-badge {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            padding: 6px 12px;
-            border-radius: 8px;
+            padding: 5px 10px;
+            border-radius: 6px;
             background: #f1f5f9;
             color: #475569;
             border: 1px solid #cbd5e1;
         }
 
-        .vaga-ti { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
-        .vaga-vendas { background: #fefce8; color: #a16207; border-color: #fef08a; }
-        .vaga-adm { background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; }
-        .vaga-rh { background: #faf5ff; color: #701a75; border-color: #f3e8ff; }
+        /* Cores exclusivas para cada tag profissional */
+        .badge-ti { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+        .badge-vendas { background: #fefce8; color: #a16207; border-color: #fef08a; }
+        .badge-adm { background: #f8fafc; color: #334155; border-color: #cbd5e1; }
+        .badge-rh { background: #fdf2f8; color: #9d174d; border-color: #fbcfe8; }
+        .badge-educacao { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+        .badge-logistica { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+        .badge-financeiro { background: #f0fdfa; color: #0f766e; border-color: #99f6e4; }
+        .badge-marketing { background: #faf5ff; color: #6b21a8; border-color: #e9d5ff; }
+        .badge-saude { background: #fff5f5; color: #c53030; border-color: #feb2b2; }
 
         .alert {
             padding: 12px 16px;
@@ -567,7 +579,6 @@
                             <input type="text" id="idioma" name="idioma" class="form-control" placeholder="Ex: Inglês, Espanhol" value="{{ request.args.get('idioma', '') }}">
                         </div>
 
-                        <!-- AJUSTADO: Campo name alterado para f_ordem e adicionado suporte a ordenação dinâmica direta -->
                         <div class="form-group">
                             <label for="ordem">Ordenar por</label>
                             <select id="ordem" name="ordem" class="form-control" onchange="this.form.submit()">
@@ -663,20 +674,27 @@
                                     {% endif %}
                                 </div>
 
-                                <div class="vaga-badge-container" style="margin-top: 0;">
-                                    {% set analise_tags = (candidato.hard_skills or '') ~ ' ' ~ (candidato.formacao or '') %}
-                                    {% set analise_tags = analise_tags.lower() %}
-                                    
-                                    {% if 'venda' in analise_tags or 'comercial' in analise_tags or 'prospecção' in analise_tags %}
-                                        <span class="vaga-badge vaga-vendas">💼 Vendas</span>
-                                    {% elif 'ti' in analise_tags or 'tecnologia' in analise_tags or 'desenvolvimento' in analise_tags or 'software' in analise_tags %}
-                                        <span class="vaga-badge vaga-ti">💼 TI / Tecnologia</span>
-                                    {% elif 'adm' in analise_tags or 'administração' in analise_tags or 'financeiro' in analise_tags %}
-                                        <span class="vaga-badge vaga-adm">💼 Administração</span>
-                                    {% elif 'rh' in analise_tags or 'recursos humanos' in analise_tags %}
-                                        <span class="vaga-badge vaga-rh">💼 Recursos Humanos</span>
+                                <!-- AJUSTADO: Renderização dinâmica e inteligente de múltiplas áreas profissionais salvas pela IA -->
+                                <div class="vaga-badge-container">
+                                    {% if candidato.areas_profissionais %}
+                                        {% for area in candidato.areas_profissionais %}
+                                            {% set area_limpa = area.strip().lower() %}
+                                            <span class="vaga-badge 
+                                                {% if 'ti' in area_limpa or 'tecnologia' in area_limpa %}badge-ti
+                                                {% elif 'venda' in area_limpa or 'comercial' in area_limpa %}badge-vendas
+                                                {% elif 'administração' in area_limpa or 'administracao' in area_limpa %}badge-adm
+                                                {% elif 'recursos humanos' in area_limpa or 'rh' in area_limpa %}badge-rh
+                                                {% elif 'educação' in area_limpa or 'educacao' in area_limpa %}badge-educacao
+                                                {% elif 'logística' in area_limpa or 'logistica' in area_limpa or 'operacional' in area_limpa %}badge-logistica
+                                                {% elif 'financeiro' in area_limpa %}badge-financeiro
+                                                {% elif 'marketing' in area_limpa or 'comunicação' in area_limpa %}badge-marketing
+                                                {% elif 'saúde' in area_limpa or 'saude' in area_limpa %}badge-saude
+                                                {% endif %}">
+                                                💼 {{ area.strip() }}
+                                            </span>
+                                        {% endfor %}
                                     {% else %}
-                                        <span class="vaga-badge">💼 Geral / Não Categorizado</span>
+                                        <span class="vaga-badge">💼 Geral</span>
                                     {% endif %}
                                 </div>
                             </div>
