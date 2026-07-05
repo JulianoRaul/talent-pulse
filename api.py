@@ -119,11 +119,13 @@ def init_db():
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS soft_skills TEXT;')
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS whatsapp TEXT;')
                 
-                # ALTERAÇÃO: Adiciona a coluna de data automática com o timezone corrigido para Brasília
+                # ALTERAÇÃO DEFINITIVA: Garante TIMESTAMP simples sem timezone e força o default para Brasília
+                cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS data_cadastro TIMESTAMP WITHOUT TIME ZONE;')
+                cursor.execute('ALTER TABLE curriculos ALTER COLUMN data_cadastro TYPE TIMESTAMP WITHOUT TIME ZONE;')
                 cursor.execute("""
                     ALTER TABLE curriculos 
-                    ADD COLUMN IF NOT EXISTS data_cadastro TIMESTAMP WITH TIME ZONE 
-                    DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo');
+                    ALTER COLUMN data_cadastro 
+                    SET DEFAULT (timezone('America/Sao_Paulo', NOW()));
                 """)
                 
                 # 3. Tabela de Usuários
@@ -408,7 +410,6 @@ def index():
     f_idioma = request.args.get('idioma', '').strip()
     f_nivel = request.args.get('nivel_idioma', '').strip()
     
-    # ALTERAÇÃO: Captura o novo parâmetro de ordenação do frontend
     f_ordenar = request.args.get('ordenar', '').strip().lower()
     
     algum_filtro_ativo = any([busca_geral, f_genero, f_formacao, f_localizacao, f_idioma, f_nivel, f_ordenar])
@@ -483,7 +484,6 @@ def index():
                     if passou_filtro:
                         resultados_finais.append(item)
                 
-                # ALTERAÇÃO: Aplica as ordenações alfabéticas de forma correta e sem bugar com acentos
                 if f_ordenar == 'az':
                     resultados_finais.sort(key=lambda x: remover_acentos(x['nome'] or ""))
                 elif f_ordenar == 'za':
