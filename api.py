@@ -119,7 +119,9 @@ def init_db():
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS soft_skills TEXT;')
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS whatsapp TEXT;')
                 
-                # ALTERAÇÃO DEFINITIVA: Garante TIMESTAMP simples sem timezone e força o default para Brasília
+                # ADICIONADO: Campo para armazenar as áreas mapeadas por IA como vetor de texto (múltiplas áreas)
+                cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS areas_profissionais TEXT[];')
+                
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS data_cadastro TIMESTAMP WITHOUT TIME ZONE;')
                 cursor.execute('ALTER TABLE curriculos ALTER COLUMN data_cadastro TYPE TIMESTAMP WITHOUT TIME ZONE;')
                 cursor.execute("""
@@ -170,6 +172,7 @@ init_db()
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
+# AJUSTADO: Adicionado 'areas_profissionais' na resposta tipada da IA
 class EstruturaCurriculo(BaseModel):
     nome: str
     idade: str  
@@ -181,6 +184,7 @@ class EstruturaCurriculo(BaseModel):
     soft_skills: str   
     idiomas: str
     whatsapp: str 
+    areas_profissionais: list[str]
 
 class CandidatoCompatibilidade(BaseModel):
     id_candidato: int
@@ -245,7 +249,7 @@ def estruturar_curriculo_com_ia(texto_bruto):
             "nome": "Nome provisório", "idade": "Não Informado", "sexo": "Não Informado",
             "localizacao": "Manual necessário", "formacao": "Texto vazio.",
             "cursos": "Nenhum", "hard_skills": "Nenhuma", "soft_skills": "Nenhuma", "idiomas": "Não informado",
-            "whatsapp": ""
+            "whatsapp": "", "areas_profissionais": ["Geral"]
         }
     
     texto_limitado = texto_bruto.strip()[:24000]
@@ -254,29 +258,31 @@ def estruturar_curriculo_com_ia(texto_bruto):
             "nome": "Sem Chave API", "idade": "Não Informado", "sexo": "Não Informado",
             "localizacao": "Configuração Pendente", "formacao": "A IA não pôde ser chamada.",
             "cursos": "Nenhum", "hard_skills": "Nenhuma", "soft_skills": "Nenhuma", "idiomas": "Não informado",
-            "whatsapp": ""
+            "whatsapp": "", "areas_profissionais": ["Geral"]
         }
         
     system_prompt = (
-        "Você é um especialista em recrutamento avançado e triagem de currículos.\n"
+        "Você é um especialista em recrutamento avançado, triagem de currículos e People Analytics.\n"
         "Sua tarefa é analisar o texto do candidato e extrair os dados dividindo estritamente as competências conforme as diretrizes abaixo:\n\n"
         "1. HARD SKILLS:\n"
-        "Identifique e liste apenas habilidades técnicas palpáveis, conhecimentos operacionais, ferramentas, metodologias profissionais, frameworks e linguagens de programação. Separe-as por vírgula.\n"
-        "Exemplos: Python, JavaScript, Excel Avançado, SQL, Contabilidade, Gestão de Tráfego, Photoshop, CRM Pipedrive.\n\n"
+        "Identifique e liste apenas habilidades técnicas palpáveis, conhecimentos operacionais, ferramentas, metodologias profissionais, frameworks e linguagens de programação. Separe-as por vírgula.\n\n"
         "2. SOFT SKILLS:\n"
-        "Classifique e liste exclusivamente as características e competências comportamentais baseadas estritamente nos seguintes tipos mapeados:\n"
-        "- Comunicação (expressar ideias claras/concisas, saber ouvir)\n"
-        "- Liderança (influenciar, motivar pessoas, guiar equipes)\n"
-        "- Trabalho em equipe (colaborar com terceiros, alcançar resultados juntos)\n"
-        "- Resolução de problemas (analisar situações complexas, soluções criativas)\n"
-        "- Inteligência emocional (gerenciar emoções, lidar com o estresse, relações saudáveis)\n"
-        "- Adaptabilidade (ajustar-se a mudanças, aprender rápido)\n"
-        "- Criatividade (pensar fora da caixa, ideias originais)\n"
-        "Adicione na lista de soft_skills apenas os termos identificados que correspondam ou derivem desse grupo conceitual, separados por vírgula.\n\n"
+        "Classifique e liste exclusivamente as características e competências comportamentais com base no texto do candidato.\n\n"
         "3. WHATSAPP / TELEFONE:\n"
-        "Localize o telefone, celular ou contato de WhatsApp principal do candidato. Extraia apenas os dígitos numéricos incluindo o código de área (DDD). Remova espaços, parênteses e traços.\n"
-        "Exemplo: se o currículo tiver '(11) 99999-8888', retorne '11999998888'. Se não encontrar nenhum número válido, deixe o campo completamente vazio.\n\n"
-        "Mapeie também o campo 'idiomas' (Iniciante, Intermediário ou Avançado/Fluente). Se algum campo não existir, marque 'Não informado'."
+        "Localize o contato de WhatsApp principal do candidato. Extraia apenas os dígitos numéricos incluindo o código de área (DDD).\n\n"
+        "4. CLASSIFICAÇÃO DE ÁREAS PROFISSIONAIS (MÚLTIPLOS RÓTULOS):\n"
+        "Analise holisticamente a formação acadêmica, histórico profissional e hard skills do candidato. Defina de 1 a 3 áreas profissionais que condizem com o perfil do candidato.\n"
+        "Escolha as áreas estritamente a partir desta lista autorizada:\n"
+        "- 'Administração'\n"
+        "- 'Recursos Humanos'\n"
+        "- 'TI / Tecnologia'\n"
+        "- 'Vendas / Comercial'\n"
+        "- 'Educação'\n"
+        "- 'Logística / Operacional'\n"
+        "- 'Financeiro'\n"
+        "- 'Marketing / Comunicação'\n"
+        "- 'Saúde'\n"
+        "Se o candidato tiver um perfil híbrido (como formacao em Administração mas atuando fortemente em Recursos Humanos, ou trabalhando com Educação e Logística), atribua as múltiplas áreas condizentes na lista 'areas_profissionais'."
     )
 
     max_tentativas = 3
@@ -298,22 +304,31 @@ def estruturar_curriculo_com_ia(texto_bruto):
             texto_resposta = response.text.strip() if response.text else ""
             if texto_resposta:
                 dados = json.loads(texto_resposta)
-                return {k: limpar_caracteres_invalidos(str(v)) for k, v in dados.items()}
+                return {
+                    "nome": limpar_caracteres_invalidos(str(dados.get("nome"))),
+                    "idade": limpar_caracteres_invalidos(str(dados.get("idade"))),
+                    "sexo": limpar_caracteres_invalidos(str(dados.get("sexo"))),
+                    "localizacao": limpar_caracteres_invalidos(str(dados.get("localizacao"))),
+                    "formacao": limpar_caracteres_invalidos(str(dados.get("formacao"))),
+                    "cursos": limpar_caracteres_invalidos(str(dados.get("cursos"))),
+                    "hard_skills": limpar_caracteres_invalidos(str(dados.get("hard_skills"))),
+                    "soft_skills": limpar_caracteres_invalidos(str(dados.get("soft_skills"))),
+                    "idiomas": limpar_caracteres_invalidos(str(dados.get("idiomas"))),
+                    "whatsapp": limpar_caracteres_invalidos(str(dados.get("whatsapp"))),
+                    "areas_profissionais": [limpar_caracteres_invalidos(str(a)) for a in dados.get("areas_profissionais", ["Geral"])]
+                }
                 
         except Exception as e:
-            print(f"[AVISO] Tentativa {tentativa + 1} de {max_tentativas} falhou devido a instabilidade na API (Erro: {e})")
+            print(f"[AVISO] Tentativa {tentativa + 1} de {max_tentativas} falhou devido a instabilidade (Erro: {e})")
             if tentativa < max_tentativas - 1:
-                print(f"Aguardando {tempo_espera} segundos antes da próxima tentativa...")
                 time.sleep(tempo_espera)
                 tempo_espera *= 2
-            else:
-                print("Número máximo de retentativas atingido no Gemini GenAI. Aplicando proteção de fallback.")
         
     return {
         "nome": "Nome provisório", "idade": "Não Informado", "sexo": "Não Informado",
-        "localizacao": "Manual necessário", "formacao": "O servidor da IA estava instável no momento do processamento.",
+        "localizacao": "Manual necessário", "formacao": "Erro de processamento da IA.",
         "cursos": "Consulte o arquivo original", "hard_skills": "Análise Manual", "soft_skills": "Análise Manual", "idiomas": "Não informado",
-        "whatsapp": ""
+        "whatsapp": "", "areas_profissionais": ["Geral"]
     }
 
 # ==============================================================================
@@ -409,8 +424,6 @@ def index():
     f_localizacao = request.args.get('localizacao', '').strip()
     f_idioma = request.args.get('idioma', '').strip()
     f_nivel = request.args.get('nivel_idioma', '').strip()
-    
-    # Captura o parâmetro 'ordem' sincronizado com o elemento <select> do index.html
     f_ordem = request.args.get('ordem', '').strip().lower()
     
     algum_filtro_ativo = any([busca_geral, f_genero, f_formacao, f_localizacao, f_idioma, f_nivel, f_ordem])
@@ -431,11 +444,10 @@ def index():
                 if empresa_data:
                     nome_empresa = empresa_data['nome_comercial']
 
-                # Removido ORDER BY engessado para permitir que a ordenação seja processada dinamicamente
                 cursor.execute("""
                     SELECT id, nome_arquivo, conteudo, nome_candidato AS nome, idade, sexo, 
                            localizacao, formacao, cursos, habilidades, hard_skills, soft_skills, idiomas, whatsapp,
-                           data_cadastro
+                           areas_profissionais, data_cadastro
                     FROM curriculos 
                     WHERE empresa_id = %s
                 """, (current_user.empresa_id,))
@@ -485,7 +497,6 @@ def index():
                     if passou_filtro:
                         resultados_finais.append(item)
                 
-                # Executa a regra de ordenação escolhida no painel
                 if f_ordem == 'nome':
                     resultados_finais.sort(key=lambda x: remover_acentos(x['nome'] or ""))
                 elif f_ordem == 'nome_za':
@@ -493,7 +504,6 @@ def index():
                 elif f_ordem == 'antigo':
                     resultados_finais.sort(key=lambda x: x['id'])
                 else:
-                    # Padrão ou 'recente': ID mais alto primeiro
                     resultados_finais.sort(key=lambda x: x['id'], reverse=True)
                         
     except Exception as e:
@@ -539,11 +549,12 @@ def upload():
             
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
+                    # AJUSTADO: Inserção do campo areas_profissionais mapeado pela IA
                     cursor.execute("""
                         INSERT INTO curriculos (
                             empresa_id, nome_arquivo, conteudo, nome_candidato, idade, sexo, 
-                            localizacao, formacao, cursos, habilidades, hard_skills, soft_skills, idiomas, arquivo_binario, whatsapp
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            localizacao, formacao, cursos, habilidades, hard_skills, soft_skills, idiomas, arquivo_binario, whatsapp, areas_profissionais
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """, (
                         current_user.empresa_id,
                         nome_original, 
@@ -559,7 +570,8 @@ def upload():
                         dados_ia['soft_skills'], 
                         dados_ia['idiomas'], 
                         arquivo_b64,
-                        dados_ia['whatsapp']
+                        dados_ia['whatsapp'],
+                        dados_ia['areas_profissionais']
                     ))
                     conn.commit()
                     
@@ -659,7 +671,7 @@ def visualizar(id_candidato):
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute("""
                     SELECT id, nome_arquivo, conteudo, nome_candidato AS nome, idade, sexo, 
-                           localizacao, formacao, cursos, hard_skills, soft_skills, idiomas, whatsapp 
+                           localizacao, formacao, cursos, hard_skills, soft_skills, idiomas, whatsapp, areas_profissionais
                     FROM curriculos WHERE id = %s AND empresa_id = %s
                 """, (id_candidato, current_user.empresa_id))
                 candidato = cursor.fetchone()
@@ -700,7 +712,7 @@ def cadastrar_vaga():
                     cursor.execute("""
                         INSERT INTO vagas (empresa_id, titulo, descricao, requisitos, localizacao, atividades, beneficios, remuneracao, expediente)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (current_user.empresa_id, titulo, descricao, requisitos, localizacao, activities, beneficios, remuneracao, expediente))
+                    """, (current_user.empresa_id, titulo, descricao, requisitos, localizacao, atividades, beneficios, remuneracao, expediente))
                     conn.commit()
             flash("Vaga cadastrada com sucesso!", "success")
             return redirect(url_for('listar_vagas'))
