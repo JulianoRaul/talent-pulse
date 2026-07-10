@@ -100,6 +100,10 @@ def init_db():
                 # ADICIONADO: Controle de status e data de expiração para planos de aluguel
                 cursor.execute("ALTER TABLE empresas ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'ativo';")
                 cursor.execute("ALTER TABLE empresas ADD COLUMN IF NOT EXISTS data_expiracao TIMESTAMP WITHOUT TIME ZONE;")
+                
+                # ADICIONADO: Controle de limites e tipos de plano (SaaS)
+                cursor.execute("ALTER TABLE empresas ADD COLUMN IF NOT EXISTS plano TEXT DEFAULT 'starter';")
+                cursor.execute("ALTER TABLE empresas ADD COLUMN IF NOT EXISTS limite_mensal INTEGER DEFAULT 300;")
 
                 # 2. Tabela de Currículos
                 cursor.execute('''
@@ -263,7 +267,7 @@ def estruturar_curriculo_com_ia(texto_bruto):
         }
         
     system_prompt = (
-        "Você é um especialista em recrutamento avançado, triagem de currículos e People Analytics.\n"
+        "Você é um specialist em recrutamento avançado, triagem de currículos e People Analytics.\n"
         "Sua tarefa é analisar o texto do candidato e extrair os dados dividindo estritamente as competências conforme as diretrizes abaixo:\n\n"
         "1. HARD SKILLS:\n"
         "Identifique e liste apenas habilidades técnicas palpáveis, conhecimentos operacionais, ferramentas, metodologias profissionais, frameworks e linguagens de programação. Separe-as por vírgula.\n\n"
@@ -562,6 +566,30 @@ def upload():
             return redirect(url_for('index'))
             
         try:
+            # === TRAVA DE SEGURANÇA: CONTROLE DE LIMITES DO PLANO (SAAS) ===
+            with get_db_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                    # 1. Busca as diretrizes do plano contratado pela empresa
+                    cursor.execute("SELECT limite_mensal, plano FROM empresas WHERE id = %s", (current_user.empresa_id,))
+                    dados_empresa = cursor.fetchone()
+                    limite_mensal = dados_empresa['limite_mensal'] if dados_empresa else 300
+                    plano_atual = dados_empresa['plano'].upper() if dados_empresa else 'STARTER'
+
+                    # 2. Conta a quantidade de currículos enviados a partir do primeiro dia do mês vigente
+                    primeiro_dia_mes = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                    cursor.execute("""
+                        SELECT COUNT(*) as total FROM curriculos 
+                        WHERE empresa_id = %s AND data_cadastro >= %s
+                    """, (current_user.empresa_id, primeiro_dia_mes))
+                    contagem = cursor.fetchone()
+                    total_enviado = contagem['total'] if contagem else 0
+
+            # 3. Impede a chamada à API do Gemini se a cota do mês acabou
+            if total_enviado >= limite_mensal:
+                flash(f"⚠️ Limite atingido! Sua empresa já analisou {total_enviado}/{limite_mensal} currículos este mês no plano {plano_atual}. Realize um upgrade para continuar.", "error")
+                return redirect(url_for('index'))
+            # =============================================================
+
             dados_bytes = arquivo.read()
             arquivo_b64 = base64.b64encode(dados_bytes).decode('utf-8')
             
@@ -603,7 +631,7 @@ def upload():
                     ))
                     conn.commit()
                     
-            flash(f"Currículo de '{dados_ia['nome']}' processado e salvo com sucesso!", "success")
+            flash(f"Currículo de '{dados_ia['nome']}' processado e salvo com sucesso! ({total_enviado + 1}/{limite_mensal} usados)", "success")
         except Exception as e:
             print(f"Erro no upload: {e}")
             flash("Falha interna ao processar documento.", "error")
@@ -913,7 +941,7 @@ def admin_listar_empresas():
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute("""
-                    SELECT e.id, e.nome_comercial, e.data_cadastro, e.status, e.data_expiracao,
+                    SELECT e.id, e.nome_comercial, e.data_cadastro, e.status, e.data_expiracao, e.plano, e.limite_mensal,
                            (SELECT COUNT(*) FROM usuarios u WHERE u.empresa_id = e.id) as qtd_usuarios,
                            (SELECT COUNT(*) FROM curriculos c WHERE c.empresa_id = e.id) as qtd_curriculos,
                            (SELECT COUNT(*) FROM vagas v WHERE v.empresa_id = e.id) as qtd_vagas
@@ -929,40 +957,40 @@ def admin_listar_empresas():
             <link href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap" rel="stylesheet">
             <style>
                 body {{ font-family: 'Inter', sans-serif; padding: 40px; background: #f8fafc; color: #334155; margin: 0; }}
-                .container {{ max-width: 1300px; margin: 0 auto; }}
+                .container {{ max-width: 1400px; margin: 0 auto; }}
                 h2 {{ color: #0f172a; font-weight: 700; margin-bottom: 6px; }}
                 p.subtitle {{ color: #64748b; font-size: 14px; margin-bottom: 24px; }}
                 table {{ width: 100%; border-collapse: collapse; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.02); border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; }}
-                th, td {{ padding: 14px 18px; text-align: left; font-size: 14px; border-bottom: 1px solid #e2e8f0; }}
-                th {{ background: #0f172a; color: white; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; font-size: 12px; }}
+                th, td {{ padding: 14px 14px; text-align: left; font-size: 13px; border-bottom: 1px solid #e2e8f0; }}
+                th {{ background: #0f172a; color: white; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; font-size: 11px; }}
                 tr:last-child td {{ border-bottom: none; }}
                 tr:nth-child(even) {{ background: #f8fafc; }}
-                .badge {{ padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; }}
+                .badge {{ padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; text-transform: uppercase; }}
                 .badge-ativo {{ background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }}
                 .badge-bloqueado {{ background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }}
                 .badge-expirado {{ background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }}
-                .form-inline {{ display: flex; gap: 8px; align-items: center; margin: 0; }}
-                .input-days {{ width: 70px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 500; text-align: center; }}
-                .btn-save {{ background: #4f46e5; color: white; border: none; padding: 7px 12px; cursor: pointer; border-radius: 6px; font-size: 13px; font-weight: 600; transition: background 0.15s; }}
+                .form-inline {{ display: flex; gap: 6px; align-items: center; margin: 0; }}
+                .input-days {{ width: 70px; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-weight: 500; text-align: center; }}
+                .select-plan {{ padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-weight: 500; }}
+                .btn-save {{ background: #4f46e5; color: white; border: none; padding: 7px 10px; cursor: pointer; border-radius: 6px; font-size: 12px; font-weight: 600; transition: background 0.15s; }}
                 .btn-save:hover {{ background: #4338ca; }}
-                .btn-toggle {{ background: #ffffff; color: #475569; border: 1px solid #cbd5e1; padding: 7px 12px; cursor: pointer; border-radius: 6px; font-size: 13px; font-weight: 600; transition: all 0.15s; }}
+                .btn-toggle {{ background: #ffffff; color: #475569; border: 1px solid #cbd5e1; padding: 7px 10px; cursor: pointer; border-radius: 6px; font-size: 12px; font-weight: 600; transition: all 0.15s; }}
                 .btn-toggle:hover {{ background: #f1f5f9; color: #1e293b; border-color: #94a3b8; }}
-                .btn-delete {{ background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; padding: 7px 12px; cursor: pointer; border-radius: 6px; font-size: 13px; font-weight: 600; transition: all 0.15s; }}
+                .btn-delete {{ background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; padding: 7px 10px; cursor: pointer; border-radius: 6px; font-size: 12px; font-weight: 600; transition: all 0.15s; }}
                 .btn-delete:hover {{ background: #fee2e2; border-color: #f87171; }}
-                .actions-cell {{ display: flex; gap: 8px; align-items: center; }}
+                .actions-cell {{ display: flex; gap: 6px; align-items: center; }}
             </style>
         </head>
         <body>
             <div class="container">
                 <h2>Painel de Controle de Clientes (Tenants)</h2>
-                <p class="subtitle">Gerencie os contratos ativos, prazos de aluguel e limites da plataforma TalentPulse de forma unificada.</p>
+                <p class="subtitle">Gerencie os contratos ativos, prazos de aluguel, tipos de planos e limites da plataforma TalentPulse.</p>
                 <table>
                     <tr>
-                        <th>ID</th><th>Nome da Empresa</th><th>Cadastro</th><th>Status</th><th>Expira Em</th><th>Aluguel (Dias)</th><th>Usuários</th><th>Currículos</th><th>Vagas</th><th>Ações</th>
+                        <th>ID</th><th>Nome da Empresa</th><th>Cadastro</th><th>Status</th><th>Plano Atual</th><th>Limite</th><th>Expira Em</th><th>Aluguel (Dias)</th><th>Alterar Plano/Limite</th><th>Métricas</th><th>Ações</th>
                     </tr>
         """
         for emp in empresas:
-            # Lógica para renderização visual da expiração
             data_exp_formatada = "Sem limite"
             status_badge = f'<span class="badge badge-ativo">Ativo</span>'
             
@@ -974,29 +1002,45 @@ def admin_listar_empresas():
                 if datetime.now() > emp['data_expiracao']:
                     status_badge = f'<span class="badge badge-expirado">Expirado</span>'
             
+            plano_str = str(emp['plano']).upper() if emp['plano'] else 'STARTER'
+            limite_num = emp['limite_mensal'] if emp['limite_mensal'] is not NULL else 300
+            
             html_admin += f"""
                 <tr>
                     <td>{emp['id']}</td>
                     <td><strong>{emp['nome_comercial']}</strong></td>
                     <td>{emp['data_cadastro'].strftime('%d/%m/%Y')}</td>
                     <td>{status_badge}</td>
-                    <td style="font-weight: 500; font-size: 13px; color: #475569;">{data_exp_formatada}</td>
+                    <td><span style="font-weight:600; color:#4f46e5;">{plano_str}</span></td>
+                    <td><strong>{limite_num}</strong> /mês</td>
+                    <td style="font-weight: 500; font-size: 12px; color: #475569;">{data_exp_formatada}</td>
                     <td>
                         <form class="form-inline" action="/master-admin/empresas/{emp['id']}/atualizar-prazo?token={token}" method="POST">
                             <input class="input-days" type="number" name="dias" placeholder="+ Dias" required min="1">
                             <button class="btn-save" type="submit">Adicionar</button>
                         </form>
                     </td>
-                    <td>{emp['qtd_usuarios']}</td>
-                    <td>{emp['qtd_curriculos']}</td>
-                    <td>{emp['qtd_vagas']}</td>
+                    <td>
+                        <form class="form-inline" action="/master-admin/empresas/{emp['id']}/atualizar-plano?token={token}" method="POST">
+                            <select class="select-plan" name="plano">
+                                <option value="starter" {"selected" if plano_str == "STARTER" else ""}>Starter</option>
+                                <option value="pro" {"selected" if plano_str == "PRO" else ""}>Pro</option>
+                                <option value="premium" {"selected" if plano_str == "PREMIUM" else ""}>Premium</option>
+                            </select>
+                            <input class="input-days" type="number" name="limite" value="{limite_num}" required min="0" title="Limite de currículos por mês">
+                            <button class="btn-save" type="submit" style="background:#059669;">Salvar</button>
+                        </form>
+                    </td>
+                    <td style="color: #64748b; font-size:12px;">
+                        U: {emp['qtd_usuarios']} | C: {emp['qtd_curriculos']} | V: {emp['qtd_vagas']}
+                    </td>
                     <td>
                         <div class="actions-cell">
                             <form action="/master-admin/empresas/{emp['id']}/toggle-status?token={token}" method="POST" style="margin:0;">
                                 <button class="btn-toggle" type="submit">{"Bloquear" if emp['status'] == 'ativo' else "Ativar"}</button>
                             </form>
                             <form action="/master-admin/empresas/{emp['id']}/excluir?token={token}" method="POST" style="margin:0;" onsubmit="return confirm('ATENÇÃO CRÍTICA: Deletar esta empresa apagará TODOS os dados permanentemente. Confirmar?');">
-                                <button class="btn-delete" type="submit">Cancelar Contrato</button>
+                                <button class="btn-delete" type="submit">Deletar</button>
                             </form>
                         </div>
                     </td>
@@ -1020,7 +1064,6 @@ def admin_atualizar_prazo(id_empresa):
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                # Busca se a empresa já possui uma data limite estipulada e ativa
                 cursor.execute("SELECT data_expiracao FROM empresas WHERE id = %s", (id_empresa,))
                 emp = cursor.fetchone()
                 
@@ -1040,6 +1083,29 @@ def admin_atualizar_prazo(id_empresa):
         return redirect(f"/master-admin/empresas?token={token}")
     except Exception as e:
         return f"Erro ao estender prazo da licença: {e}", 500
+
+@app.route('/master-admin/empresas/<int:id_empresa>/atualizar-plano', methods=['POST'])
+def admin_atualizar_plano(id_empresa):
+    token = request.args.get('token')
+    if token != ADMIN_TOKEN:
+        return "Acesso não autorizado", 403
+        
+    plano = request.form.get('plano', 'starter').strip().lower()
+    limite = int(request.form.get('limite', 300))
+    
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    UPDATE empresas 
+                    SET plano = %s, limite_mensal = %s 
+                    WHERE id = %s
+                """, (plano, limite, id_empresa))
+                conn.commit()
+                
+        return redirect(f"/master-admin/empresas?token={token}")
+    except Exception as e:
+        return f"Erro ao atualizar o plano da empresa: {e}", 500
 
 @app.route('/master-admin/empresas/<int:id_empresa>/toggle-status', methods=['POST'])
 def admin_toggle_status(id_empresa):
