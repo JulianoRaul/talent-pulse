@@ -1003,7 +1003,7 @@ def admin_listar_empresas():
                     status_badge = f'<span class="badge badge-expirado">Expirado</span>'
             
             plano_str = str(emp['plano']).upper() if emp['plano'] else 'STARTER'
-            llimite_num = emp['limite_mensal'] or 300
+            limite_num = emp['limite_mensal'] or 300
             
             html_admin += f"""
                 <tr>
