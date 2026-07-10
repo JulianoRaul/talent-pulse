@@ -6,6 +6,7 @@ import json
 import base64
 import unicodedata
 import time
+from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
 from flask import Flask, render_template, request, redirect, url_for, flash, Response, jsonify, send_file, session
@@ -95,6 +96,10 @@ def init_db():
                         data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     );
                 ''')
+                
+                # ADICIONADO: Controle de status e data de expiração para planos de aluguel
+                cursor.execute("ALTER TABLE empresas ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'ativo';")
+                cursor.execute("ALTER TABLE empresas ADD COLUMN IF NOT EXISTS data_expiracao TIMESTAMP WITHOUT TIME ZONE;")
 
                 # 2. Tabela de Currículos
                 cursor.execute('''
@@ -118,10 +123,7 @@ def init_db():
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS hard_skills TEXT;')
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS soft_skills TEXT;')
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS whatsapp TEXT;')
-                
-                # ADICIONADO: Campo para armazenar as áreas mapeadas por IA como vetor de texto (múltiplas áreas)
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS areas_profissionais TEXT[];')
-                
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS data_cadastro TIMESTAMP WITHOUT TIME ZONE;')
                 cursor.execute('ALTER TABLE curriculos ALTER COLUMN data_cadastro TYPE TIMESTAMP WITHOUT TIME ZONE;')
                 cursor.execute("""
@@ -155,7 +157,7 @@ def init_db():
                     );
                 ''')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS empresa_id INTEGER REFERENCES empresas(id) ON DELETE CASCADE;')
-                cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS atividades TEXT;')
+                cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS actividades TEXT;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS beneficios TEXT;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS remuneracao TEXT;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS expediente TEXT;')
@@ -172,7 +174,6 @@ init_db()
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
-# AJUSTADO: Adicionado 'areas_profissionais' na resposta tipada da IA
 class EstruturaCurriculo(BaseModel):
     nome: str
     idade: str  
@@ -418,6 +419,34 @@ def logout():
 @app.route('/', methods=['GET'])
 @login_required
 def index():
+    # ADICIONADO: Validação automática de expiração ou bloqueio de aluguel por Tenant
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("SELECT status, data_expiracao FROM empresas WHERE id = %s", (current_user.empresa_id,))
+                empresa_status = cursor.fetchone()
+                
+                if empresa_status:
+                    expirado = False
+                    if empresa_status['data_expiracao']:
+                        # Compara a data atual com o limite estabelecido
+                        if datetime.now() > empresa_status['data_expiracao']:
+                            expirado = True
+                    
+                    if empresa_status['status'] == 'bloqueado' or expirado:
+                        logout_user()
+                        return """
+                        <div style="font-family: 'Inter', sans-serif; padding: 60px; text-align: center; background: #f8fafc; color: #334155; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                            <div style="background: white; padding: 40px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; max-width: 500px;">
+                                <h2 style="color: #dc2626; margin-bottom: 12px; font-size: 24px;">Acesso Suspenso</h2>
+                                <p style="color: #64748b; font-size: 15px; line-height: 1.6; margin-bottom: 24px;">O período de licenciamento da sua empresa no <strong>TalentPulse</strong> expirou ou o acesso foi temporariamente suspenso pelo administrador do sistema.</p>
+                                <p style="font-size: 13px; color: #94a3b8;">Por favor, entre em contato com o suporte para renovar seu plano.</p>
+                            </div>
+                        </div>
+                        """, 403
+    except Exception as e:
+        print(f"Erro na verificação de licença: {e}")
+
     busca_geral = request.args.get('busca', '').strip()
     f_genero = request.args.get('genero', '').strip()
     f_formacao = request.args.get('formacao', '').strip()
@@ -549,7 +578,6 @@ def upload():
             
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
-                    # AJUSTADO: Inserção do campo areas_profissionais mapeado pela IA
                     cursor.execute("""
                         INSERT INTO curriculos (
                             empresa_id, nome_arquivo, conteudo, nome_candidato, idade, sexo, 
@@ -871,7 +899,7 @@ def analisar_vaga(id_vaga):
         return redirect(url_for('listar_vagas'))
 
 # ==============================================================================
-# CONTROLE MASTER ADMINISTRATIVO (GERENCIAMENTO DE TENANTS / CANCELAMENTOS)
+# CONTROLE MASTER ADMINISTRATIVO (GERENCIAMENTO DE TENANTS / CANCELAMENTOS E DIAS)
 # ==============================================================================
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "pulse_admin_2026")
 
@@ -885,7 +913,7 @@ def admin_listar_empresas():
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute("""
-                    SELECT e.id, e.nome_comercial, e.data_cadastro,
+                    SELECT e.id, e.nome_comercial, e.data_cadastro, e.status, e.data_expiracao,
                            (SELECT COUNT(*) FROM usuarios u WHERE u.empresa_id = e.id) as qtd_usuarios,
                            (SELECT COUNT(*) FROM curriculos c WHERE c.empresa_id = e.id) as qtd_curriculos,
                            (SELECT COUNT(*) FROM vagas v WHERE v.empresa_id = e.id) as qtd_vagas
@@ -898,45 +926,141 @@ def admin_listar_empresas():
         <html>
         <head>
             <title>Master Admin - TalentPulse</title>
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap" rel="stylesheet">
             <style>
-                body {{ font-family: sans-serif; padding: 40px; background: #f4f6f8; color: #1e293b; }}
-                h2 {{ color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }}
-                table {{ width: 100%; border-collapse: collapse; background: #fff; margin-top: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 6px; overflow: hidden; }}
-                th, td {{ padding: 14px; border: 1px solid #e2e8f0; text-align: left; }}
-                th {{ background: #0f172a; color: white; font-weight: 600; }}
+                body {{ font-family: 'Inter', sans-serif; padding: 40px; background: #f8fafc; color: #334155; margin: 0; }}
+                .container {{ max-width: 1300px; margin: 0 auto; }}
+                h2 {{ color: #0f172a; font-weight: 700; margin-bottom: 6px; }}
+                p.subtitle {{ color: #64748b; font-size: 14px; margin-bottom: 24px; }}
+                table {{ width: 100%; border-collapse: collapse; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.02); border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; }}
+                th, td {{ padding: 14px 18px; text-align: left; font-size: 14px; border-bottom: 1px solid #e2e8f0; }}
+                th {{ background: #0f172a; color: white; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; font-size: 12px; }}
+                tr:last-child td {{ border-bottom: none; }}
                 tr:nth-child(even) {{ background: #f8fafc; }}
-                .btn-delete {{ background: #dc2626; color: white; border: none; padding: 8px 14px; cursor: pointer; border-radius: 4px; font-weight: bold; transition: background 0.2s; }}
-                .btn-delete:hover {{ background: #b91c1c; }}
+                .badge {{ padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; }}
+                .badge-ativo {{ background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }}
+                .badge-bloqueado {{ background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }}
+                .badge-expirado {{ background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }}
+                .form-inline {{ display: flex; gap: 8px; align-items: center; margin: 0; }}
+                .input-days {{ width: 70px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 500; text-align: center; }}
+                .btn-save {{ background: #4f46e5; color: white; border: none; padding: 7px 12px; cursor: pointer; border-radius: 6px; font-size: 13px; font-weight: 600; transition: background 0.15s; }}
+                .btn-save:hover {{ background: #4338ca; }}
+                .btn-toggle {{ background: #ffffff; color: #475569; border: 1px solid #cbd5e1; padding: 7px 12px; cursor: pointer; border-radius: 6px; font-size: 13px; font-weight: 600; transition: all 0.15s; }}
+                .btn-toggle:hover {{ background: #f1f5f9; color: #1e293b; border-color: #94a3b8; }}
+                .btn-delete {{ background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; padding: 7px 12px; cursor: pointer; border-radius: 6px; font-size: 13px; font-weight: 600; transition: all 0.15s; }}
+                .btn-delete:hover {{ background: #fee2e2; border-color: #f87171; }}
+                .actions-cell {{ display: flex; gap: 8px; align-items: center; }}
             </style>
         </head>
         <body>
-            <h2>Painel de Controle de Clientes (Tenants)</h2>
-            <p>Gerencie os contratos ativos da plataforma TalentPulse de forma unificada.</p>
-            <table>
-                <tr>
-                    <th>ID</th><th>Nome da Empresa</th><th>Data Cadastro</th><th>Usuários</th><th>Currículos</th><th>Vagas</th><th>Ações</th>
-                </tr>
+            <div class="container">
+                <h2>Painel de Controle de Clientes (Tenants)</h2>
+                <p class="subtitle">Gerencie os contratos ativos, prazos de aluguel e limites da plataforma TalentPulse de forma unificada.</p>
+                <table>
+                    <tr>
+                        <th>ID</th><th>Nome da Empresa</th><th>Cadastro</th><th>Status</th><th>Expira Em</th><th>Aluguel (Dias)</th><th>Usuários</th><th>Currículos</th><th>Vagas</th><th>Ações</th>
+                    </tr>
         """
         for emp in empresas:
+            # Lógica para renderização visual da expiração
+            data_exp_formatada = "Sem limite"
+            status_badge = f'<span class="badge badge-ativo">Ativo</span>'
+            
+            if emp['status'] == 'bloqueado':
+                status_badge = f'<span class="badge badge-bloqueado">Bloqueado</span>'
+                
+            if emp['data_expiracao']:
+                data_exp_formatada = emp['data_expiracao'].strftime('%d/%m/%Y %H:%M')
+                if datetime.now() > emp['data_expiracao']:
+                    status_badge = f'<span class="badge badge-expirado">Expirado</span>'
+            
             html_admin += f"""
                 <tr>
                     <td>{emp['id']}</td>
                     <td><strong>{emp['nome_comercial']}</strong></td>
-                    <td>{emp['data_cadastro']}</td>
+                    <td>{emp['data_cadastro'].strftime('%d/%m/%Y')}</td>
+                    <td>{status_badge}</td>
+                    <td style="font-weight: 500; font-size: 13px; color: #475569;">{data_exp_formatada}</td>
+                    <td>
+                        <form class="form-inline" action="/master-admin/empresas/{emp['id']}/atualizar-prazo?token={token}" method="POST">
+                            <input class="input-days" type="number" name="dias" placeholder="+ Dias" required min="1">
+                            <button class="btn-save" type="submit">Adicionar</button>
+                        </form>
+                    </td>
                     <td>{emp['qtd_usuarios']}</td>
                     <td>{emp['qtd_curriculos']}</td>
                     <td>{emp['qtd_vagas']}</td>
                     <td>
-                        <form action="/master-admin/empresas/{emp['id']}/excluir?token={token}" method="POST" onsubmit="return confirm('ATENÇÃO CRÍTICA: Deletar esta empresa apagará TODOS os usuários, currículos e vagas dela permanentemente. Confirmar cancelamento?');">
-                            <button class="btn-delete" type="submit">Cancelar Contrato</button>
-                        </form>
+                        <div class="actions-cell">
+                            <form action="/master-admin/empresas/{emp['id']}/toggle-status?token={token}" method="POST" style="margin:0;">
+                                <button class="btn-toggle" type="submit">{"Bloquear" if emp['status'] == 'ativo' else "Ativar"}</button>
+                            </form>
+                            <form action="/master-admin/empresas/{emp['id']}/excluir?token={token}" method="POST" style="margin:0;" onsubmit="return confirm('ATENÇÃO CRÍTICA: Deletar esta empresa apagará TODOS os dados permanentemente. Confirmar?');">
+                                <button class="btn-delete" type="submit">Cancelar Contrato</button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
             """
-        html_admin += "</table></body></html>"
+        html_admin += "</table></div></body></html>"
         return Response(html_admin, mimetype='text/html')
     except Exception as e:
         return f"Erro ao carregar o painel administrativo: {e}", 500
+
+@app.route('/master-admin/empresas/<int:id_empresa>/atualizar-prazo', methods=['POST'])
+def admin_atualizar_prazo(id_empresa):
+    token = request.args.get('token')
+    if token != ADMIN_TOKEN:
+        return "Acesso não autorizado", 403
+        
+    dias = int(request.form.get('dias', 0))
+    if dias <= 0:
+        return "Quantidade de dias inválida", 400
+        
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                # Busca se a empresa já possui uma data limite estipulada e ativa
+                cursor.execute("SELECT data_expiracao FROM empresas WHERE id = %s", (id_empresa,))
+                emp = cursor.fetchone()
+                
+                base_calculo = datetime.now()
+                if emp and emp['data_expiracao'] and emp['data_expiracao'] > datetime.now():
+                    base_calculo = emp['data_expiracao']
+                    
+                nova_data_limite = base_calculo + timedelta(days=dias)
+                
+                cursor.execute("""
+                    UPDATE empresas 
+                    SET data_expiracao = %s, status = 'ativo' 
+                    WHERE id = %s
+                """, (nova_data_limite, id_empresa))
+                conn.commit()
+                
+        return redirect(f"/master-admin/empresas?token={token}")
+    except Exception as e:
+        return f"Erro ao estender prazo da licença: {e}", 500
+
+@app.route('/master-admin/empresas/<int:id_empresa>/toggle-status', methods=['POST'])
+def admin_toggle_status(id_empresa):
+    token = request.args.get('token')
+    if token != ADMIN_TOKEN:
+        return "Acesso não autorizado", 403
+        
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("SELECT status FROM empresas WHERE id = %s", (id_empresa,))
+                emp = cursor.fetchone()
+                
+                if emp:
+                    novo_status = 'bloqueado' if emp['status'] == 'ativo' else 'ativo'
+                    cursor.execute("UPDATE empresas SET status = %s WHERE id = %s", (novo_status, id_empresa))
+                    conn.commit()
+                    
+        return redirect(f"/master-admin/empresas?token={token}")
+    except Exception as e:
+        return f"Erro ao alterar status da licença: {e}", 500
 
 @app.route('/master-admin/empresas/<int:id_empresa>/excluir', methods=['POST'])
 def admin_excluir_empresa(id_empresa):
