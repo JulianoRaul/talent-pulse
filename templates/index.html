@@ -61,6 +61,31 @@
             border: 1px solid #c7d2fe;
         }
 
+        .badge-plano {
+            background: #f1f5f9;
+            color: #475569;
+            padding: 8px 16px;
+            border-radius: 99px;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            border: 1px solid #cbd5e1;
+            letter-spacing: 0.5px;
+        }
+
+        /* Cores de destaque para planos Pro e Premium */
+        .badge-plano.pro {
+            background: #faf5ff;
+            color: #6b21a8;
+            border-color: #e9d5ff;
+        }
+
+        .badge-plano.premium {
+            background: #fefce8;
+            color: #a16207;
+            border-color: #fef08a;
+        }
+
         .badge-triados {
             background: #ecfdf5;
             color: #047857;
@@ -523,6 +548,10 @@
             
             <div class="topbar-actions">
                 <span class="badge-empresa">🏢 {{ nome_empresa }}</span>
+                
+                <!-- Badge Dinâmico de Exibição do Plano -->
+                <span class="badge-plano {{ plano_empresa.lower() }}">⭐ Plano {{ plano_empresa }}</span>
+                
                 <span class="badge-triados">Candidatos Triados: {{ candidatos|length }}</span>
                 
                 <a href="{{ url_for('cadastrar_vaga') }}" class="btn-action" style="background: #e0e7ff; color: #4338ca; border-color: #c7d2fe;">+ Cadastrar Vaga</a>
@@ -674,7 +703,6 @@
                                     {% endif %}
                                 </div>
 
-                                <!-- AJUSTADO: Renderização dinâmica e inteligente de múltiplas áreas profissionais salvas pela IA -->
                                 <div class="vaga-badge-container">
                                     {% if candidato.areas_profissionais %}
                                         {% for area in candidato.areas_profissionais %}
