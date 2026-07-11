@@ -423,7 +423,7 @@ def logout():
 @app.route('/', methods=['GET'])
 @login_required
 def index():
-    # ADICIONADO: Validação automática de expiração ou bloqueio de aluguel por Tenant
+    # Validação automática de expiração ou bloqueio de aluguel por Tenant
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
@@ -433,7 +433,6 @@ def index():
                 if empresa_status:
                     expirado = False
                     if empresa_status['data_expiracao']:
-                        # Compara a data atual com o limite estabelecido
                         if datetime.now() > empresa_status['data_expiracao']:
                             expirado = True
                     
@@ -468,14 +467,17 @@ def index():
         
     resultados_finais = []
     nome_empresa = "Sua Empresa"
+    plano_empresa = "starter" # Definição de valor padrão de segurança
     
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute("SELECT nome_comercial FROM empresas WHERE id = %s", (current_user.empresa_id,))
+                # ATUALIZADO: Captura tanto o nome comercial quanto o tipo do plano contratado
+                cursor.execute("SELECT nome_comercial, plano FROM empresas WHERE id = %s", (current_user.empresa_id,))
                 empresa_data = cursor.fetchone()
                 if empresa_data:
                     nome_empresa = empresa_data['nome_comercial']
+                    plano_empresa = empresa_data['plano'] or "starter"
 
                 cursor.execute("""
                     SELECT id, nome_arquivo, conteudo, nome_candidato AS nome, idade, sexo, 
@@ -543,7 +545,8 @@ def index():
         print(f"Erro ao buscar dados: {e}")
         flash("Ocorreu um erro ao carregar os currículos.", "error")
 
-    return render_template('index.html', candidatos=resultados_finais, nome_empresa=nome_empresa)
+    # ATUALIZADO: Passa a variável plano_empresa para renderização no front
+    return render_template('index.html', candidatos=resultados_finais, nome_empresa=nome_empresa, plano_empresa=plano_empresa)
 
 @app.route('/upload', methods=['POST'])
 @login_required
