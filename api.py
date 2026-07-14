@@ -97,11 +97,8 @@ def init_db():
                     );
                 ''')
                 
-                # ADICIONADO: Controle de status e data de expiração para planos de aluguel
                 cursor.execute("ALTER TABLE empresas ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'ativo';")
                 cursor.execute("ALTER TABLE empresas ADD COLUMN IF NOT EXISTS data_expiracao TIMESTAMP WITHOUT TIME ZONE;")
-                
-                # ADICIONADO: Controle de limites e tipos de plano (SaaS)
                 cursor.execute("ALTER TABLE empresas ADD COLUMN IF NOT EXISTS plano TEXT DEFAULT 'starter';")
                 cursor.execute("ALTER TABLE empresas ADD COLUMN IF NOT EXISTS limite_mensal INTEGER DEFAULT 300;")
 
@@ -129,7 +126,6 @@ def init_db():
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS whatsapp TEXT;')
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS areas_profissionais TEXT[];')
                 cursor.execute('ALTER TABLE curriculos ADD COLUMN IF NOT EXISTS data_cadastro TIMESTAMP WITHOUT TIME ZONE;')
-                cursor.execute('ALTER TABLE curriculos ALTER COLUMN data_cadastro TYPE TIMESTAMP WITHOUT TIME ZONE;')
                 cursor.execute("""
                     ALTER TABLE curriculos 
                     ALTER COLUMN data_cadastro 
@@ -146,7 +142,6 @@ def init_db():
                         senha_hash TEXT NOT NULL
                     );
                 ''')
-                cursor.execute('ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS empresa_id INTEGER REFERENCES empresas(id) ON DELETE CASCADE;')
 
                 # 4. Tabela de Vagas
                 cursor.execute('''
@@ -160,7 +155,6 @@ def init_db():
                         data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     );
                 ''')
-                cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS empresa_id INTEGER REFERENCES empresas(id) ON DELETE CASCADE;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS actividades TEXT;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS beneficios TEXT;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS remuneracao TEXT;')
@@ -173,7 +167,7 @@ def init_db():
 init_db()
 
 # ==============================================================================
-# CONFIGURAÇÃO DO GOOGLE GEMINI AI
+# CONFIGURAÇÃO DO GOOGLE GEMINI AI & SCHEMAS DE RETORNO
 # ==============================================================================
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
@@ -200,6 +194,18 @@ class CandidatoCompatibilidade(BaseModel):
 class ResultadoAnaliseVaga(BaseModel):
     vaga_id: int
     candidatos_compativeis: list[CandidatoCompatibilidade]
+
+# Nova estrutura p/ o parecer de jogos clássicos
+class ParecerRetroJogo(BaseModel):
+    titulo_classe: str # Ex: "Mago dos Códigos", "Guerreiro das Vendas", "Arqueiro do Suporte"
+    nivel: int # Nível de 1 a 99 baseado na experiência
+    vida_hp: int # Equivalente à força/resiliência (0-100)
+    mana_mp: int # Equivalente à inteligência/criatividade (0-100)
+    pontos_fortes: list[str] # Lista de 3 pontos fortes de destaque
+    pontos_fracos: list[str] # Lista de 2 pontos que precisam ser melhorados (de forma construtiva)
+    habilidades_especiais: list[str] # Golpes/Habilidades com nomes de RPG (Ex: "Fogo Rápido no Excel")
+    tipos_de_vagas_recomendadas: list[str] # Áreas/Funções recomendadas
+    resumo_narrativa: str # Um texto curto e divertido com tom de jogo clássico de RPG descrevendo o candidato
 
 # ==============================================================================
 # FUNÇÕES AUXILIARES DE TEXTO
@@ -287,7 +293,6 @@ def estruturar_curriculo_com_ia(texto_bruto):
         "- 'Financeiro'\n"
         "- 'Marketing / Comunicação'\n"
         "- 'Saúde'\n"
-        "Se o candidato tiver um perfil híbrido (como formacao em Administração mas atuando fortemente em Recursos Humanos, ou trabalhando com Educação e Logística), atribua as múltiplas áreas condizentes na lista 'areas_profissionais'."
     )
 
     max_tentativas = 3
@@ -423,7 +428,6 @@ def logout():
 @app.route('/', methods=['GET'])
 @login_required
 def index():
-    # Validação automática de expiração ou bloqueio de aluguel por Tenant
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
@@ -467,12 +471,11 @@ def index():
         
     resultados_finais = []
     nome_empresa = "Sua Empresa"
-    plano_empresa = "starter" # Definição de valor padrão de segurança
+    plano_empresa = "starter"
     
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                # ATUALIZADO: Captura tanto o nome comercial quanto o tipo do plano contratado
                 cursor.execute("SELECT nome_comercial, plano FROM empresas WHERE id = %s", (current_user.empresa_id,))
                 empresa_data = cursor.fetchone()
                 if empresa_data:
@@ -545,7 +548,6 @@ def index():
         print(f"Erro ao buscar dados: {e}")
         flash("Ocorreu um erro ao carregar os currículos.", "error")
 
-    # ATUALIZADO: Passa a variável plano_empresa para renderização no front
     return render_template('index.html', candidatos=resultados_finais, nome_empresa=nome_empresa, plano_empresa=plano_empresa)
 
 @app.route('/upload', methods=['POST'])
@@ -569,16 +571,13 @@ def upload():
             return redirect(url_for('index'))
             
         try:
-            # === TRAVA DE SEGURANÇA: CONTROLE DE LIMITES DO PLANO (SAAS) ===
             with get_db_connection() as conn:
                 with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                    # 1. Busca as diretrizes do plano contratado pela empresa
                     cursor.execute("SELECT limite_mensal, plano FROM empresas WHERE id = %s", (current_user.empresa_id,))
                     dados_empresa = cursor.fetchone()
                     limite_mensal = dados_empresa['limite_mensal'] if dados_empresa else 300
                     plano_atual = dados_empresa['plano'].upper() if dados_empresa else 'STARTER'
 
-                    # 2. Conta a quantidade de currículos enviados a partir do primeiro dia do mês vigente
                     primeiro_dia_mes = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
                     cursor.execute("""
                         SELECT COUNT(*) as total FROM curriculos 
@@ -587,11 +586,9 @@ def upload():
                     contagem = cursor.fetchone()
                     total_enviado = contagem['total'] if contagem else 0
 
-            # 3. Impede a chamada à API do Gemini se a cota do mês acabou
             if total_enviado >= limite_mensal:
                 flash(f"⚠️ Limite atingido! Sua empresa já analisou {total_enviado}/{limite_mensal} currículos este mês no plano {plano_atual}. Realize um upgrade para continuar.", "error")
                 return redirect(url_for('index'))
-            # =============================================================
 
             dados_bytes = arquivo.read()
             arquivo_b64 = base64.b64encode(dados_bytes).decode('utf-8')
@@ -666,6 +663,95 @@ def excluir(id_candidato):
         return jsonify({"status": "erro", "mensagem": "Erro interno ao excluir o currículo"}), 500
 
 # ==============================================================================
+# NOVA FUNÇÃO: ANÁLISE RETRO DO CANDIDATO & CRUZE COM VAGAS EXISTENTES
+# ==============================================================================
+@app.route('/candidato/<int:id_candidato>/analise-retro', methods=['GET'])
+@login_required
+def analise_retro_candidato(id_candidato):
+    if not client:
+        return jsonify({"error": "Gemini API Key não está configurada."}), 500
+
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                # 1. Carrega o candidato alvo
+                cursor.execute("""
+                    SELECT id, nome_candidato AS nome, conteudo, hard_skills, soft_skills, formacao, cursos 
+                    FROM curriculos WHERE id = %s AND empresa_id = %s
+                """, (id_candidato, current_user.empresa_id))
+                candidato = cursor.fetchone()
+
+                if not candidato:
+                    return jsonify({"error": "Candidato não encontrado."}), 404
+
+                # 2. Carrega as vagas ativas no banco de dados da empresa
+                cursor.execute("SELECT id, titulo, descricao FROM vagas WHERE empresa_id = %s", (current_user.empresa_id,))
+                vagas_disponiveis = cursor.fetchall()
+
+        # Prompt do sistema formatando a análise de forma divertida como se fosse um RPG clássico
+        system_instruction = (
+            "Você é o mestre de um RPG clássico de fantasia de 8-bits e 16-bits (como Chrono Trigger, Final Fantasy ou Dragon Quest).\n"
+            "Sua missão é ler as informações do currículo do candidato e gerar uma análise completa com design conceitual de jogo retrô.\n\n"
+            "Diretrizes para montagem do JSON:\n"
+            "1. Defina um 'titulo_classe' criativo (Ex: 'Mago Supremo de Python', 'Paladino de Finanças', 'Ladino de Marketing de Guerrilha').\n"
+            "2. Atribua um 'nivel' (Level de 1 a 99) proporcional à experiência do candidato.\n"
+            "3. Atribua o 'vida_hp' representando o vigor de soft skills e resiliência profissional (0 a 100).\n"
+            "4. Atribua o 'mana_mp' medindo raciocínio lógico, inovação ou conhecimento técnico (0 a 100).\n"
+            "5. Liste 3 'pontos_fortes' e 2 'pontos_fracos' construtivos (como 'Debilidade contra prazos caóticos' ou 'Falta de escudo para idiomas').\n"
+            "6. Crie 3 'habilidades_especiais' simulando golpes ou magias de RPG (Ex: 'Giga-Drain de Debug', 'Investida Comercial Ágil').\n"
+            "7. 'tipos_de_vagas_recomentadas': Áreas gerais onde o perfil brilha.\n"
+            "8. 'resumo_narrativa': Uma descrição imersiva e super nostálgica no linguajar de jogos de aventura antigos."
+        )
+
+        prompt_conteudo = f"Candidato: {candidato['nome']}\nPerfil Técnico: {candidato['hard_skills']}\nComportamental: {candidato['soft_skills']}\nHistórico: {candidato['conteudo']}"
+
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt_conteudo,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=ParecerRetroJogo,
+                system_instruction=system_instruction,
+                temperature=0.4
+            )
+        )
+
+        analise_retro = json.loads(response.text.strip()) if response.text else {}
+
+        # 3. Cruzamento local: descobre se alguma vaga da empresa se adequa ao perfil usando inteligência de texto simples
+        # (Você pode usar IA aqui ou uma correspondência lógica rápida para rapidez). 
+        # Vamos fazer um cruzamento semântico simplificado com o título de vagas e os termos recomendados pela IA.
+        vaga_recomendada_id = None
+        vaga_recomendada_titulo = None
+
+        if vagas_disponiveis and "tipos_de_vagas_recomendadas" in analise_retro:
+            recomendacoes = [remover_acentos(v) for v in analise_retro["tipos_de_vagas_recomendadas"]]
+            for vaga in vagas_disponiveis:
+                titulo_vaga_limpo = remover_acentos(vaga['titulo'])
+                desc_vaga_limpo = remover_acentos(vaga['descricao'])
+                
+                # Se bater alguma palavra-chave da vaga com a recomendação da IA ou skills do candidato, sugere a vaga
+                for rec in recomendacoes:
+                    if rec in titulo_vaga_limpo or rec in desc_vaga_limpo:
+                        vaga_recomendada_id = vaga['id']
+                        vaga_recomendada_titulo = vaga['titulo']
+                        break
+                if vaga_recomendada_id:
+                    break
+
+        # Estrutura final de resposta agregando a vaga compatível encontrada
+        analise_retro['vaga_compativel_banco'] = {
+            "id": vaga_recomendada_id,
+            "titulo": vaga_recomendada_titulo
+        } if vaga_recomendada_id else None
+
+        return jsonify(analise_retro)
+
+    except Exception as e:
+        print(f"Erro na geração de análise retrô: {e}")
+        return jsonify({"error": "Não foi possível gerar a análise por inteligência artificial no momento."}), 500
+
+# ==============================================================================
 # VISUALIZAÇÃO E DOWNLOAD DE ARQUIVOS ORIGINAIS
 # ==============================================================================
 @app.route('/download/<int:id_candidato>', methods=['GET'])
@@ -704,7 +790,7 @@ def visualizar_original(id_candidato):
                 if resultado and resultado['arquivo_binario']:
                     dados_arquivos = base64.b64decode(resultado['arquivo_binario'])
                     nome_arquivo = resultado['nome_arquivo']
-                    extensao = nome_arquivo.rsplit('.', 1)[1].lower() if '.' in nome_arquivo else ''
+                    extensao = nome_original.rsplit('.', 1)[1].lower() if '.' in nome_arquivo else '' if 'nome_original' not in locals() else nome_arquivo.rsplit('.', 1)[1].lower()
                     
                     mimetype = 'application/pdf' if extensao == 'pdf' else 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
                     
@@ -1152,3 +1238,6 @@ def admin_excluir_empresa(id_empresa):
         """
     except Exception as e:
         return f"Erro ao deletar empresa: {e}", 500
+
+if __name__ == '__main__':
+    app.run(debug=True)
