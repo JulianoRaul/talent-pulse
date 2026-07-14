@@ -604,8 +604,26 @@
                             <input type="text" id="localizacao" name="localizacao" class="form-control" placeholder="Cidade ou Estado" value="{{ request.args.get('localizacao', '') }}">
                         </div>
                         <div class="form-group">
+                            <label for="genero">Gênero</label>
+                            <select id="genero" name="genero" class="form-control">
+                                <option value="">Todos</option>
+                                <option value="Masculino" {% if request.args.get('genero') == 'Masculino' %}selected{% endif %}>Masculino</option>
+                                <option value="Feminino" {% if request.args.get('genero') == 'Feminino' %}selected{% endif %}>Feminino</option>
+                                <option value="Outro" {% if request.args.get('genero') == 'Outro' %}selected{% endif %}>Outro</option>
+                                <option value="Não informado" {% if request.args.get('genero') == 'Não informado' %}selected{% endif %}>Não informado</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="formacao">Formação Acadêmica</label>
+                            <input type="text" id="formacao" name="formacao" class="form-control" placeholder="Ex: Graduação, Tecnólogo" value="{{ request.args.get('formacao', '') }}">
+                        </div>
+                        <div class="form-group">
                             <label for="idioma">Idioma</label>
                             <input type="text" id="idioma" name="idioma" class="form-control" placeholder="Ex: Inglês, Espanhol" value="{{ request.args.get('idioma', '') }}">
+                        </div>
+                        <div class="form-group">
+                            <label for="nivel_idioma">Nível do Idioma</label>
+                            <input type="text" id="nivel_idioma" name="nivel_idioma" class="form-control" placeholder="Ex: Fluente, Avançado" value="{{ request.args.get('nivel_idioma', '') }}">
                         </div>
 
                         <div class="form-group">
