@@ -6,7 +6,8 @@
     <title>TalentPulse - Extração Inteligente de Currículos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Importação de Fontes: Inter p/ Geral, Press Start 2P para o Visual Gamer Retrô -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=300;400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
     
     <style>
         * {
@@ -73,7 +74,6 @@
             letter-spacing: 0.5px;
         }
 
-        /* Cores de destaque para planos Pro e Premium */
         .badge-plano.pro {
             background: #faf5ff;
             color: #6b21a8;
@@ -432,6 +432,19 @@
             color: #991b1b;
         }
 
+        /* Estilização do Botão de Análise de IA Retrô */
+        .btn-analise-retro {
+            background: #3b82f6;
+            color: #ffffff;
+            border-color: #2563eb;
+        }
+
+        .btn-analise-retro:hover {
+            background: #1d4ed8;
+            color: #ffffff;
+            border-color: #1e40af;
+        }
+
         .info-section {
             font-size: 14px;
             line-height: 1.5;
@@ -497,7 +510,6 @@
             border: 1px solid #cbd5e1;
         }
 
-        /* Cores exclusivas para cada tag profissional */
         .badge-ti { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
         .badge-vendas { background: #fefce8; color: #a16207; border-color: #fef08a; }
         .badge-adm { background: #f8fafc; color: #334155; border-color: #cbd5e1; }
@@ -521,6 +533,189 @@
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(-4px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ==============================================================================
+           ESTILOS DO MODAL RETRO DE RPG JOGO CLÁSSICO
+           ============================================================================== */
+        .retro-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .retro-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .retro-modal {
+            background-color: #000000;
+            border: 6px double #ffffff;
+            box-shadow: 0 0 0 6px #000000, 0 10px 20px rgba(0,0,0,0.8);
+            width: 100%;
+            max-width: 750px;
+            padding: 24px;
+            color: #ffffff;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 11px;
+            line-height: 1.8;
+            border-radius: 4px;
+            position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
+            image-rendering: pixelated;
+        }
+
+        .retro-header {
+            border-bottom: 4px double #ffffff;
+            padding-bottom: 16px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .retro-title {
+            color: #facc15;
+            font-size: 14px;
+            letter-spacing: 1px;
+        }
+
+        .retro-close {
+            background: transparent;
+            border: none;
+            color: #ef4444;
+            font-family: 'Press Start 2P', monospace;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .retro-close:hover {
+            color: #f87171;
+        }
+
+        .retro-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 650px) {
+            .retro-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .retro-card {
+            border: 2px solid #ffffff;
+            padding: 14px;
+            background-color: #111827;
+        }
+
+        .retro-section-title {
+            color: #38bdf8;
+            margin-bottom: 12px;
+            border-bottom: 2px dashed #ffffff;
+            padding-bottom: 6px;
+            font-size: 11px;
+        }
+
+        /* Barras de Atributo de RPG */
+        .attribute-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .attribute-label {
+            color: #a855f7;
+            width: 60px;
+        }
+
+        .bar-container {
+            flex-grow: 1;
+            height: 16px;
+            background: #374151;
+            border: 2px solid #ffffff;
+            margin-left: 10px;
+            position: relative;
+        }
+
+        .bar-fill {
+            height: 100%;
+            background: #22c55e;
+            width: 0%;
+            transition: width 1s ease-out;
+        }
+
+        .bar-fill.mana {
+            background: #3b82f6;
+        }
+
+        .bar-val {
+            position: absolute;
+            right: 4px;
+            top: 1px;
+            font-size: 8px;
+            color: #ffffff;
+            text-shadow: 1px 1px 0px #000;
+        }
+
+        .retro-list {
+            list-style: none;
+        }
+
+        .retro-list li {
+            margin-bottom: 8px;
+            display: flex;
+            gap: 6px;
+        }
+
+        .retro-list li::before {
+            content: ">";
+            color: #eab308;
+        }
+
+        .weakness::before {
+            content: "x" !important;
+            color: #ef4444 !important;
+        }
+
+        .skill-special {
+            color: #fb7185;
+        }
+
+        .vaga-direcionamento-btn {
+            display: block;
+            width: 100%;
+            text-align: center;
+            background-color: #22c55e;
+            color: #ffffff;
+            border: 3px solid #166534;
+            padding: 12px;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 11px;
+            text-decoration: none;
+            margin-top: 16px;
+            cursor: pointer;
+            transition: background 0.1s ease;
+        }
+
+        .vaga-direcionamento-btn:hover {
+            background-color: #15803d;
         }
     </style>
 </head>
@@ -549,7 +744,6 @@
             <div class="topbar-actions">
                 <span class="badge-empresa">🏢 {{ nome_empresa }}</span>
                 
-                <!-- Badge Dinâmico de Exibição do Plano -->
                 <span class="badge-plano {{ plano_empresa.lower() }}">⭐ Plano {{ plano_empresa }}</span>
                 
                 <span class="badge-triados">Candidatos Triados: {{ candidatos|length }}</span>
@@ -662,6 +856,11 @@
                                 </div>
                                 
                                 <div class="actions-group">
+                                    <!-- Botão de Análise de IA Retro adicionado aqui -->
+                                    <button onclick="abrirAnaliseRetro({{ candidato.id }}, '{{ candidato.nome }}')" class="btn-action btn-analise-retro">
+                                        👾 Análise Retro
+                                    </button>
+
                                     {% if candidato.whatsapp %}
                                         <a href="https://wa.me/55{{ candidato.whatsapp }}" target="_blank" class="btn-action btn-whatsapp">
                                             💬 WhatsApp
@@ -753,6 +952,93 @@
         </main>
     </div>
 
+    <!-- ==============================================================================
+       ESTRUTURA HTML DO MODAL RETRO (TELA DE RPG)
+       ============================================================================== -->
+    <div class="retro-overlay" id="retro-overlay">
+        <div class="retro-modal">
+            <div class="retro-header">
+                <span class="retro-title" id="r-modal-title">Ficha do Candidato</span>
+                <button class="retro-close" onclick="fecharModalRetro()">[X]</button>
+            </div>
+            
+            <div id="retro-loading" style="text-align: center; padding: 40px 0;">
+                <p style="color: #fbbf24; margin-bottom: 10px;">PROCURANDO FICHA NA GUILDA...</p>
+                <div style="font-size: 20px;" class="upload-icon">⏳</div>
+            </div>
+
+            <div id="retro-content" style="display: none;">
+                <!-- Linha Geral / Classe e Level -->
+                <div style="display: flex; justify-content: space-between; margin-bottom: 20px; border-bottom: 2px solid #ffffff; padding-bottom: 10px;">
+                    <div>
+                        <p style="color: #4ade80;">CANDIDATO:</p>
+                        <p id="r-nome" style="font-size: 13px; color: #fff;"></p>
+                    </div>
+                    <div style="text-align: right;">
+                        <p style="color: #facc15;" id="r-classe"></p>
+                        <p style="color: #a855f7;" id="r-nivel"></p>
+                    </div>
+                </div>
+
+                <!-- Painel RPG de Atributos e Golpes Especiais -->
+                <div class="retro-grid">
+                    <!-- Status do Candidato -->
+                    <div class="retro-card">
+                        <div class="retro-section-title">STATUS</div>
+                        
+                        <div class="attribute-row">
+                            <span class="attribute-label" style="color: #ef4444;">HP</span>
+                            <div class="bar-container">
+                                <div id="hp-bar" class="bar-fill"></div>
+                                <span id="hp-val" class="bar-val"></span>
+                            </div>
+                        </div>
+
+                        <div class="attribute-row">
+                            <span class="attribute-label" style="color: #3b82f6;">MP</span>
+                            <div class="bar-container">
+                                <div id="mp-bar" class="bar-fill mana"></div>
+                                <span id="mp-val" class="bar-val"></span>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 15px;">
+                            <p style="color: #38bdf8; margin-bottom: 6px;">VAGAS RECOMENDADAS:</p>
+                            <ul class="retro-list" id="r-vagas-recomendadas" style="font-size: 9px; line-height: 1.5;"></ul>
+                        </div>
+                    </div>
+
+                    <!-- Habilidades Especiais / Magias -->
+                    <div class="retro-card">
+                        <div class="retro-section-title">GOLPES ESPECIAIS</div>
+                        <ul class="retro-list" id="r-habilidades"></ul>
+                    </div>
+                </div>
+
+                <!-- Fortalezas e Fraquezas -->
+                <div class="retro-grid">
+                    <div class="retro-card">
+                        <div class="retro-section-title" style="color: #22c55e;">VANTAGENS (+)</div>
+                        <ul class="retro-list" id="r-fortes"></ul>
+                    </div>
+                    <div class="retro-card">
+                        <div class="retro-section-title" style="color: #ef4444;">FRAQUEZAS (-)</div>
+                        <ul class="retro-list" id="r-fracos" class="weakness"></ul>
+                    </div>
+                </div>
+
+                <!-- Narrativa do Recrutador IA -->
+                <div class="retro-card" style="margin-bottom: 20px;">
+                    <div class="retro-section-title" style="color: #eab308;">PARECER DO ORÁCULO</div>
+                    <p id="r-narrativa" style="font-size: 9px; line-height: 1.6; color: #d1d5db; text-align: justify;"></p>
+                </div>
+
+                <!-- Container do Botão de Direcionamento Se Houver Vaga -->
+                <div id="container-direcionamento-vaga"></div>
+            </div>
+        </div>
+    </div>
+
     <script>
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
@@ -810,6 +1096,99 @@
             card.style.opacity = '0';
             card.style.transform = 'scale(0.95)';
             setTimeout(() => { card.remove(); }, 300);
+        }
+
+        /* ==============================================================================
+           LÓGICA JAVASCRIPT DO MODAL RETRO DE RPG
+           ============================================================================== */
+        function abrirAnaliseRetro(idCandidato, nomeCandidato) {
+            const overlay = document.getElementById('retro-overlay');
+            const loading = document.getElementById('retro-loading');
+            const content = document.getElementById('retro-content');
+            const modalTitle = document.getElementById('r-modal-title');
+            
+            modalTitle.innerText = `FICHA DE PERSONAGEM`;
+            overlay.classList.add('active');
+            loading.style.display = 'block';
+            content.style.display = 'none';
+
+            fetch(`/candidato/${idCandidato}/analise-retro`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+                        fecharModalRetro();
+                        return;
+                    }
+
+                    loading.style.display = 'none';
+                    content.style.display = 'block';
+
+                    // Atribui os dados aos elementos pixelados
+                    document.getElementById('r-nome').innerText = nomeCandidato.toUpperCase();
+                    document.getElementById('r-classe').innerText = data.titulo_classe.toUpperCase();
+                    document.getElementById('r-nivel').innerText = `LVL ${data.nivel}`;
+                    
+                    // Barras de Status Dinâmicas (HP/MP)
+                    const hpFill = document.getElementById('hp-bar');
+                    hpFill.style.width = `${data.vida_hp}%`;
+                    document.getElementById('hp-val').innerText = `${data.vida_hp}/100`;
+
+                    const mpFill = document.getElementById('mp-bar');
+                    mpFill.style.width = `${data.mana_mp}%`;
+                    document.getElementById('mp-val').innerText = `${data.mana_mp}/100`;
+
+                    // Narrativa
+                    document.getElementById('r-narrativa').innerText = data.resumo_narrativa;
+
+                    // Golpes Especiais (Skills de RPG)
+                    const habilidadesList = document.getElementById('r-habilidades');
+                    habilidadesList.innerHTML = '';
+                    data.habilidades_especiais.forEach(skill => {
+                        habilidadesList.innerHTML += `<li class="skill-special">${skill.toUpperCase()}</li>`;
+                    });
+
+                    // Vantagens
+                    const fortesList = document.getElementById('r-fortes');
+                    fortesList.innerHTML = '';
+                    data.pontos_fortes.forEach(p => {
+                        fortesList.innerHTML += `<li>${p.toUpperCase()}</li>`;
+                    });
+
+                    // Fraquezas
+                    const fracosList = document.getElementById('r-fracos');
+                    fracosList.innerHTML = '';
+                    data.pontos_fracos.forEach(p => {
+                        fracosList.innerHTML += `<li class="weakness">${p.toUpperCase()}</li>`;
+                    });
+
+                    // Vagas recomendadas
+                    const vagasRecList = document.getElementById('r-vagas-recomendadas');
+                    vagasRecList.innerHTML = '';
+                    data.tipos_de_vagas_recomendadas.forEach(v => {
+                        vagasRecList.innerHTML += `<li>${v.toUpperCase()}</li>`;
+                    });
+
+                    // Verifica se existe uma vaga aberta ideal compatível para este candidato no banco de dados
+                    const divDirecionamento = document.getElementById('container-direcionamento-vaga');
+                    divDirecionamento.innerHTML = '';
+                    if (data.vaga_compativel_banco) {
+                        divDirecionamento.innerHTML = `
+                            <a href="/vagas/${data.vaga_compativel_banco.id}/editar" class="vaga-direcionamento-btn" target="_blank">
+                                ⚔️ DIRECIONAR PARA VAGA: ${data.vaga_compativel_banco.titulo.toUpperCase()} ⚔️
+                            </a>
+                        `;
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert("Falha na guilda ao carregar análise.");
+                    fecharModalRetro();
+                });
+        }
+
+        function fecharModalRetro() {
+            document.getElementById('retro-overlay').classList.remove('active');
         }
     </script>
 </body>
