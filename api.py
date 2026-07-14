@@ -634,7 +634,7 @@ def upload():
                     ))
                     conn.commit()
                     
-            flash(f"Currículo de '{dados_ia['nome']}' processado e salvo com sucesso! ({total_enviado + 1}/{limite_mensal} usados)", "success")
+            flash(f"Currículo de '{dados_ia['nome']}' processado e saved com sucesso! ({total_enviado + 1}/{limite_mensal} usados)", "success")
         except Exception as e:
             print(f"Erro no upload: {e}")
             flash("Falha interna ao processar documento.", "error")
