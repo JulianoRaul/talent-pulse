@@ -662,9 +662,9 @@ def excluir(id_candidato):
         print(f"Erro ao excluir currículo: {e}")
         return jsonify({"status": "erro", "mensagem": "Erro interno ao excluir o currículo"}), 500
 
-/* ==============================================================================
-           LÓGICA JAVASCRIPT: ANÁLISE CORPORATIVA DE ALTA PERFORMANCE (PEOPLE ANALYTICS)
-           ============================================================================== */
+#==============================================================================
+#LÓGICA JAVASCRIPT: ANÁLISE CORPORATIVA DE ALTA PERFORMANCE (PEOPLE ANALYTICS)
+#==============================================================================
         function abrirAnaliseModerna(idCandidato, nomeCandidato) {
             const overlay = document.getElementById('modern-overlay');
             const loading = document.getElementById('modern-loading');
