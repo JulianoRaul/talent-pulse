@@ -663,7 +663,7 @@ def excluir(id_candidato):
         return jsonify({"status": "erro", "mensagem": "Erro interno ao excluir o currículo"}), 500
 
 # ==============================================================================
-# NOVA FUNÇÃO: ANÁLISE RETRO DO CANDIDATO & CRUZE COM VAGAS EXISTENTES
+# NOVA FUNÇÃO: ANÁLISE CORPORATIVA DO CANDIDATO & CRUZE COM VAGAS EXISTENTES
 # ==============================================================================
 @app.route('/candidato/<int:id_candidato>/analise-retro', methods=['GET'])
 @login_required
@@ -688,19 +688,20 @@ def analise_retro_candidato(id_candidato):
                 cursor.execute("SELECT id, titulo, descricao FROM vagas WHERE empresa_id = %s", (current_user.empresa_id,))
                 vagas_disponiveis = cursor.fetchall()
 
-        # Prompt do sistema formatando a análise de forma divertida como se fosse um RPG clássico
+        # Prompt do sistema redefinido para eliminar qualquer tom lúdico de RPG
         system_instruction = (
-            "Você é o mestre de um RPG clássico de fantasia de 8-bits e 16-bits (como Chrono Trigger, Final Fantasy ou Dragon Quest).\n"
-            "Sua missão é ler as informações do currículo do candidato e gerar uma análise completa com design conceitual de jogo retrô.\n\n"
-            "Diretrizes para montagem do JSON:\n"
-            "1. Defina um 'titulo_classe' criativo (Ex: 'Mago Supremo de Python', 'Paladino de Finanças', 'Ladino de Marketing de Guerrilha').\n"
-            "2. Atribua um 'nivel' (Level de 1 a 99) proporcional à experiência do candidato.\n"
-            "3. Atribua o 'vida_hp' representando o vigor de soft skills e resiliência profissional (0 a 100).\n"
-            "4. Atribua o 'mana_mp' medindo raciocínio lógico, inovação ou conhecimento técnico (0 a 100).\n"
-            "5. Liste 3 'pontos_fortes' e 2 'pontos_fracos' construtivos (como 'Debilidade contra prazos caóticos' ou 'Falta de escudo para idiomas').\n"
-            "6. Crie 3 'habilidades_especiais' simulando golpes ou magias de RPG (Ex: 'Giga-Drain de Debug', 'Investida Comercial Ágil').\n"
-            "7. 'tipos_de_vagas_recomentadas': Áreas gerais onde o perfil brilha.\n"
-            "8. 'resumo_narrativa': Uma descrição imersiva e super nostálgica no linguajar de jogos de aventura antigos."
+            "Você é um especialista sênior em People Analytics e Recrutamento de Alta Performance.\n"
+            "Sua tarefa é analisar o perfil profissional do candidato e preencher o schema JSON com dados realistas, realistas e puramente corporativos.\n\n"
+            "REGRAS DE ADAPTAÇÃO DE CAMPOS (MANTENHA O SCHEMA, MUDE O TOM):\n"
+            "- 'titulo_classe': Deve ser o título/cargo ideal do candidato no mercado real (ex: 'Especialista em Ativos Imobiliários', 'Analista Sênior de Marketing', 'Gestor de Contas Sênior'). Nunca use classes de fantasia ou RPG.\n"
+            "- 'nivel': Representa o nível de senioridade ou aderência do candidato (um número de 1 a 99).\n"
+            "- 'vida_hp': Deve refletir a porcentagem estimada de 'Fit Técnico / Hard Skills' (0 a 100).\n"
+            "- 'mana_mp': Deve refletir a porcentagem estimada de 'Fit Cultural / Soft Skills' (0 a 100).\n"
+            "- 'habilidades_especiais': Mapeie competências técnicas de alto impacto como termos reais de mercado (ex: 'Negociação de Alto Padrão', 'Prospecção Ativa B2B', 'Modelagem Financeira Avançada').\n"
+            "- 'resumo_narrativa': Escreva um parecer profissional conciso, elegante e estratégico sobre o potencial do candidato e sua aderência às melhores práticas de mercado.\n\n"
+            "IMPORTANTE:\n"
+            "- NUNCA use termos de fantasia, RPG ou magia (ex: 'Celestial', 'Bênção', 'Guerreiro', 'Magia', 'Tesouros').\n"
+            "- Use um tom executivo, de consultoria de negócios."
         )
 
         prompt_conteudo = f"Candidato: {candidato['nome']}\nPerfil Técnico: {candidato['hard_skills']}\nComportamental: {candidato['soft_skills']}\nHistórico: {candidato['conteudo']}"
@@ -710,17 +711,15 @@ def analise_retro_candidato(id_candidato):
             contents=prompt_conteudo,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
-                response_schema=ParecerRetroJogo,
+                response_schema=ParecerRetroJogo, # Mantendo a tipagem para não quebrar a estrutura do backend[cite: 8]
                 system_instruction=system_instruction,
-                temperature=0.4
+                temperature=0.3
             )
         )
 
         analise_retro = json.loads(response.text.strip()) if response.text else {}
 
-        # 3. Cruzamento local: descobre se alguma vaga da empresa se adequa ao perfil usando inteligência de texto simples
-        # (Você pode usar IA aqui ou uma correspondência lógica rápida para rapidez). 
-        # Vamos fazer um cruzamento semântico simplificado com o título de vagas e os termos recomendados pela IA.
+        # 3. Cruzamento local: descobre se alguma vaga da empresa se adequa ao perfil
         vaga_recomendada_id = None
         vaga_recomendada_titulo = None
 
@@ -748,7 +747,7 @@ def analise_retro_candidato(id_candidato):
         return jsonify(analise_retro)
 
     except Exception as e:
-        print(f"Erro na geração de análise retrô: {e}")
+        print(f"Erro na geração de análise de perfil: {e}")
         return jsonify({"error": "Não foi possível gerar a análise por inteligência artificial no momento."}), 500
 
 # ==============================================================================
