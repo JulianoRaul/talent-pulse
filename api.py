@@ -711,7 +711,7 @@ def analise_retro_candidato(id_candidato):
             contents=prompt_conteudo,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
-                response_schema=ParecerRetroJogo, # Mantendo a tipagem para não quebrar a estrutura do backend[cite: 8]
+                response_schema=ParecerRetroJogo, # Mantendo a tipagem para não quebrar a estrutura do backend
                 system_instruction=system_instruction,
                 temperature=0.3
             )
@@ -789,7 +789,9 @@ def visualizar_original(id_candidato):
                 if resultado and resultado['arquivo_binario']:
                     dados_arquivos = base64.b64decode(resultado['arquivo_binario'])
                     nome_arquivo = resultado['nome_arquivo']
-                    extensao = nome_original.rsplit('.', 1)[1].lower() if '.' in nome_arquivo else '' if 'nome_original' not in locals() else nome_arquivo.rsplit('.', 1)[1].lower()
+                    
+                    # Correção aplicada aqui: extraindo a extensão diretamente da variável nome_arquivo da busca
+                    extensao = nome_arquivo.rsplit('.', 1)[1].lower() if '.' in nome_arquivo else ''
                     
                     mimetype = 'application/pdf' if extensao == 'pdf' else 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
                     
