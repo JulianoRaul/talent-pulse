@@ -124,6 +124,7 @@
             .candidato-header {
                 flex-direction: column;
                 gap: 12px;
+                align-items: flex-start;
             }
             .actions-group {
                 width: 100%;
@@ -366,40 +367,41 @@
             margin-top: 4px;
         }
 
+        /* Container de botões adaptado para formato redondo/quadrado compacto */
         .actions-group {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
             flex-wrap: nowrap;
             flex-shrink: 0;
         }
 
-        /* Botões mais compactos e minimalistas */
+        /* Botões de Ação Redondos/Ícones apenas */
         .btn-action {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 4px;
-            padding: 6px 10px; 
-            border-radius: 6px; 
-            font-size: 11px;    
-            font-weight: 600;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            font-size: 15px;
             text-decoration: none;
             border: 1px solid #e2e8f0;
             cursor: pointer;
             background: #f1f5f9;
             color: #475569;
-            transition: all 0.15s ease;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             white-space: nowrap;
-            height: 30px;       
+            flex-shrink: 0;
         }
 
         .btn-action:hover {
             background: #e2e8f0;
             color: #1e293b;
+            transform: scale(1.08);
         }
 
-        /* Estilização do Botão de Análise de IA Retrô */
+        /* Botão Analise */
         .btn-analise-retro {
             background: #2563eb;
             color: #ffffff;
@@ -412,6 +414,7 @@
             border-color: #1e40af;
         }
 
+        /* Botão WhatsApp */
         .btn-whatsapp {
             background: #ecfdf5;
             color: #047857;
@@ -424,6 +427,7 @@
             color: #065f46;
         }
 
+        /* Botão Retirar */
         .btn-retirar {
             background: #fff7ed;
             color: #c2410c;
@@ -436,6 +440,7 @@
             color: #9a3412;
         }
 
+        /* Botão Excluir */
         .btn-excluir {
             background: #fef2f2;
             color: #b91c1c;
@@ -751,8 +756,8 @@
                 
                 <span class="badge-triados">Candidatos Triados: {{ candidatos|length }}</span>
                 
-                <a href="{{ url_for('cadastrar_vaga') }}" class="btn-action" style="background: #e0e7ff; color: #4338ca; border-color: #c7d2fe;">+ Cadastrar Vaga</a>
-                <a href="{{ url_for('listar_vagas') }}" class="btn-action" style="background: #ffffff; color: #334155;">Ver Vagas</a>
+                <a href="{{ url_for('cadastrar_vaga') }}" class="btn-action" style="background: #e0e7ff; color: #4338ca; border-color: #c7d2fe; width: auto; border-radius: 8px; padding: 0 16px; font-size: 13px; height: 36px;" title="Criar Vaga">+ Cadastrar Vaga</a>
+                <a href="{{ url_for('listar_vagas') }}" class="btn-action" style="background: #ffffff; color: #334155; width: auto; border-radius: 8px; padding: 0 16px; font-size: 13px; height: 36px;" title="Ver todas as vagas">Ver Vagas</a>
                 
                 <a href="{{ url_for('logout') }}" class="btn-logout">Sair</a>
             </div>
@@ -859,29 +864,29 @@
                                 </div>
                                 
                                 <div class="actions-group">
-                                    <!-- Botão de Análise de IA Retro -->
-                                    <button onclick="abrirAnaliseRetro({{ candidato.id }}, '{{ candidato.nome }}')" class="btn-action btn-analise-retro">
-                                        👾 Analise
+                                    <!-- Botões com Ícones Simplificados e "Title" para Acessibilidade -->
+                                    <button onclick="abrirAnaliseRetro({{ candidato.id }}, '{{ candidato.nome }}')" class="btn-action btn-analise-retro" title="Análise Inteligente por IA">
+                                        👾
                                     </button>
 
                                     {% if candidato.whatsapp %}
-                                        <a href="https://wa.me/55{{ candidato.whatsapp }}" target="_blank" class="btn-action btn-whatsapp">
-                                            💬 WhatsApp
+                                        <a href="https://wa.me/55{{ candidato.whatsapp }}" target="_blank" class="btn-action btn-whatsapp" title="Abrir conversa no WhatsApp">
+                                            💬
                                         </a>
                                     {% endif %}
 
                                     {% if candidato.id %}
-                                        <a href="{{ url_for('visualizar_original', id_candidato=candidato.id) }}" target="_blank" class="btn-action">
-                                            📄 Original
+                                        <a href="{{ url_for('visualizar_original', id_candidato=candidato.id) }}" target="_blank" class="btn-action" title="Ver currículo original">
+                                            📄
                                         </a>
                                     {% endif %}
                                     
-                                    <button onclick="retirarDaTela('candidato-{{ loop.index }}', {{ candidato.id }})" class="btn-action btn-retirar">
-                                        👁️‍🗨️ Retirar
+                                    <button onclick="retirarDaTela('candidato-{{ loop.index }}', {{ candidato.id }})" class="btn-action btn-retirar" title="Ocultar candidato do painel">
+                                        👁️‍quef
                                     </button>
                                     
-                                    <button onclick="excluirDoBanco('candidato-{{ loop.index }}', {{ candidato.id }}, '{{ candidato.nome }}')" class="btn-action btn-excluir">
-                                        🗑️ Excluir
+                                    <button onclick="excluirDoBanco('candidato-{{ loop.index }}', {{ candidato.id }}, '{{ candidato.nome }}')" class="btn-action btn-excluir" title="Excluir candidato definitivamente">
+                                        🗑️
                                     </button>
                                 </div>
                             </div>
