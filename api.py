@@ -662,94 +662,102 @@ def excluir(id_candidato):
         print(f"Erro ao excluir currículo: {e}")
         return jsonify({"status": "erro", "mensagem": "Erro interno ao excluir o currículo"}), 500
 
-# ==============================================================================
-# NOVA FUNÇÃO: ANÁLISE RETRO DO CANDIDATO & CRUZE COM VAGAS EXISTENTES
-# ==============================================================================
-@app.route('/candidato/<int:id_candidato>/analise-retro', methods=['GET'])
-@login_required
-def analise_retro_candidato(id_candidato):
-    if not client:
-        return jsonify({"error": "Gemini API Key não está configurada."}), 500
+/* ==============================================================================
+           LÓGICA JAVASCRIPT: ANÁLISE CORPORATIVA DE ALTA PERFORMANCE (PEOPLE ANALYTICS)
+           ============================================================================== */
+        function abrirAnaliseModerna(idCandidato, nomeCandidato) {
+            const overlay = document.getElementById('modern-overlay');
+            const loading = document.getElementById('modern-loading');
+            const content = document.getElementById('modern-content');
+            
+            document.getElementById('m-nome-candidato').innerText = "Carregando...";
+            overlay.classList.add('active');
+            loading.style.display = 'block';
+            content.style.display = 'none';
 
-    try:
-        with get_db_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                # 1. Carrega o candidato alvo
-                cursor.execute("""
-                    SELECT id, nome_candidato AS nome, conteudo, hard_skills, soft_skills, formacao, cursos 
-                    FROM curriculos WHERE id = %s AND empresa_id = %s
-                """, (id_candidato, current_user.empresa_id))
-                candidato = cursor.fetchone()
+            // Requisição ao endpoint mantendo total compatibilidade com seu backend
+            fetch(`/candidato/${idCandidato}/analise-retro`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+                        fecharModalModerno();
+                        return;
+                    }
 
-                if not candidato:
-                    return jsonify({"error": "Candidato não encontrado."}), 404
+                    loading.style.display = 'none';
+                    content.style.display = 'block';
 
-                # 2. Carrega as vagas ativas no banco de dados da empresa
-                cursor.execute("SELECT id, titulo, descricao FROM vagas WHERE empresa_id = %s", (current_user.empresa_id,))
-                vagas_disponiveis = cursor.fetchall()
+                    // 1. Identificação do Candidato e Alinhamento de Senioridade
+                    document.getElementById('m-nome-candidato').innerText = nomeCandidato;
+                    document.getElementById('m-cargo-nivel').innerText = `Especialidade: ${data.titulo_classe} • Nível de Senioridade: ${data.nivel}`;
+                    
+                    // 2. Mapeamento de Fits Técnicos e Culturais (Conversão das métricas do banco)
+                    const fitTecnico = data.vida_hp || 85; 
+                    const fitCultural = data.mana_mp || 80;
 
-        # Prompt do sistema formatando a análise de forma divertida como se fosse um RPG clássico
-        system_instruction = (
-            "Você é o mestre de um RPG clássico de fantasia de 8-bits e 16-bits (como Chrono Trigger, Final Fantasy ou Dragon Quest).\n"
-            "Sua missão é ler as informações do currículo do candidato e gerar uma análise completa com design conceitual de jogo retrô.\n\n"
-            "Diretrizes para montagem do JSON:\n"
-            "1. Defina um 'titulo_classe' criativo (Ex: 'Mago Supremo de Python', 'Paladino de Finanças', 'Ladino de Marketing de Guerrilha').\n"
-            "2. Atribua um 'nivel' (Level de 1 a 99) proporcional à experiência do candidato.\n"
-            "3. Atribua o 'vida_hp' representando o vigor de soft skills e resiliência profissional (0 a 100).\n"
-            "4. Atribua o 'mana_mp' medindo raciocínio lógico, inovação ou conhecimento técnico (0 a 100).\n"
-            "5. Liste 3 'pontos_fortes' e 2 'pontos_fracos' construtivos (como 'Debilidade contra prazos caóticos' ou 'Falta de escudo para idiomas').\n"
-            "6. Crie 3 'habilidades_especiais' simulando golpes ou magias de RPG (Ex: 'Giga-Drain de Debug', 'Investida Comercial Ágil').\n"
-            "7. 'tipos_de_vagas_recomentadas': Áreas gerais onde o perfil brilha.\n"
-            "8. 'resumo_narrativa': Uma descrição imersiva e super nostálgica no linguajar de jogos de aventura antigos."
-        )
+                    document.getElementById('m-fit-tecnico-val').innerText = `${fitTecnico}%`;
+                    document.getElementById('m-fit-tecnico-bar').style.width = `${fitTecnico}%`;
 
-        prompt_conteudo = f"Candidato: {candidato['nome']}\nPerfil Técnico: {candidato['hard_skills']}\nComportamental: {candidato['soft_skills']}\nHistórico: {candidato['conteudo']}"
+                    document.getElementById('m-fit-cultural-val').innerText = `${fitCultural}%`;
+                    document.getElementById('m-fit-cultural-bar').style.width = `${fitCultural}%`;
 
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt_conteudo,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=ParecerRetroJogo,
-                system_instruction=system_instruction,
-                temperature=0.4
-            )
-        )
+                    // 3. Parecer Profissional da IA (Substituindo termos lúdicos)
+                    document.getElementById('m-parecer-ia').innerText = data.resumo_narrativa;
 
-        analise_retro = json.loads(response.text.strip()) if response.text else {}
+                    // 4. Competências Técnicas de Destaque (Substitui "Golpes Especiais")
+                    const destaquesList = document.getElementById('m-destaques');
+                    destaquesList.innerHTML = '';
+                    if (data.habilidades_especiais && data.habilidades_especiais.length > 0) {
+                        data.habilidades_especiais.forEach(skill => {
+                            destaquesList.innerHTML += `<li>${skill}</li>`;
+                        });
+                    } else {
+                        destaquesList.innerHTML = `<li>Competências avançadas padrão</li>`;
+                    }
 
-        # 3. Cruzamento local: descobre se alguma vaga da empresa se adequa ao perfil usando inteligência de texto simples
-        # (Você pode usar IA aqui ou uma correspondência lógica rápida para rapidez). 
-        # Vamos fazer um cruzamento semântico simplificado com o título de vagas e os termos recomendados pela IA.
-        vaga_recomendada_id = None
-        vaga_recomendada_titulo = None
+                    // 5. Pontos Fortes (Diferenciais Competitivos)
+                    const fortesList = document.getElementById('m-pontos-fortes');
+                    fortesList.innerHTML = '';
+                    data.pontos_fortes.forEach(p => {
+                        fortesList.innerHTML += `<li class="strength-item">${p}</li>`;
+                    });
 
-        if vagas_disponiveis and "tipos_de_vagas_recomendadas" in analise_retro:
-            recomendacoes = [remover_acentos(v) for v in analise_retro["tipos_de_vagas_recomendadas"]]
-            for vaga in vagas_disponiveis:
-                titulo_vaga_limpo = remover_acentos(vaga['titulo'])
-                desc_vaga_limpo = remover_acentos(vaga['descricao'])
-                
-                # Se bater alguma palavra-chave da vaga com a recomendação da IA ou skills do candidato, sugere a vaga
-                for rec in recomendacoes:
-                    if rec in titulo_vaga_limpo or rec in desc_vaga_limpo:
-                        vaga_recomendada_id = vaga['id']
-                        vaga_recomendada_titulo = vaga['titulo']
-                        break
-                if vaga_recomendada_id:
-                    break
+                    // 6. Gaps de Desenvolvimento (Substitui "Fraquezas")
+                    const fracosList = document.getElementById('m-pontos-fracos');
+                    fracosList.innerHTML = '';
+                    data.pontos_fracos.forEach(p => {
+                        fracosList.innerHTML += `<li class="weakness-item">${p}</li>`;
+                    });
 
-        # Estrutura final de resposta agregando a vaga compatível encontrada
-        analise_retro['vaga_compativel_banco'] = {
-            "id": vaga_recomendada_id,
-            "titulo": vaga_recomendada_titulo
-        } if vaga_recomendada_id else None
+                    // 7. Recomendações de Alocação de Vagas
+                    const vagasSugeridas = document.getElementById('m-vagas-sugeridas');
+                    vagasSugeridas.innerHTML = '';
+                    data.tipos_de_vagas_recomendadas.forEach(v => {
+                        vagasSugeridas.innerHTML += `<span class="modern-pill">🎯 ${v}</span>`;
+                    });
 
-        return jsonify(analise_retro)
+                    // 8. Integração Direta com Vagas Internas Ativas
+                    const divDirecionamento = document.getElementById('container-direcionamento-moderno');
+                    divDirecionamento.innerHTML = '';
+                    if (data.vaga_compativel_banco) {
+                        divDirecionamento.innerHTML = `
+                            <a href="/vagas/${data.vaga_compativel_banco.id}/editar" class="vaga-direcionamento-btn" target="_blank">
+                                Vincular ao Processo Seletivo Ativo: ${data.vaga_compativel_banco.titulo} ↗
+                            </a>
+                        `;
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert("Falha de conexão ao carregar a inteligência de perfil.");
+                    fecharModalModerno();
+                });
+        }
 
-    except Exception as e:
-        print(f"Erro na geração de análise retrô: {e}")
-        return jsonify({"error": "Não foi possível gerar a análise por inteligência artificial no momento."}), 500
+        function fecharModalModerno() {
+            document.getElementById('modern-overlay').classList.remove('active');
+        }
 
 # ==============================================================================
 # VISUALIZAÇÃO E DOWNLOAD DE ARQUIVOS ORIGINAIS
