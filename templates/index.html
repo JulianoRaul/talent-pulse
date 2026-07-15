@@ -20,24 +20,32 @@
         body {
             background-color: #f8fafc;
             color: #334155;
-            padding: 24px;
+            padding: 24px 0; /* Removido padding lateral do body para o header encostar nas bordas se necessário */
         }
 
         .container {
             max-width: 1400px;
             margin: 0 auto;
+            padding: 0 24px; /* Padding lateral mantido no container principal */
         }
 
+        /* Modificado para ocupar 100% da largura, permitindo que o container interno faça o alinhamento */
         .topbar {
             background: #ffffff;
+            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+            width: 100%;
+        }
+
+        /* Novo container interno do Header para bater perfeitamente com o .container de baixo */
+        .topbar-container {
+            max-width: 1400px;
+            margin: 0 auto;
             padding: 16px 24px;
-            border-radius: 16px;
-            border: 1px solid #e2e8f0;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 24px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
         }
 
         .brand {
@@ -135,6 +143,15 @@
         @media (max-width: 900px) {
             .main-grid {
                 grid-template-columns: 1fr;
+            }
+            .topbar-container {
+                flex-direction: column;
+                gap: 16px;
+                align-items: flex-start;
+            }
+            .topbar-actions {
+                flex-wrap: wrap;
+                width: 100%;
             }
         }
 
@@ -786,9 +803,9 @@
 </head>
 <body>
 
-    <div class="container">
-        
-       <header class="topbar">
+    <!-- Header reestruturado com wrapper de controle de alinhamento -->
+    <header class="topbar">
+        <div class="topbar-container">
             <div class="brand">
                 <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
                     <rect width="40" height="40" rx="10" fill="url(#gradient-bg)"/>
@@ -818,8 +835,10 @@
                 
                 <a href="{{ url_for('logout') }}" class="btn-logout">Sair</a>
             </div>
-        </header>
+        </div>
+    </header>
 
+    <div class="container">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for categoria, message in messages %}
