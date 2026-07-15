@@ -374,13 +374,15 @@
             flex-shrink: 0;
         }
 
+        /* Botões mais compactos e minimalistas */
         .btn-action {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 8px 12px;
-            border-radius: 8px;
-            font-size: 13px;
+            justify-content: center;
+            gap: 4px;
+            padding: 6px 10px; 
+            border-radius: 6px; 
+            font-size: 11px;    
             font-weight: 600;
             text-decoration: none;
             border: 1px solid #e2e8f0;
@@ -389,11 +391,25 @@
             color: #475569;
             transition: all 0.15s ease;
             white-space: nowrap;
+            height: 30px;       
         }
 
         .btn-action:hover {
             background: #e2e8f0;
             color: #1e293b;
+        }
+
+        /* Estilização do Botão de Análise de IA Retrô */
+        .btn-analise-retro {
+            background: #2563eb;
+            color: #ffffff;
+            border-color: #1d4ed8;
+        }
+
+        .btn-analise-retro:hover {
+            background: #1d4ed8;
+            color: #ffffff;
+            border-color: #1e40af;
         }
 
         .btn-whatsapp {
@@ -430,19 +446,6 @@
             background: #fee2e2;
             border-color: #f87171;
             color: #991b1b;
-        }
-
-        /* Estilização do Botão de Análise de IA Retrô */
-        .btn-analise-retro {
-            background: #3b82f6;
-            color: #ffffff;
-            border-color: #2563eb;
-        }
-
-        .btn-analise-retro:hover {
-            background: #1d4ed8;
-            color: #ffffff;
-            border-color: #1e40af;
         }
 
         .info-section {
@@ -856,9 +859,9 @@
                                 </div>
                                 
                                 <div class="actions-group">
-                                    <!-- Botão de Análise de IA Retro adicionado aqui -->
+                                    <!-- Botão de Análise de IA Retro -->
                                     <button onclick="abrirAnaliseRetro({{ candidato.id }}, '{{ candidato.nome }}')" class="btn-action btn-analise-retro">
-                                        👾 Análise Retro
+                                        👾 Analise
                                     </button>
 
                                     {% if candidato.whatsapp %}
@@ -868,14 +871,18 @@
                                     {% endif %}
 
                                     {% if candidato.id %}
-                                        <a href="/visualizar/{{ candidato.id }}" target="_blank" class="btn-action">👁️ Abrir</a>
-                                        <a href="{{ url_for('visualizar_original', id_candidato=candidato.id) }}" target="_blank" class="btn-action">📄 Original</a>
+                                        <a href="{{ url_for('visualizar_original', id_candidato=candidato.id) }}" target="_blank" class="btn-action">
+                                            📄 Original
+                                        </a>
                                     {% endif %}
                                     
                                     <button onclick="retirarDaTela('candidato-{{ loop.index }}', {{ candidato.id }})" class="btn-action btn-retirar">
                                         👁️‍🗨️ Retirar
                                     </button>
-                                    <button onclick="excluirDoBanco('candidato-{{ loop.index }}', {{ candidato.id }}, '{{ candidato.nome }}')" class="btn-action btn-excluir">🗑️ Excluir</button>
+                                    
+                                    <button onclick="excluirDoBanco('candidato-{{ loop.index }}', {{ candidato.id }}, '{{ candidato.nome }}')" class="btn-action btn-excluir">
+                                        🗑️ Excluir
+                                    </button>
                                 </div>
                             </div>
 
