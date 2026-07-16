@@ -855,7 +855,7 @@ def visualizar_original(id_candidato):
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute("SELECT nome_arquivo, arquivo_binario FROM curriculos WHERE id = %s AND empresa_id = %s", (id_candidato, current_user.empresa_id))
-                resultado = cursor.fetchone()
+                resultado = resultado = cursor.fetchone()
                 
                 if resultado and resultado['arquivo_binario']:
                     dados_arquivos = base64.b64decode(resultado['arquivo_binario'])
@@ -1012,7 +1012,7 @@ def listar_vagas():
     return render_template('vagas.html', vagas=vagas_disponiveis)
 
 # ==============================================================================
-# MODIFICADO: MATCH INTELIGENTE COM CACHE E FILTRO DE >= 70% DE MATCH
+# CORRIGIDO: MATCH INTELIGENTE SEGURO DE FALHAS COM RE-REQUISITOS E EXTRAÇÃO JSON
 # ==============================================================================
 @app.route('/vagas/<int:id_vaga>/analise', methods=['GET'])
 @login_required
@@ -1024,7 +1024,7 @@ def analisar_vaga(id_vaga):
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                # 1. Busca a vaga
+                # 1. Busca a vaga de forma segura
                 cursor.execute("SELECT * FROM vagas WHERE id = %s AND empresa_id = %s", (id_vaga, current_user.empresa_id))
                 vaga = cursor.fetchone()
                 
@@ -1070,8 +1070,9 @@ def analisar_vaga(id_vaga):
 
             system_instruction = (
                 "Você é um Headhunter sênior focado em People Analytics.\n"
-                "Sua tarefa é analisar uma vaga de emprego específica e gerar um ranking comparativo em formato JSON contendo a porcentagem de "
-                "compatibilidade (de 0 a 100) e uma breve justificativa de aderência para cada candidato fornecido."
+                "Sua tarefa é analisar uma vaga de emprego específica e gerar um ranking comparativo estruturado contendo a porcentagem de "
+                "compatibilidade (de 0 a 100) e uma breve justificativa de aderência para cada candidato fornecido.\n"
+                "Você DEVE respeitar o schema estruturado e retornar UNICAMENTE o JSON no formato exigido, sem trechos adicionais de texto."
             )
 
             prompt_conteudo = (
@@ -1083,40 +1084,64 @@ def analisar_vaga(id_vaga):
                 f"{json.dumps(dados_candidatos_prompt, ensure_ascii=False)}"
             )
 
-            response = client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=prompt_conteudo,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=ResultadoAnaliseVaga,
-                    system_instruction=system_instruction,
-                    temperature=0.2
+            # TRY-EXCEPT interno para prevenir que falhas de parseamento com a API do Gemini quebrem a rota
+            try:
+                response = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=prompt_conteudo,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=ResultadoAnaliseVaga,
+                        system_instruction=system_instruction,
+                        temperature=0.2
+                    )
                 )
-            )
-            
-            analise_json = json.loads(response.text.strip()) if response.text else {}
-            candidatos_analisados_ia = analise_json.get("candidatos_compativeis", [])
+                
+                texto_resposta = response.text.strip() if response.text else ""
+                
+                # Tratamento robusto para extração de JSON da resposta da IA
+                if texto_resposta.startswith("```json"):
+                    texto_resposta = re.sub(r"^```json\s*", "", texto_resposta)
+                    texto_resposta = re.sub(r"\s*```$", "", texto_resposta)
+                elif texto_resposta.startswith("```"):
+                    texto_resposta = re.sub(r"^```\s*", "", texto_resposta)
+                    texto_resposta = re.sub(r"\s*```$", "", texto_resposta)
 
-            # Grava todos os resultados da IA no histórico de análises da vaga (incluindo scores baixos para controle de cache)
-            with get_db_connection() as conn:
-                with conn.cursor() as cursor:
-                    for cand in candidatos_analisados_ia:
-                        cursor.execute("""
-                            INSERT INTO historico_analises_vagas (vaga_id, curriculo_id, porcentagem_compatibilidade, justificativa)
-                            VALUES (%s, %s, %s, %s)
-                            ON CONFLICT (vaga_id, curriculo_id) DO NOTHING
-                        """, (id_vaga, cand['id_candidato'], cand['porcentagem_compatibilidade'], cand['justificativa']))
-                    conn.commit()
+                analise_json = json.loads(texto_resposta) if texto_resposta else {}
+                candidatos_analisados_ia = analise_json.get("candidatos_compativeis", [])
 
-            # Filtra apenas os candidatos com score >= 70 para exibir nesta requisição
-            for cand in candidatos_analisados_ia:
-                if cand['porcentagem_compatibilidade'] >= 70:
-                    novos_matches_exibir.append(cand)
+                # Grava todos os resultados mapeados no banco para alimentar o histórico de cache
+                with get_db_connection() as conn:
+                    with conn.cursor() as cursor:
+                        for cand in candidatos_analisados_ia:
+                            # Tratamento de segurança de tipo para as chaves recebidas do JSON
+                            c_id = int(cand.get('id_candidato'))
+                            c_compatibilidade = int(cand.get('porcentagem_compatibilidade', 0))
+                            c_justificativa = str(cand.get('justificativa', 'Aderência média ao perfil cadastrado.'))
+                            
+                            cursor.execute("""
+                                INSERT INTO historico_analises_vagas (vaga_id, curriculo_id, porcentagem_compatibilidade, justificativa)
+                                VALUES (%s, %s, %s, %s)
+                                ON CONFLICT (vaga_id, curriculo_id) DO NOTHING
+                            """, (id_vaga, c_id, c_compatibilidade, c_justificativa))
+                        conn.commit()
+
+                # Filtra os candidatos com match >= 70% gerados para renderizar nesta requisição
+                for cand in candidatos_analisados_ia:
+                    if int(cand.get('porcentagem_compatibilidade', 0)) >= 70:
+                        novos_matches_exibir.append(cand)
+
+            except json.JSONDecodeError as jde:
+                print(f"[ERRO CRÍTICO] Falha ao decodificar JSON retornado pelo Gemini: {jde}")
+                flash("Erro ao processar estrutura de análise inteligente. Tente novamente.", "error")
+            except Exception as inner_e:
+                print(f"[ERRO CRÍTICO] Falha ao se comunicar ou salvar dados do Gemini: {inner_e}")
+                flash("Instabilidade na comunicação com a IA. Os candidatos não puderam ser triados.", "error")
 
         return render_template('analise.html', vaga=vaga, resultado={"vaga_id": id_vaga, "candidatos_compativeis": novos_matches_exibir})
         
     except Exception as e:
-        print(f"Erro na análise de vagas com IA: {e}")
+        print(f"Erro geral na análise de vagas: {e}")
         flash("Ocorreu um erro interno ao processar a inteligência artificial.", "error")
         return redirect(url_for('listar_vagas'))
 
