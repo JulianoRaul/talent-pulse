@@ -159,6 +159,29 @@ def init_db():
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS beneficios TEXT;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS remuneracao TEXT;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS expediente TEXT;')
+
+                # 5. [NOVA] Tabela de Cache de Análise Inteligente do Currículo
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS analises_ia (
+                        id SERIAL PRIMARY KEY,
+                        curriculo_id INTEGER UNIQUE REFERENCES curriculos(id) ON DELETE CASCADE,
+                        dados_json JSONB NOT NULL,
+                        data_analise TIMESTAMP DEFAULT (timezone('America/Sao_Paulo', NOW()))
+                    );
+                ''')
+
+                # 6. [NOVA] Tabela de Histórico de Match do Candidato na Vaga
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS historico_analises_vagas (
+                        id SERIAL PRIMARY KEY,
+                        vaga_id INTEGER REFERENCES vagas(id) ON DELETE CASCADE,
+                        curriculo_id INTEGER REFERENCES curriculos(id) ON DELETE CASCADE,
+                        porcentagem_compatibilidade INTEGER NOT NULL,
+                        justificativa TEXT NOT NULL,
+                        data_analise TIMESTAMP DEFAULT (timezone('America/Sao_Paulo', NOW())),
+                        UNIQUE(vaga_id, curriculo_id)
+                    );
+                ''')
                 
                 conn.commit()
     except Exception as e:
@@ -195,17 +218,17 @@ class ResultadoAnaliseVaga(BaseModel):
     vaga_id: int
     candidatos_compativeis: list[CandidatoCompatibilidade]
 
-# Nova estrutura p/ o parecer de jogos clássicos
 class ParecerRetroJogo(BaseModel):
-    titulo_classe: str # Ex: "Mago dos Códigos", "Guerreiro das Vendas", "Arqueiro do Suporte"
-    nivel: int # Nível de 1 a 99 baseado na experiência
-    vida_hp: int # Equivalente à força/resiliência (0-100)
-    mana_mp: int # Equivalente à inteligência/criatividade (0-100)
-    pontos_fortes: list[str] # Lista de 3 pontos fortes de destaque
-    pontos_fracos: list[str] # Lista de 2 pontos que precisam ser melhorados (de forma construtiva)
-    habilidades_especiais: list[str] # Golpes/Habilidades com nomes de RPG (Ex: "Fogo Rápido no Excel")
-    tipos_de_vagas_recomendadas: list[str] # Áreas/Funções recomendadas
-    resumo_narrativa: str # Um texto curto e divertido com tom de jogo clássico de RPG descrevendo o candidato
+    titulo_classe: str 
+    nivel: int 
+    vida_hp: int 
+    mana_mp: int 
+    pontos_fortes: list[str] 
+    pontos_fracos: list[str] 
+    habilities_especiais: list[str] = [] # Fallback
+    habilidades_especiais: list[str] 
+    tipos_de_vagas_recomendadas: list[str] 
+    resumo_narrativa: str 
 
 # ==============================================================================
 # FUNÇÕES AUXILIARES DE TEXTO
@@ -663,18 +686,58 @@ def excluir(id_candidato):
         return jsonify({"status": "erro", "mensagem": "Erro interno ao excluir o currículo"}), 500
 
 # ==============================================================================
-# NOVA FUNÇÃO: ANÁLISE CORPORATIVA DO CANDIDATO & CRUZE COM VAGAS EXISTENTES
+# MODIFICADO: ANÁLISE CORPORATIVA COM SISTEMA DE CACHE NO BANCO DE DADOS
 # ==============================================================================
 @app.route('/candidato/<int:id_candidato>/analise-retro', methods=['GET'])
 @login_required
 def analise_retro_candidato(id_candidato):
-    if not client:
-        return jsonify({"error": "Gemini API Key não está configurada."}), 500
-
     try:
+        # 1. Verifica se já existe uma análise para este currículo salva em cache no Banco
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                # 1. Carrega o candidato alvo
+                cursor.execute("""
+                    SELECT dados_json FROM analises_ia 
+                    WHERE curriculo_id = %s
+                """, (id_candidato,))
+                cached_data = cursor.fetchone()
+
+                if cached_data:
+                    # Carrega as vagas para fazer a recomendação cruzada local em tempo de execução
+                    cursor.execute("SELECT id, titulo, descricao FROM vagas WHERE empresa_id = %s", (current_user.empresa_id,))
+                    vagas_disponiveis = cursor.fetchall()
+
+                    analise_retro = cached_data['dados_json']
+                    
+                    # Processa cruzamento local com novas vagas do banco mesmo com cache ativo
+                    vaga_recomendada_id = None
+                    vaga_recomendada_titulo = None
+
+                    if vagas_disponiveis and "tipos_de_vagas_recomendadas" in analise_retro:
+                        recomendacoes = [remover_acentos(v) for v in analise_retro["tipos_de_vagas_recomendadas"]]
+                        for vaga in vagas_disponiveis:
+                            titulo_vaga_limpo = remover_acentos(vaga['titulo'])
+                            desc_vaga_limpo = remover_acentos(vaga['descricao'])
+                            for rec in recomendacoes:
+                                if rec in titulo_vaga_limpo or rec in desc_vaga_limpo:
+                                    vaga_recomendada_id = vaga['id']
+                                    vaga_recomendada_titulo = vaga['titulo']
+                                    break
+                            if vaga_recomendada_id:
+                                break
+
+                    analise_retro['vaga_compativel_banco'] = {
+                        "id": vaga_recomendada_id,
+                        "titulo": vaga_recomendada_titulo
+                    } if vaga_recomendada_id else None
+
+                    return jsonify(analise_retro)
+
+        # Se não houver cache, gera a análise via API da Google Gemini
+        if not client:
+            return jsonify({"error": "Gemini API Key não está configurada."}), 500
+
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute("""
                     SELECT id, nome_candidato AS nome, conteudo, hard_skills, soft_skills, formacao, cursos 
                     FROM curriculos WHERE id = %s AND empresa_id = %s
@@ -684,24 +747,21 @@ def analise_retro_candidato(id_candidato):
                 if not candidato:
                     return jsonify({"error": "Candidato não encontrado."}), 404
 
-                # 2. Carrega as vagas ativas no banco de dados da empresa
                 cursor.execute("SELECT id, titulo, descricao FROM vagas WHERE empresa_id = %s", (current_user.empresa_id,))
                 vagas_disponiveis = cursor.fetchall()
 
-        # Prompt do sistema redefinido para eliminar qualquer tom lúdico de RPG
+        # Prompt Executivo de Negócios
         system_instruction = (
             "Você é um especialista sênior em People Analytics e Recrutamento de Alta Performance.\n"
-            "Sua tarefa é analisar o perfil profissional do candidato e preencher o schema JSON com dados realistas, realistas e puramente corporativos.\n\n"
-            "REGRAS DE ADAPTAÇÃO DE CAMPOS (MANTENHA O SCHEMA, MUDE O TOM):\n"
-            "- 'titulo_classe': Deve ser o título/cargo ideal do candidato no mercado real (ex: 'Especialista em Ativos Imobiliários', 'Analista Sênior de Marketing', 'Gestor de Contas Sênior'). Nunca use classes de fantasia ou RPG.\n"
-            "- 'nivel': Representa o nível de senioridade ou aderência do candidato (um número de 1 a 99).\n"
-            "- 'vida_hp': Deve refletir a porcentagem estimada de 'Fit Técnico / Hard Skills' (0 a 100).\n"
-            "- 'mana_mp': Deve refletir a porcentagem estimada de 'Fit Cultural / Soft Skills' (0 a 100).\n"
-            "- 'habilidades_especiais': Mapeie competências técnicas de alto impacto como termos reais de mercado (ex: 'Negociação de Alto Padrão', 'Prospecção Ativa B2B', 'Modelagem Financeira Avançada').\n"
-            "- 'resumo_narrativa': Escreva um parecer profissional conciso, elegante e estratégico sobre o potencial do candidato e sua aderência às melhores práticas de mercado.\n\n"
-            "IMPORTANTE:\n"
-            "- NUNCA use termos de fantasia, RPG ou magia (ex: 'Celestial', 'Bênção', 'Guerreiro', 'Magia', 'Tesouros').\n"
-            "- Use um tom executivo, de consultoria de negócios."
+            "Sua tarefa é analisar o perfil profissional do candidato e preencher o schema JSON com dados realistas e corporativos.\n\n"
+            "REGRAS DE ADAPTAÇÃO DE CAMPOS:\n"
+            "- 'titulo_classe': Deve ser o título/cargo ideal do candidato no mercado real (ex: 'Analista de Sistemas', 'Gerente de Vendas'). Nunca use termos de fantasia ou RPG.\n"
+            "- 'nivel': Nível de senioridade (número de 1 a 99).\n"
+            "- 'vida_hp': Porcentagem estimada de 'Fit Técnico / Hard Skills' (0 a 100).\n"
+            "- 'mana_mp': Porcentagem estimada de 'Fit Cultural / Soft Skills' (0 a 100).\n"
+            "- 'habilidades_especiais': Mapeie competências técnicas reais de alto impacto profissional.\n"
+            "- 'resumo_narrativa': Escreva um parecer profissional conciso e estratégico sobre o candidato.\n"
+            "NUNCA use termos lúdicos de RPG, jogos ou fantasia."
         )
 
         prompt_conteudo = f"Candidato: {candidato['nome']}\nPerfil Técnico: {candidato['hard_skills']}\nComportamental: {candidato['soft_skills']}\nHistórico: {candidato['conteudo']}"
@@ -711,7 +771,7 @@ def analise_retro_candidato(id_candidato):
             contents=prompt_conteudo,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
-                response_schema=ParecerRetroJogo, # Mantendo a tipagem para não quebrar a estrutura do backend
+                response_schema=ParecerRetroJogo,
                 system_instruction=system_instruction,
                 temperature=0.3
             )
@@ -719,7 +779,21 @@ def analise_retro_candidato(id_candidato):
 
         analise_retro = json.loads(response.text.strip()) if response.text else {}
 
-        # 3. Cruzamento local: descobre se alguma vaga da empresa se adequa ao perfil
+        # Ajuste interno de estrutura para retrocompatibilidade de listas
+        if not analise_retro.get("habilidades_especiais") and analise_retro.get("habilities_especiais"):
+            analise_retro["habilidades_especiais"] = analise_retro["habilities_especiais"]
+
+        # Grava o resultado no cache do banco para nunca mais analisar este currículo
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO analises_ia (curriculo_id, dados_json) 
+                    VALUES (%s, %s)
+                    ON CONFLICT (curriculo_id) DO UPDATE SET dados_json = EXCLUDED.dados_json
+                """, (id_candidato, json.dumps(analise_retro)))
+                conn.commit()
+
+        # Cruzamento local com vagas existentes pós-execução
         vaga_recomendada_id = None
         vaga_recomendada_titulo = None
 
@@ -728,8 +802,6 @@ def analise_retro_candidato(id_candidato):
             for vaga in vagas_disponiveis:
                 titulo_vaga_limpo = remover_acentos(vaga['titulo'])
                 desc_vaga_limpo = remover_acentos(vaga['descricao'])
-                
-                # Se bater alguma palavra-chave da vaga com a recomendação da IA ou skills do candidato, sugere a vaga
                 for rec in recomendacoes:
                     if rec in titulo_vaga_limpo or rec in desc_vaga_limpo:
                         vaga_recomendada_id = vaga['id']
@@ -738,7 +810,6 @@ def analise_retro_candidato(id_candidato):
                 if vaga_recomendada_id:
                     break
 
-        # Estrutura final de resposta agregando a vaga compatível encontrada
         analise_retro['vaga_compativel_banco'] = {
             "id": vaga_recomendada_id,
             "titulo": vaga_recomendada_titulo
@@ -748,7 +819,7 @@ def analise_retro_candidato(id_candidato):
 
     except Exception as e:
         print(f"Erro na geração de análise de perfil: {e}")
-        return jsonify({"error": "Não foi possível gerar a análise por inteligência artificial no momento."}), 500
+        return jsonify({"error": "Não foi possível gerar a análise no momento."}), 500
 
 # ==============================================================================
 # VISUALIZAÇÃO E DOWNLOAD DE ARQUIVOS ORIGINAIS
@@ -789,10 +860,7 @@ def visualizar_original(id_candidato):
                 if resultado and resultado['arquivo_binario']:
                     dados_arquivos = base64.b64decode(resultado['arquivo_binario'])
                     nome_arquivo = resultado['nome_arquivo']
-                    
-                    # Correção aplicada aqui: extraindo a extensão diretamente da variável nome_arquivo da busca
                     extensao = nome_arquivo.rsplit('.', 1)[1].lower() if '.' in nome_arquivo else ''
-                    
                     mimetype = 'application/pdf' if extensao == 'pdf' else 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
                     
                     return send_file(
@@ -914,7 +982,7 @@ def editar_vaga(id_vaga):
                         WHERE id = %s AND empresa_id = %s
                     """, (titulo, localizacao, descricao, atividades, requisitos, remuneracao, beneficios, expediente, id_vaga, current_user.empresa_id))
                     conn.commit()
-            flash("Vaga updated com sucesso!", "success")
+            flash("Vaga atualizada com sucesso!", "success")
             return redirect(url_for('listar_vagas'))
         except Exception as e:
             print(f"Erro ao atualizar vaga: {e}")
@@ -944,7 +1012,7 @@ def listar_vagas():
     return render_template('vagas.html', vagas=vagas_disponiveis)
 
 # ==============================================================================
-# CRUZAMENTO E ANÁLISE DE VAGAS VS CANDIDATOS
+# MODIFICADO: MATCH INTELIGENTE COM CACHE E FILTRO DE >= 70% DE MATCH
 # ==============================================================================
 @app.route('/vagas/<int:id_vaga>/analise', methods=['GET'])
 @login_required
@@ -956,6 +1024,7 @@ def analisar_vaga(id_vaga):
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                # 1. Busca a vaga
                 cursor.execute("SELECT * FROM vagas WHERE id = %s AND empresa_id = %s", (id_vaga, current_user.empresa_id))
                 vaga = cursor.fetchone()
                 
@@ -963,58 +1032,133 @@ def analisar_vaga(id_vaga):
                     flash("Vaga não encontrada ou acesso negado.", "error")
                     return redirect(url_for('listar_vagas'))
                 
+                # 2. Resgata do histórico candidatos que já foram analisados para esta vaga
                 cursor.execute("""
-                    SELECT id, nome_candidato AS nome, formacao, hard_skills, soft_skills, idiomas, conteudo 
-                    FROM curriculos 
-                    WHERE empresa_id = %s
-                """, (current_user.empresa_id,))
-                candidatos = cursor.fetchall()
+                    SELECT curriculo_id FROM historico_analises_vagas 
+                    WHERE vaga_id = %s
+                """, (id_vaga,))
+                analisados_ids = [r['curriculo_id'] for r in cursor.fetchall()]
+
+                # 3. Busca currículos que AINDA NÃO foram mapeados para esta vaga
+                if analisados_ids:
+                    cursor.execute("""
+                        SELECT id, nome_candidato AS nome, formacao, hard_skills, soft_skills, idiomas, conteudo 
+                        FROM curriculos 
+                        WHERE empresa_id = %s AND id NOT IN %s
+                    """, (current_user.empresa_id, tuple(analisados_ids)))
+                else:
+                    cursor.execute("""
+                        SELECT id, nome_candidato AS nome, formacao, hard_skills, soft_skills, idiomas, conteudo 
+                        FROM curriculos 
+                        WHERE empresa_id = %s
+                    """, (current_user.empresa_id,))
                 
-        if not candidatos:
-            flash("Nenhum currículo cadastrado na sua empresa para cruzar com esta vaga.", "error")
-            return redirect(url_for('listar_vagas'))
-            
-        dados_candidatos_prompt = []
-        for c in candidatos:
-            dados_candidatos_prompt.append({
-                "id_candidato": c['id'],
-                "nome": c['nome'] or "Sem Nome",
-                "perfil_resumido": f"Skills Técnicas: {c['hard_skills']}. Comportamental: {c['soft_skills']}. Idiomas: {c['idiomas']}. Formação: {c['formacao']}"
-            })
+                candidatos_para_analise = cursor.fetchall()
 
-        system_instruction = (
-            "Você é um Headhunter sênior focado em People Analytics.\n"
-            "Sua tarefa é analisar uma vaga de emprego específica e gerar um ranking comparativo em formato JSON contendo a porcentagem de "
-            "compatibilidade (de 0 a 100) e uma breve justificativa de aderência para cada candidato fornecido."
-        )
+        # Estrutura para renderizar candidatos que passaram do filtro de 70% nesta rodada
+        novos_matches_exibir = []
 
-        prompt_conteudo = (
-            f"VAGA ALVO:\n"
-            f"Título: {vaga['titulo']}\n"
-            f"Descrição: {vaga['descricao']}\n"
-            f"Requisitos: {vaga['requisitos']}\n\n"
-            f"LISTA DE CANDIDATOS:\n"
-            f"{json.dumps(dados_candidatos_prompt, ensure_ascii=False)}"
-        )
+        # Só chama a IA do Gemini se houverem candidatos novos a serem analisados
+        if candidatos_para_analise:
+            dados_candidatos_prompt = []
+            for c in candidatos_para_analise:
+                dados_candidatos_prompt.append({
+                    "id_candidato": c['id'],
+                    "nome": c['nome'] or "Sem Nome",
+                    "perfil_resumido": f"Skills Técnicas: {c['hard_skills']}. Comportamental: {c['soft_skills']}. Idiomas: {c['idiomas']}. Formação: {c['formacao']}"
+                })
 
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt_conteudo,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=ResultadoAnaliseVaga,
-                system_instruction=system_instruction,
-                temperature=0.2
+            system_instruction = (
+                "Você é um Headhunter sênior focado em People Analytics.\n"
+                "Sua tarefa é analisar uma vaga de emprego específica e gerar um ranking comparativo em formato JSON contendo a porcentagem de "
+                "compatibilidade (de 0 a 100) e uma breve justificativa de aderência para cada candidato fornecido."
             )
-        )
-        
-        analise_json = json.loads(response.text.strip()) if response.text else {}
-        return render_template('analise.html', vaga=vaga, resultado=analise_json)
+
+            prompt_conteudo = (
+                f"VAGA ALVO:\n"
+                f"Título: {vaga['titulo']}\n"
+                f"Descrição: {vaga['descricao']}\n"
+                f"Requisitos: {vaga['requisitos']}\n\n"
+                f"LISTA DE CANDIDATOS:\n"
+                f"{json.dumps(dados_candidatos_prompt, ensure_ascii=False)}"
+            )
+
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt_conteudo,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=ResultadoAnaliseVaga,
+                    system_instruction=system_instruction,
+                    temperature=0.2
+                )
+            )
+            
+            analise_json = json.loads(response.text.strip()) if response.text else {}
+            candidatos_analisados_ia = analise_json.get("candidatos_compativeis", [])
+
+            # Grava todos os resultados da IA no histórico de análises da vaga (incluindo scores baixos para controle de cache)
+            with get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    for cand in candidatos_analisados_ia:
+                        cursor.execute("""
+                            INSERT INTO historico_analises_vagas (vaga_id, curriculo_id, porcentagem_compatibilidade, justificativa)
+                            VALUES (%s, %s, %s, %s)
+                            ON CONFLICT (vaga_id, curriculo_id) DO NOTHING
+                        """, (id_vaga, cand['id_candidato'], cand['porcentagem_compatibilidade'], cand['justificativa']))
+                    conn.commit()
+
+            # Filtra apenas os candidatos com score >= 70 para exibir nesta requisição
+            for cand in candidatos_analisados_ia:
+                if cand['porcentagem_compatibilidade'] >= 70:
+                    novos_matches_exibir.append(cand)
+
+        return render_template('analise.html', vaga=vaga, resultado={"vaga_id": id_vaga, "candidatos_compativeis": novos_matches_exibir})
         
     except Exception as e:
         print(f"Erro na análise de vagas com IA: {e}")
         flash("Ocorreu um erro interno ao processar a inteligência artificial.", "error")
         return redirect(url_for('listar_vagas'))
+
+
+# ==============================================================================
+# NOVO ENDPOINT: HISTÓRICO DE CANDIDATOS ANALISADOS POR VAGA (MATCH >= 70%)
+# ==============================================================================
+@app.route('/vagas/<int:id_vaga>/historico', methods=['GET'])
+@login_required
+def historico_vaga(id_vaga):
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                # Carrega detalhes da vaga
+                cursor.execute("SELECT * FROM vagas WHERE id = %s AND empresa_id = %s", (id_vaga, current_user.empresa_id))
+                vaga = cursor.fetchone()
+
+                if not vaga:
+                    return jsonify({"error": "Vaga não encontrada ou acesso negado"}), 404
+
+                # Traz apenas os candidatos analisados anteriormente com match >= 70%
+                cursor.execute("""
+                    SELECT h.porcentagem_compatibilidade, h.justificativa, h.data_analise, 
+                           c.id AS id_candidato, c.nome_candidato AS nome, c.localizacao
+                    FROM historico_analises_vagas h
+                    JOIN curriculos c ON h.curriculo_id = c.id
+                    WHERE h.vaga_id = %s AND h.porcentagem_compatibilidade >= 70
+                    ORDER BY h.porcentagem_compatibilidade DESC, h.data_analise DESC
+                """, (id_vaga,))
+                historico = cursor.fetchall()
+
+                # Formata a data de análise para uma string amigável
+                for item in historico:
+                    if item['data_analise']:
+                        item['data_analise'] = item['data_analise'].strftime('%d/%m/%Y %H:%M')
+
+                return jsonify({"vaga": vaga, "historico": historico})
+
+    except Exception as e:
+        print(f"Erro ao buscar histórico de vagas: {e}")
+        return jsonify({"error": "Erro interno ao buscar histórico de candidatos."}), 500
+
 
 # ==============================================================================
 # CONTROLE MASTER ADMINISTRATIVO (GERENCIAMENTO DE TENANTS / CANCELAMENTOS E DIAS)
