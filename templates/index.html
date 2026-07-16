@@ -6,7 +6,6 @@
     <title>TalentPulse - Extração Inteligente de Currículos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <!-- Usaremos apenas a Inter para um visual extremamente limpo e moderno -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght=300;400;500;600;700;800&display=swap" rel="stylesheet">
     
     <style>
@@ -20,16 +19,15 @@
         body {
             background-color: #f8fafc;
             color: #334155;
-            padding: 24px 0; /* Removido padding lateral do body para o header encostar nas bordas se necessário */
+            padding: 24px 0;
         }
 
         .container {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 0 24px; /* Padding lateral mantido no container principal */
+            padding: 0 24px;
         }
 
-        /* Modificado para ocupar 100% da largura, permitindo que o container interno faça o alinhamento */
         .topbar {
             background: #ffffff;
             border-bottom: 1px solid #e2e8f0;
@@ -38,7 +36,6 @@
             width: 100%;
         }
 
-        /* Novo container interno do Header para bater perfeitamente com o .container de baixo */
         .topbar-container {
             max-width: 1400px;
             margin: 0 auto;
@@ -384,7 +381,6 @@
             margin-top: 4px;
         }
 
-        /* Container de botões adaptado para formato redondo */
         .actions-group {
             display: flex;
             align-items: center;
@@ -393,7 +389,6 @@
             flex-shrink: 0;
         }
 
-        /* Botões de Ação Redondos */
         .btn-action {
             display: inline-flex;
             align-items: center;
@@ -418,7 +413,6 @@
             transform: scale(1.08);
         }
 
-        /* Botão Analise Inteligente (Moderna) */
         .btn-analise-moderna {
             background: #eff6ff;
             color: #2563eb;
@@ -431,7 +425,6 @@
             border-color: #1d4ed8;
         }
 
-        /* Botão WhatsApp */
         .btn-whatsapp {
             background: #ecfdf5;
             color: #047857;
@@ -444,7 +437,6 @@
             color: #065f46;
         }
 
-        /* Botão Retirar */
         .btn-retirar {
             background: #fff7ed;
             color: #c2410c;
@@ -457,7 +449,6 @@
             color: #9a3412;
         }
 
-        /* Botão Excluir */
         .btn-excluir {
             background: #fef2f2;
             color: #b91c1c;
@@ -560,9 +551,7 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* ==============================================================================
-           ESTILOS DO NOVO MODAL DE ANÁLISE MODERNA (AI INSIGHTS)
-           ============================================================================== */
+        /* OVERLAYS E MODAIS */
         .modern-overlay {
             position: fixed;
             top: 0;
@@ -694,7 +683,6 @@
             gap: 8px;
         }
 
-        /* Novos Indicadores de Fit Cultural e Perfil */
         .metric-row {
             margin-bottom: 14px;
         }
@@ -799,11 +787,40 @@
         .vaga-direcionamento-btn:hover {
             background-color: #1d4ed8;
         }
+
+        /* Estilização para a Tabela Histórica no Modal */
+        .historico-tabela {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+        }
+        .historico-tabela th, .historico-tabela td {
+            text-align: left;
+            padding: 12px;
+            font-size: 13px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .historico-tabela th {
+            font-weight: 700;
+            color: #475569;
+            background-color: #f8fafc;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+        }
+        .badge-score {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 99px;
+            font-weight: 700;
+            font-size: 12px;
+        }
+        .score-alto { background-color: #d1fae5; color: #065f46; }
+        .score-medio { background-color: #fef3c7; color: #92400e; }
     </style>
 </head>
 <body>
 
-    <!-- Header reestruturado com wrapper de controle de alinhamento -->
     <header class="topbar">
         <div class="topbar-container">
             <div class="brand">
@@ -940,7 +957,6 @@
                                 </div>
                                 
                                 <div class="actions-group">
-                                    <!-- Ícone Inteligente Atualizado de Cérebro/Insights de IA -->
                                     <button onclick="abrirAnaliseModerna({{ candidato.id }}, '{{ candidato.nome }}')" class="btn-action btn-analise-moderna" title="Análise Inteligente por IA">
                                         🧠
                                     </button>
@@ -1040,9 +1056,7 @@
         </main>
     </div>
 
-    <!-- ==============================================================================
-       NOVO MODAL DE DETALHES DE ANÁLISE DE INTELIGÊNCIA ARTIFICIAL MODERNA
-       ============================================================================== -->
+    <!-- MODAL DE DETALHES DE ANÁLISE DE INTELIGÊNCIA ARTIFICIAL MODERNA -->
     <div class="modern-overlay" id="modern-overlay">
         <div class="modern-modal">
             <div class="modern-header">
@@ -1056,7 +1070,6 @@
                 <button class="modern-close" onclick="fecharModalModerno()">✕</button>
             </div>
             
-            <!-- Skeleton / Estado de Carregamento Fluido -->
             <div id="modern-loading" style="text-align: center; padding: 48px 0;">
                 <div style="font-size: 32px; margin-bottom: 12px; animation: spin 1s linear infinite;">⏳</div>
                 <p style="color: #64748b; font-weight: 500; font-size: 14px;">Processando inteligência de perfil...</p>
@@ -1065,7 +1078,6 @@
             <div id="modern-content" style="display: none;">
                 
                 <div class="modern-grid">
-                    <!-- Painel de Métricas e Fit Cultural -->
                     <div class="modern-card">
                         <div class="modern-section-title">📊 Adequação ao Perfil</div>
                         
@@ -1091,45 +1103,74 @@
 
                         <div style="margin-top: 24px;">
                             <div class="modern-section-title" style="margin-bottom: 8px;">🎯 Direcionamento</div>
-                            <div class="modern-pill-container" id="m-vagas-sugeridas">
-                                <!-- Preenchido dinamicamente -->
-                            </div>
+                            <div class="modern-pill-container" id="m-vagas-sugeridas"></div>
                         </div>
                     </div>
 
-                    <!-- Habilidades de Destaque -->
                     <div class="modern-card">
                         <div class="modern-section-title">✨ Diferenciais de Destaque</div>
-                        <ul class="modern-list" id="m-destaques">
-                            <!-- Preenchido dinamicamente -->
-                        </ul>
+                        <ul class="modern-list" id="m-destaques"></ul>
                     </div>
                 </div>
 
-                <!-- Prós e Oportunidades de Desenvolvimento -->
                 <div class="modern-grid">
                     <div class="modern-card">
                         <div class="modern-section-title" style="color: #059669;">✔️ Pontos Fortes</div>
-                        <ul class="modern-list" id="m-pontos-fortes">
-                            <!-- Preenchido dinamicamente -->
-                        </ul>
+                        <ul class="modern-list" id="m-pontos-fortes"></ul>
                     </div>
                     <div class="modern-card">
                         <div class="modern-section-title" style="color: #d97706;">⚠️ Atenções / Gaps</div>
-                        <ul class="modern-list" id="m-pontos-fracos">
-                            <!-- Preenchido dinamicamente -->
-                        </ul>
+                        <ul class="modern-list" id="m-pontos-fracos"></ul>
                     </div>
                 </div>
 
-                <!-- Sumário Executivo do Oráculo -->
                 <div class="modern-card" style="margin-bottom: 24px; background: #f0fdfa; border-color: #ccfbf1;">
                     <div class="modern-section-title" style="color: #0d9488;">📝 Parecer do Recrutador IA</div>
                     <p id="m-parecer-ia" style="font-size: 13px; line-height: 1.6; color: #115e59;"></p>
                 </div>
 
-                <!-- Botão de Ação Direta para Vagas do Banco -->
                 <div id="container-direcionamento-moderno"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- [NOVO] MODAL DE HISTÓRICO DE CANDIDATOS ANALISADOS POR VAGA -->
+    <div class="modern-overlay" id="historico-vaga-overlay">
+        <div class="modern-modal" style="max-width: 900px;">
+            <div class="modern-header">
+                <div class="modern-title-container">
+                    <div class="modern-title-icon" style="background: #ecfdf5; color: #10b981;">📋</div>
+                    <div class="modern-title-text">
+                        <h4 id="h-vaga-titulo">Histórico de Candidatos</h4>
+                        <p id="h-vaga-meta">Visualizando candidatos com 70% ou mais de compatibilidade histórica</p>
+                    </div>
+                </div>
+                <button class="modern-close" onclick="fecharModalHistorico()">✕</button>
+            </div>
+
+            <div id="historico-loading" style="text-align: center; padding: 48px 0;">
+                <div style="font-size: 32px; margin-bottom: 12px; animation: spin 1s linear infinite;">⏳</div>
+                <p style="color: #64748b; font-weight: 500; font-size: 14px;">Buscando histórico de matches...</p>
+            </div>
+
+            <div id="historico-vazia" style="display: none; text-align: center; padding: 48px 0;">
+                <div style="font-size: 40px; margin-bottom: 12px;">📭</div>
+                <p style="color: #64748b; font-weight: 500; font-size: 14px;">Nenhum candidato avaliado anteriormente atingiu 70% ou mais de compatibilidade nesta vaga.</p>
+            </div>
+
+            <div id="historico-conteudo" style="display: none; overflow-x: auto;">
+                <table class="historico-tabela">
+                    <thead>
+                        <tr>
+                            <th>Candidato</th>
+                            <th>Localização</th>
+                            <th>Match</th>
+                            <th>Data de Análise</th>
+                            <th>Justificativa</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historico-linhas"></tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -1193,9 +1234,6 @@
             setTimeout(() => { card.remove(); }, 300);
         }
 
-        /* ==============================================================================
-           LÓGICA JAVASCRIPT DO NOVO MODAL MODERNO DE INSIGHTS DE IA
-           ============================================================================== */
         function abrirAnaliseModerna(idCandidato, nomeCandidato) {
             const overlay = document.getElementById('modern-overlay');
             const loading = document.getElementById('modern-loading');
@@ -1206,7 +1244,6 @@
             loading.style.display = 'block';
             content.style.display = 'none';
 
-            // Mapeando a requisição antiga para manter total compatibilidade com seu backend
             fetch(`/candidato/${idCandidato}/analise-retro`)
                 .then(response => response.json())
                 .then(data => {
@@ -1219,11 +1256,9 @@
                     loading.style.display = 'none';
                     content.style.display = 'block';
 
-                    // Atribuição Dinâmica e Tratamento Moderno dos Dados do Backend
                     document.getElementById('m-nome-candidato').innerText = nomeCandidato;
                     document.getElementById('m-cargo-nivel').innerText = `${data.titulo_classe} • Nível ${data.nivel}`;
                     
-                    // Configurações das Barras Modernas (HP vira Técnico / MP vira Cultural)
                     const fitTecnico = data.vida_hp || 85; 
                     const fitCultural = data.mana_mp || 80;
 
@@ -1233,38 +1268,33 @@
                     document.getElementById('m-fit-cultural-val').innerText = `${fitCultural}%`;
                     document.getElementById('m-fit-cultural-bar').style.width = `${fitCultural}%`;
 
-                    // Parecer do Oráculo/IA
                     document.getElementById('m-parecer-ia').innerText = data.resumo_narrativa;
 
-                    // Golpes Especiais viram "Diferenciais Técnicos"
                     const destaquesList = document.getElementById('m-destaques');
                     destaquesList.innerHTML = '';
-                    data.habilidades_especiais.forEach(skill => {
+                    const listaHabilidades = data.habilidades_especiais || data.habilities_especiais || [];
+                    listaHabilidades.forEach(skill => {
                         destaquesList.innerHTML += `<li>${skill}</li>`;
                     });
 
-                    // Pontos Fortes
                     const fortesList = document.getElementById('m-pontos-fortes');
                     fortesList.innerHTML = '';
                     data.pontos_fortes.forEach(p => {
                         fortesList.innerHTML += `<li class="strength-item">${p}</li>`;
                     });
 
-                    // Gaps / Fraquezas
                     const fracosList = document.getElementById('m-pontos-fracos');
                     fracosList.innerHTML = '';
                     data.pontos_fracos.forEach(p => {
                         fracosList.innerHTML += `<li class="weakness-item">${p}</li>`;
                     });
 
-                    // Tipos de Vagas Recomendadas
                     const vagasSugeridas = document.getElementById('m-vagas-sugeridas');
                     vagasSugeridas.innerHTML = '';
                     data.tipos_de_vagas_recomendadas.forEach(v => {
                         vagasSugeridas.innerHTML += `<span class="modern-pill">🎯 ${v}</span>`;
                     });
 
-                    // Match de Vaga direta do Banco
                     const divDirecionamento = document.getElementById('container-direcionamento-moderno');
                     divDirecionamento.innerHTML = '';
                     if (data.vaga_compativel_banco) {
@@ -1284,6 +1314,66 @@
 
         function fecharModalModerno() {
             document.getElementById('modern-overlay').classList.remove('active');
+        }
+
+        /* [NOVO] FUNÇÕES DE INTERAÇÃO DO HISTÓRICO DA VAGA */
+        function abrirHistoricoVaga(idVaga) {
+            const overlay = document.getElementById('historico-vaga-overlay');
+            const loading = document.getElementById('historico-loading');
+            const conteudo = document.getElementById('historico-conteudo');
+            const vazia = document.getElementById('historico-vazia');
+            const linhas = document.getElementById('historico-linhas');
+            const hVagaTitulo = document.getElementById('h-vaga-titulo');
+
+            overlay.classList.add('active');
+            loading.style.display = 'block';
+            conteudo.style.display = 'none';
+            vazia.style.display = 'none';
+            linhas.innerHTML = '';
+
+            fetch(`/vagas/${idVaga}/historico`)
+                .then(response => response.json())
+                .then(data => {
+                    loading.style.display = 'none';
+                    if (data.error) {
+                        alert(data.error);
+                        fecharModalHistorico();
+                        return;
+                    }
+
+                    hVagaTitulo.innerText = `Histórico de Matches: ${data.vaga.titulo}`;
+
+                    if (!data.historico || data.historico.length === 0) {
+                        vazia.style.display = 'block';
+                        return;
+                    }
+
+                    data.historico.forEach(c => {
+                        const tr = document.createElement('tr');
+                        
+                        const scoreClass = c.porcentagem_compatibilidade >= 85 ? 'score-alto' : 'score-medio';
+
+                        tr.innerHTML = `
+                            <td><strong>${c.nome}</strong></td>
+                            <td>${c.localizacao || 'Não informada'}</td>
+                            <td><span class="badge-score ${scoreClass}">${c.porcentagem_compatibilidade}%</span></td>
+                            <td style="white-space: nowrap; color: #64748b;">${c.data_analise}</td>
+                            <td style="font-size: 12px; line-height: 1.4; color: #475569;">${c.justificativa}</td>
+                        `;
+                        linhas.appendChild(tr);
+                    });
+
+                    conteudo.style.display = 'block';
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert("Falha ao recuperar histórico de análises.");
+                    fecharModalHistorico();
+                });
+        }
+
+        function fecharModalHistorico() {
+            document.getElementById('historico-vaga-overlay').classList.remove('active');
         }
     </script>
 </body>
