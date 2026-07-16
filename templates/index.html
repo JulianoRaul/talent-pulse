@@ -743,7 +743,7 @@
         }
 
         .weakness-item::before {
-            content: "⚠" !important;
+            content: "⚠️" !important;
             color: #f59e0b !important;
         }
 
@@ -817,9 +817,70 @@
         }
         .score-alto { background-color: #d1fae5; color: #065f46; }
         .score-medio { background-color: #fef3c7; color: #92400e; }
+
+        /* [NOVO] ANIMAÇÕES DA SPLASH SCREEN */
+        @keyframes pulse-logo {
+            0%, 100% {
+                transform: scale(1);
+                filter: drop-shadow(0 0 0px rgba(79, 70, 229, 0));
+            }
+            50% {
+                transform: scale(1.05);
+                filter: drop-shadow(0 0 15px rgba(6, 182, 212, 0.4));
+            }
+        }
+
+        @keyframes loading-bar {
+            0% { left: -40%; }
+            50% { left: 100%; }
+            100% { left: -40%; }
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
+
+    <!-- [NOVO] SPLASH SCREEN (Tela de Carregamento Inicial)[cite: 7] -->
+    <div id="splash-screen" style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: radial-gradient(circle at center, #1e1b4b 0%, #0f172a 100%);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 999999;
+        opacity: 1;
+        transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.6s;
+        visibility: visible;
+    ">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 20px; text-align: center;">
+            <svg width="80" height="80" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="animation: pulse-logo 2s infinite ease-in-out;">
+                <rect width="40" height="40" rx="10" fill="url(#splash-gradient)"/>
+                <path d="M10 21H14.5L17.5 13L21.5 27L24.5 19.5L26.5 21H30" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <defs>
+                    <linearGradient id="splash-gradient" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+                        <stop stop-color="#4f46e5"/>
+                        <stop offset="1" stop-color="#06b6d4"/>
+                    </linearGradient>
+                </defs>
+            </svg>
+            <div>
+                <h1 style="font-size: 28px; font-weight: 800; color: #ffffff; letter-spacing: 1px; margin-bottom: 8px;">TalentPulse</h1>
+                <p style="font-size: 13px; color: #94a3b8; font-weight: 500; text-transform: uppercase; letter-spacing: 2px;">Extração Inteligente</p>
+            </div>
+        </div>
+        
+        <div style="margin-top: 40px; width: 140px; height: 4px; background: rgba(255, 255, 255, 0.1); border-radius: 99px; overflow: hidden; position: relative;">
+            <div style="position: absolute; width: 60px; height: 100%; background: linear-gradient(90deg, #4f46e5, #06b6d4); border-radius: 99px; animation: loading-bar 1.5s infinite ease-in-out;"></div>
+        </div>
+    </div>
 
     <header class="topbar">
         <div class="topbar-container">
@@ -1134,7 +1195,7 @@
         </div>
     </div>
 
-    <!-- [NOVO] MODAL DE HISTÓRICO DE CANDIDATOS ANALISADOS POR VAGA -->
+    <!-- MODAL DE HISTÓRICO DE CANDIDATOS ANALISADOS POR VAGA -->
     <div class="modern-overlay" id="historico-vaga-overlay">
         <div class="modern-modal" style="max-width: 900px;">
             <div class="modern-header">
@@ -1176,6 +1237,23 @@
     </div>
 
     <script>
+        /* [NOVO] MONITORAMENTO E REMOÇÃO SUAVE DA SPLASH SCREEN[cite: 7] */
+        window.addEventListener('load', () => {
+            const splash = document.getElementById('splash-screen');
+            if (splash) {
+                // Mantém a tela visível por 1.2 segundos para garantir o impacto visual[cite: 7]
+                setTimeout(() => {
+                    splash.style.opacity = '0';
+                    splash.style.visibility = 'hidden';
+                    
+                    // Remove totalmente o elemento do DOM após o término da transição CSS[cite: 7]
+                    setTimeout(() => {
+                        splash.remove();
+                    }, 600);
+                }, 1200);
+            }
+        });
+
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         const uploadForm = document.getElementById('upload-form');
@@ -1316,7 +1394,6 @@
             document.getElementById('modern-overlay').classList.remove('active');
         }
 
-        /* [NOVO] FUNÇÕES DE INTERAÇÃO DO HISTÓRICO DA VAGA */
         function abrirHistoricoVaga(idVaga) {
             const overlay = document.getElementById('historico-vaga-overlay');
             const loading = document.getElementById('historico-loading');
