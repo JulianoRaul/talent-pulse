@@ -160,7 +160,7 @@ def init_db():
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS remuneracao TEXT;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS expediente TEXT;')
 
-                # 5. [NOVA] Tabela de Cache de Análise Inteligente do Currículo
+                # 5. Tabela de Cache de Análise Inteligente do Currículo
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS analises_ia (
                         id SERIAL PRIMARY KEY,
@@ -170,7 +170,7 @@ def init_db():
                     );
                 ''')
 
-                # 6. [NOVA] Tabela de Histórico de Match do Candidato na Vaga
+                # 6. Tabela de Histórico de Match do Candidato na Vaga
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS historico_analises_vagas (
                         id SERIAL PRIMARY KEY,
@@ -225,13 +225,13 @@ class ParecerRetroJogo(BaseModel):
     mana_mp: int 
     pontos_fortes: list[str] 
     pontos_fracos: list[str] 
-    habilities_especiais: list[str] = [] # Fallback
+    habilities_especiais: list[str] = [] 
     habilidades_especiais: list[str] 
     tipos_de_vagas_recomendadas: list[str] 
     resumo_narrativa: str 
 
 # ==============================================================================
-# FUNÇÕES AUXILIARES DE TEXTO
+# FUNÇÕES AUXILIARES DE TEXTO E FILTRAGEM DE CUSTO
 # ==============================================================================
 def remover_acentos(texto):
     if not texto:
@@ -277,6 +277,56 @@ def extrair_texto_docx(dados_bytes):
     except Exception as e:
         return ""
 
+# [OTIMIZAÇÃO 1: REDUÇÃO DE TOKENS E LIMPEZA LOCAL DE TEXTO]
+def otimizar_texto_ia(texto):
+    """
+    Remove quebras de linha excessivas, espaços duplicados e limita a entrada
+    a um teto de 8000 caracteres, economizando muito volume de tokens de entrada.
+    """
+    if not texto:
+        return ""
+    # Remove espaços em branco consecutivos e tabulações excessivas
+    texto_limpo = re.sub(r'[ \t]+', ' ', texto)
+    # Minimiza saltos de linhas repetitivos
+    texto_limpo = re.sub(r'\n+', '\n', texto_limpo)
+    return texto_limpo.strip()[:8000]
+
+# [OTIMIZAÇÃO 2: PRÉ-FILTRO LOCAL SEM CUSTO]
+def pre_filtro_compatibilidade(requisitos_vaga, descricao_vaga, titulo_vaga, texto_curriculo):
+    """
+    Calcula a interseção de palavras-chave entre as exigências e o currículo do candidato.
+    Se a intersecção de termos técnicos for nula ou muito baixa, evita chamar a API.
+    """
+    texto_comparativo_vaga = f"{requisitos_vaga or ''} {descricao_vaga or ''} {titulo_vaga or ''}"
+    
+    vaga_normalizada = remover_acentos(texto_comparativo_vaga)
+    curriculo_normalizado = remover_acentos(texto_curriculo)
+    
+    palavras_vaga = set(vaga_normalizada.split())
+    palavras_curriculo = set(curriculo_normalizado.split())
+    
+    # Remove termos gramaticais comuns de baixo valor semântico
+    stop_words = {
+        'e', 'o', 'a', 'os', 'as', 'de', 'do', 'da', 'em', 'para', 'com', 'que', 'em', 'um', 'uma',
+        'para', 'por', 'sobre', 'sob', 'atras', 'entre', 'com', 'sem', 'no', 'na', 'nos', 'nas'
+    }
+    
+    palavras_vaga -= stop_words
+    palavras_curriculo -= stop_words
+    
+    # Filtra apenas palavras relevantes (com comprimento superior a 2 caracteres)
+    palavras_vaga = {p for p in palavras_vaga if len(p) > 2}
+    palavras_curriculo = {p for p in palavras_curriculo if len(p) > 2}
+    
+    # Verifica quantas palavras-chave exigidas pela vaga aparecem no currículo
+    coincidencias = palavras_vaga.intersection(palavras_curriculo)
+    
+    # Se não houver ao menos 2 palavras correspondentes, o candidato é considerado incompatível localmente
+    if len(coincidencias) < 2:
+        return False
+    return True
+
+
 def estruturar_curriculo_com_ia(texto_bruto):
     if not texto_bruto or not texto_bruto.strip():
         return {
@@ -286,7 +336,9 @@ def estruturar_curriculo_com_ia(texto_bruto):
             "whatsapp": "", "areas_profissionais": ["Geral"]
         }
     
-    texto_limitado = texto_bruto.strip()[:24000]
+    # [OTIMIZAÇÃO 1 APLICADA AQUI]
+    texto_limitado = otimizar_texto_ia(texto_bruto)
+    
     if not client:
         return {
             "nome": "Sem Chave API", "idade": "Não Informado", "sexo": "Não Informado",
@@ -686,7 +738,7 @@ def excluir(id_candidato):
         return jsonify({"status": "erro", "mensagem": "Erro interno ao excluir o currículo"}), 500
 
 # ==============================================================================
-# MODIFICADO: ANÁLISE CORPORATIVA COM SISTEMA DE CACHE NO BANCO DE DADOS
+# ANÁLISE CORPORATIVA COM SISTEMA DE CACHE NO BANCO DE DADOS
 # ==============================================================================
 @app.route('/candidato/<int:id_candidato>/analise-retro', methods=['GET'])
 @login_required
@@ -702,13 +754,11 @@ def analise_retro_candidato(id_candidato):
                 cached_data = cursor.fetchone()
 
                 if cached_data:
-                    # Carrega as vagas para fazer a recomendação cruzada local em tempo de execução
                     cursor.execute("SELECT id, titulo, descricao FROM vagas WHERE empresa_id = %s", (current_user.empresa_id,))
                     vagas_disponiveis = cursor.fetchall()
 
                     analise_retro = cached_data['dados_json']
                     
-                    # Processa cruzamento local com novas vagas do banco mesmo com cache ativo
                     vaga_recomendada_id = None
                     vaga_recomendada_titulo = None
 
@@ -764,7 +814,9 @@ def analise_retro_candidato(id_candidato):
             "NUNCA use termos lúdicos de RPG, jogos ou fantasia."
         )
 
-        prompt_conteudo = f"Candidato: {candidato['nome']}\nPerfil Técnico: {candidato['hard_skills']}\nComportamental: {candidato['soft_skills']}\nHistórico: {candidato['conteudo']}"
+        # [OTIMIZAÇÃO 1: Limpeza local do input do prompt histórico para reduzir tokens]
+        conteudo_otimizado = otimizar_texto_ia(candidato['conteudo'])
+        prompt_conteudo = f"Candidato: {candidato['nome']}\nPerfil Técnico: {candidato['hard_skills']}\nComportamental: {candidato['soft_skills']}\nHistórico: {conteudo_otimizado}"
 
         response = client.models.generate_content(
             model='gemini-2.5-flash',
@@ -779,7 +831,6 @@ def analise_retro_candidato(id_candidato):
 
         analise_retro = json.loads(response.text.strip()) if response.text else {}
 
-        # Ajuste interno de estrutura para retrocompatibilidade de listas
         if not analise_retro.get("habilidades_especiais") and analise_retro.get("habilities_especiais"):
             analise_retro["habilidades_especiais"] = analise_retro["habilities_especiais"]
 
@@ -793,7 +844,6 @@ def analise_retro_candidato(id_candidato):
                 """, (id_candidato, json.dumps(analise_retro)))
                 conn.commit()
 
-        # Cruzamento local com vagas existentes pós-execução
         vaga_recomendada_id = None
         vaga_recomendada_titulo = None
 
@@ -855,7 +905,7 @@ def visualizar_original(id_candidato):
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute("SELECT nome_arquivo, arquivo_binario FROM curriculos WHERE id = %s AND empresa_id = %s", (id_candidato, current_user.empresa_id))
-                resultado = resultado = cursor.fetchone()
+                resultado = cursor.fetchone()
                 
                 if resultado and resultado['arquivo_binario']:
                     dados_arquivos = base64.b64decode(resultado['arquivo_binario'])
@@ -982,7 +1032,7 @@ def editar_vaga(id_vaga):
                         WHERE id = %s AND empresa_id = %s
                     """, (titulo, localizacao, descricao, atividades, requisitos, remuneracao, beneficios, expediente, id_vaga, current_user.empresa_id))
                     conn.commit()
-            flash("Vaga atualizada com sucesso!", "success")
+            flash("Vaga actualizada com sucesso!", "success")
             return redirect(url_for('listar_vagas'))
         except Exception as e:
             print(f"Erro ao atualizar vaga: {e}")
@@ -1012,7 +1062,7 @@ def listar_vagas():
     return render_template('vagas.html', vagas=vagas_disponiveis)
 
 # ==============================================================================
-# CORRIGIDO: MATCH INTELIGENTE SEGURO DE FALHAS COM RE-REQUISITOS E EXTRAÇÃO JSON
+# MATCH INTELIGENTE OTIMIZADO CONTRA CUSTOS E RATE-LIMIT DA CAMADA GRATUITA
 # ==============================================================================
 @app.route('/vagas/<int:id_vaga>/analise', methods=['GET'])
 @login_required
@@ -1024,7 +1074,6 @@ def analisar_vaga(id_vaga):
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                # 1. Busca a vaga de forma segura
                 cursor.execute("SELECT * FROM vagas WHERE id = %s AND empresa_id = %s", (id_vaga, current_user.empresa_id))
                 vaga = cursor.fetchone()
                 
@@ -1032,14 +1081,12 @@ def analisar_vaga(id_vaga):
                     flash("Vaga não encontrada ou acesso negado.", "error")
                     return redirect(url_for('listar_vagas'))
                 
-                # 2. Resgata do histórico candidatos que já foram analisados para esta vaga
                 cursor.execute("""
                     SELECT curriculo_id FROM historico_analises_vagas 
                     WHERE vaga_id = %s
                 """, (id_vaga,))
                 analisados_ids = [r['curriculo_id'] for r in cursor.fetchall()]
 
-                # 3. Busca currículos que AINDA NÃO foram mapeados para esta vaga
                 if analisados_ids:
                     cursor.execute("""
                         SELECT id, nome_candidato AS nome, formacao, hard_skills, soft_skills, idiomas, conteudo 
@@ -1053,19 +1100,44 @@ def analisar_vaga(id_vaga):
                         WHERE empresa_id = %s
                     """, (current_user.empresa_id,))
                 
-                candidatos_para_analise = cursor.fetchall()
+                todos_candidatos_vaga = cursor.fetchall()
 
-        # Estrutura para renderizar candidatos que passaram do filtro de 70% nesta rodada
+        # [OTIMIZAÇÃO 2: APLICANDO PRÉ-FILTRO DE COMPATIBILIDADE LOCAL]
+        candidatos_para_analise = []
+        candidatos_rejeitados_localmente = []
+
+        for c in todos_candidatos_vaga:
+            # Texto combinado para o pré-filtro estático local
+            texto_curriculo_completo = f"{c['conteudo']} {c['hard_skills'] or ''} {c['soft_skills'] or ''} {c['formacao'] or ''}"
+            
+            if pre_filtro_compatibilidade(vaga['requisitos'], vaga['descricao'], vaga['titulo'], texto_curriculo_completo):
+                candidatos_para_analise.append(c)
+            else:
+                candidatos_rejeitados_localmente.append(c)
+
+        # Salva imediatamente candidatos rejeitados no banco como Baixa Compatibilidade (10%), sem gastar nada da API
+        if candidatos_rejeitados_localmente:
+            with get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    for rej in candidatos_rejeitados_localmente:
+                        cursor.execute("""
+                            INSERT INTO historico_analises_vagas (vaga_id, curriculo_id, porcentagem_compatibilidade, justificativa)
+                            VALUES (%s, %s, %s, %s)
+                            ON CONFLICT (vaga_id, curriculo_id) DO NOTHING
+                        """, (id_vaga, rej['id'], 10, 'Baixa aderência inicial identificada com base em competências e requisitos técnicos mínimos.'))
+                    conn.commit()
+
         novos_matches_exibir = []
 
-        # Só chama a IA do Gemini se houverem candidatos novos a serem analisados
+        # Só chama a IA do Gemini se restarem candidatos qualificados que passaram no pré-filtro
         if candidatos_para_analise:
             dados_candidatos_prompt = []
             for c in candidatos_para_analise:
                 dados_candidatos_prompt.append({
                     "id_candidato": c['id'],
                     "nome": c['nome'] or "Sem Nome",
-                    "perfil_resumido": f"Skills Técnicas: {c['hard_skills']}. Comportamental: {c['soft_skills']}. Idiomas: {c['idiomas']}. Formação: {c['formacao']}"
+                    # [OTIMIZAÇÃO 1: Limpeza local nos campos de input para economia de tokens]
+                    "perfil_resumido": f"Skills Técnicas: {otimizar_texto_ia(c['hard_skills'])}. Comportamental: {otimizar_texto_ia(c['soft_skills'])}. Idiomas: {c['idiomas']}. Formação: {otimizar_texto_ia(c['formacao'])}"
                 })
 
             system_instruction = (
@@ -1084,8 +1156,11 @@ def analisar_vaga(id_vaga):
                 f"{json.dumps(dados_candidatos_prompt, ensure_ascii=False)}"
             )
 
-            # TRY-EXCEPT interno para prevenir que falhas de parseamento com a API do Gemini quebrem a rota
             try:
+                # [OTIMIZAÇÃO 3: RATE LIMITING CONTROLADO PARA A CAMADA GRATUITA DO GEMINI]
+                # Insere um pequeno delay caso requisições em lote tenham sido executadas muito recentemente
+                time.sleep(3)
+
                 response = client.models.generate_content(
                     model='gemini-2.5-flash',
                     contents=prompt_conteudo,
@@ -1099,7 +1174,6 @@ def analisar_vaga(id_vaga):
                 
                 texto_resposta = response.text.strip() if response.text else ""
                 
-                # Tratamento robusto para extração de JSON da resposta da IA
                 if texto_resposta.startswith("```json"):
                     texto_resposta = re.sub(r"^```json\s*", "", texto_resposta)
                     texto_resposta = re.sub(r"\s*```$", "", texto_resposta)
@@ -1110,11 +1184,9 @@ def analisar_vaga(id_vaga):
                 analise_json = json.loads(texto_resposta) if texto_resposta else {}
                 candidatos_analisados_ia = analise_json.get("candidatos_compativeis", [])
 
-                # Grava todos os resultados mapeados no banco para alimentar o histórico de cache
                 with get_db_connection() as conn:
                     with conn.cursor() as cursor:
                         for cand in candidatos_analisados_ia:
-                            # Tratamento de segurança de tipo para as chaves recebidas do JSON
                             c_id = int(cand.get('id_candidato'))
                             c_compatibilidade = int(cand.get('porcentagem_compatibilidade', 0))
                             c_justificativa = str(cand.get('justificativa', 'Aderência média ao perfil cadastrado.'))
@@ -1126,7 +1198,6 @@ def analisar_vaga(id_vaga):
                             """, (id_vaga, c_id, c_compatibilidade, c_justificativa))
                         conn.commit()
 
-                # Filtra os candidatos com match >= 70% gerados para renderizar nesta requisição
                 for cand in candidatos_analisados_ia:
                     if int(cand.get('porcentagem_compatibilidade', 0)) >= 70:
                         novos_matches_exibir.append(cand)
@@ -1147,7 +1218,7 @@ def analisar_vaga(id_vaga):
 
 
 # ==============================================================================
-# NOVO ENDPOINT: HISTÓRICO DE CANDIDATOS ANALISADOS POR VAGA (MATCH >= 70%)
+# HISTÓRICO DE CANDIDATOS ANALISADOS POR VAGA (MATCH >= 70%)
 # ==============================================================================
 @app.route('/vagas/<int:id_vaga>/historico', methods=['GET'])
 @login_required
@@ -1155,14 +1226,12 @@ def historico_vaga(id_vaga):
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                # Carrega detalhes da vaga
                 cursor.execute("SELECT * FROM vagas WHERE id = %s AND empresa_id = %s", (id_vaga, current_user.empresa_id))
                 vaga = cursor.fetchone()
 
                 if not vaga:
                     return jsonify({"error": "Vaga não encontrada ou acesso negado"}), 404
 
-                # Traz apenas os candidatos analisados anteriormente com match >= 70%
                 cursor.execute("""
                     SELECT h.porcentagem_compatibilidade, h.justificativa, h.data_analise, 
                            c.id AS id_candidato, c.nome_candidato AS nome, c.localizacao
@@ -1173,7 +1242,6 @@ def historico_vaga(id_vaga):
                 """, (id_vaga,))
                 historico = cursor.fetchall()
 
-                # Formata a data de análise para uma string amigável
                 for item in historico:
                     if item['data_analise']:
                         item['data_analise'] = item['data_analise'].strftime('%d/%m/%Y %H:%M')
