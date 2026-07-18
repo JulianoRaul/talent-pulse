@@ -182,6 +182,18 @@ def init_db():
                         UNIQUE(vaga_id, curriculo_id)
                     );
                 ''')
+
+                # 7. Tabela de Histórico do Chat Interativo IA (Isolado por Tenant)
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS mensagens_chat (
+                        id SERIAL PRIMARY KEY,
+                        empresa_id INTEGER REFERENCES empresas(id) ON DELETE CASCADE,
+                        usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+                        remetente TEXT NOT NULL, -- 'usuario' ou 'ia'
+                        mensagem TEXT NOT NULL,
+                        data_envio TIMESTAMP DEFAULT (timezone('America/Sao_Paulo', NOW()))
+                    );
+                ''')
                 
                 conn.commit()
     except Exception as e:
@@ -220,7 +232,7 @@ class ResultadoAnaliseVaga(BaseModel):
 
 class ParecerRetroJogo(BaseModel):
     titulo_classe: str 
-    nivel: int 
+    level: int 
     vida_hp: int 
     mana_mp: int 
     pontos_fortes: list[str] 
@@ -779,7 +791,7 @@ def analise_retro_candidato(id_candidato):
             "Sua tarefa é analisar o perfil profissional do candidato e preencher o schema JSON com dados realistas e corporativos.\n\n"
             "REGRAS DE ADAPTAÇÃO DE CAMPOS:\n"
             "- 'titulo_classe': Deve ser o título/cargo ideal do candidato no mercado real (ex: 'Analista de Sistemas', 'Gerente de Vendas'). Nunca use termos de fantasia ou RPG.\n"
-            "- 'nivel': Nível de senioridade (número de 1 a 99).\n"
+            "- 'level': Nível de senioridade (número de 1 a 99).\n"
             "- 'vida_hp': Porcentagem estimada de 'Fit Técnico / Hard Skills' (0 a 100).\n"
             "- 'mana_mp': Porcentagem estimada de 'Fit Cultural / Soft Skills' (0 a 100).\n"
             "- 'habilidades_especiais': Mapeie competências técnicas reais de alto impacto profissional.\n"
@@ -1233,6 +1245,111 @@ def historico_vaga(id_vaga):
     except Exception as e:
         print(f"Erro ao buscar histórico de vagas: {e}")
         return jsonify({"error": "Erro interno ao buscar histórico de candidatos."}), 500
+
+# ==============================================================================
+# CHAT INTERATIVO COM IA (CONTEXTUALIZADO E ISOLADO POR TENANT)
+# ==============================================================================
+@app.route('/chat', methods=['GET'])
+@login_required
+def renderizar_chat():
+    return render_template('chat.html')
+
+@app.route('/chat/historico', methods=['GET'])
+@login_required
+def historico_chat():
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT remetente, mensagem, data_envio 
+                    FROM mensagens_chat 
+                    WHERE empresa_id = %s 
+                    ORDER BY data_envio ASC
+                """, (current_user.empresa_id,))
+                historico = cursor.fetchall()
+                
+                for msg in historico:
+                    if msg['data_envio']:
+                        msg['data_envio'] = msg['data_envio'].strftime('%d/%m %H:%M')
+                return jsonify(historico)
+    except Exception as e:
+        print(f"Erro ao buscar histórico do chat: {e}")
+        return jsonify({"error": "Erro ao carregar mensagens."}), 500
+
+@app.route('/chat/enviar', methods=['POST'])
+@login_required
+def enviar_mensagem_chat():
+    if not client:
+        return jsonify({"error": "Integração com IA não configurada."}), 500
+        
+    dados = request.get_json() or {}
+    mensagem_usuario = dados.get('mensagem', '').strip()
+    
+    if not mensagem_usuario:
+        return jsonify({"error": "A mensagem não pode estar vazia."}), 400
+        
+    try:
+        # 1. Salva a mensagem que o recrutador acabou de enviar
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO mensagens_chat (empresa_id, usuario_id, remetente, mensagem)
+                    VALUES (%s, %s, 'usuario', %s)
+                """, (current_user.empresa_id, current_user.id, mensagem_usuario))
+                
+                # 2. Resgata as últimas 15 mensagens trocadas da empresa para dar memória ao chat
+                cursor.execute("""
+                    SELECT remetente, mensagem FROM (
+                        SELECT remetente, mensagem, data_envio 
+                        FROM mensagens_chat 
+                        WHERE empresa_id = %s 
+                        ORDER BY data_envio DESC 
+                        LIMIT 15
+                    ) sub ORDER BY data_envio ASC
+                """, (current_user.empresa_id,))
+                mensagens_anteriores = cursor.fetchall()
+                conn.commit()
+
+        # 3. Formata as mensagens de histórico no formato de Roles aceitos pelo google-genai
+        historico_gemini = []
+        for msg in mensagens_anteriores:
+            role = "user" if msg[0] == 'usuario' else "model"
+            historico_gemini.append(types.Content(role=role, parts=[types.Part.from_text(text=msg[1])]))
+
+        system_instruction = (
+            f"Você é o assistente virtual exclusivo de People Analytics e Recrutamento do ecossistema TalentPulse.\n"
+            f"Você está respondendo ao usuário corporativo '{current_user.nome}' de ID da empresa inquilina: {current_user.empresa_id}.\n"
+            "Seu papel é ajudar o recrutador a analisar perfis de candidatos, otimizar ou estruturar descrições de vagas, "
+            "sugerir perguntas para entrevistas e dar conselhos estratégicos de recrutamento.\n"
+            "Seja profissional, estratégico, objetivo e altamente prestativo."
+        )
+
+        # 4. Faz a requisição ao Gemini utilizando o SDK atualizado (gemini-2.5-flash)
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=historico_gemini,
+            config=types.GenerateContentConfig(
+                system_instruction=system_instruction,
+                temperature=0.7
+            )
+        )
+        
+        resposta_ia = response.text.strip() if response.text else "Não consegui processar uma resposta no momento."
+
+        # 5. Registra a resposta oficial gerada pela IA no banco de dados
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO mensagens_chat (empresa_id, usuario_id, remetente, mensagem)
+                    VALUES (%s, NULL, 'ia', %s)
+                """, (current_user.empresa_id, resposta_ia))
+                conn.commit()
+
+        return jsonify({"resposta": resposta_ia})
+
+    except Exception as e:
+        print(f"Erro na rota de processamento do chat: {e}")
+        return jsonify({"error": "Erro interno ao processar a resposta do assistente virtual."}), 500
 
 # ==============================================================================
 # CONTROLE MASTER ADMINISTRATIVO 
