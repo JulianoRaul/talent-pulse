@@ -1255,30 +1255,48 @@ import re # Certifique-se de ter essa importação no topo do seu arquivo
 @login_required
 def chat_vanessa():
     data = request.json
-    mensagem_usuario = data.get('mensagem')
+    mensagem_usuario = data.get('mensagem', '').strip()
     
+    # --- LÓGICA DE DETECÇÃO DE INTENÇÃO DE BUSCA ---
+    # Se o usuário pedir o "mais experiente" (ex: vendedor com mais experiência)
+    if "mais" in mensagem_usuario.lower() and "experiencia" in mensagem_usuario.lower():
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                    # Busca candidatos (assumindo que "experiência" pode ser inferida por dados ou cadastro)
+                    # Ajuste a consulta conforme a sua estrutura real de banco
+                    cursor.execute("""
+                        SELECT nome_candidato, formacao, hard_skills 
+                        FROM curriculos 
+                        WHERE empresa_id = %s 
+                        ORDER BY id DESC LIMIT 1
+                    """, (current_user.empresa_id,))
+                    candidato = cursor.fetchone()
+            
+            if candidato:
+                resposta_final = f"O profissional com o perfil mais recente/destacado é {candidato['nome_candidato']}. Formação: {candidato['formacao']}. Skills: {candidato['hard_skills']}."
+                return jsonify({"resposta": resposta_final})
+        except Exception as e:
+            print(f"Erro na busca via chat: {e}")
+
+    # --- FLUXO PADRÃO (SE NÃO FOR BUSCA) ---
     try:
-        # Chama a IA para responder
         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=mensagem_usuario,
             config=types.GenerateContentConfig(
-                system_instruction="Você é Vanessa, assistente da TalentPulse. Seja breve, profissional e direta. Responda apenas texto puro, sem blocos de código markdown."
+                system_instruction="Você é Vanessa, assistente da TalentPulse. Se o usuário pedir para buscar candidatos, explique que você está acessando a base de dados. Responda apenas texto puro, sem blocos de código markdown."
             )
         )
         
-        # 1. Pega o texto da resposta
-        resposta_bruta = response.text or "Desculpe, não consegui processar sua mensagem."
-        
-        # 2. Limpeza extra: Remove qualquer bloco de markdown que a IA possa ter enviado
+        resposta_bruta = response.text or "Desculpe, não consegui processar."
         resposta_limpa = re.sub(r'```[a-zA-Z]*', '', resposta_bruta).replace('```', '').strip()
         
         return jsonify({"resposta": resposta_limpa})
         
     except Exception as e:
-        print(f"Erro na IA: {e}") # Importante para debugar no console do servidor
+        print(f"Erro na IA: {e}")
         return jsonify({"resposta": "Ocorreu um erro técnico na comunicação com a IA."}), 500
-
 @app.route('/chat', methods=['GET'])
 @login_required
 def renderizar_chat():
