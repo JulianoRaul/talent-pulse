@@ -21,9 +21,10 @@
         .ranking-list { display: flex; flex-direction: column; gap: 16px; }
         .match-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); position: relative; overflow: hidden; }
         
-        /* Indicador de Score Alto */
+        /* Indicador de Score Alto e Médio */
         .match-card.high-score { border-left: 4px solid #10b981; }
         .match-card.mid-score { border-left: 4px solid #f59e0b; }
+        .match-card.low-score { border-left: 4px solid #ef4444; }
         
         .match-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
         .candidato-nome { font-size: 18px; font-weight: 700; color: #0f172a; }
@@ -60,14 +61,19 @@
         <h2 class="ranking-title">📊 Ranking de Aderência (Match IA)</h2>
 
         <div class="ranking-list">
-            {# Ordena a exibição dos candidatos vindos do JSON pelo score de maior para menor #}
-            {% if resultado and resultado.candidatos_compativeis %}
+            {# Caso um aviso de fallback sem candidatos mínimos seja acionado #}
+            {% if mensagem_aviso %}
+                <div style="background: #fffbeb; text-align: center; padding: 48px; border-radius: 16px; border: 1px solid #fef3c7; color: #b45309;">
+                    ⚠️ {{ mensagem_aviso }}
+                </div>
+            {# Se houver candidatos compatíveis retornados pelo filtro/fallback #}
+            {% elif resultado and resultado.candidatos_compativeis %}
                 {% for cand in resultado.candidatos_compativeis | sort(attribute='porcentagem_compatibilidade', reverse=true) %}
                     
-                    {% set score = cand.porcentagem_compatibilidade %}
-                    {% set classe_card = 'high-score' if score >= 75 else ('mid-score' if score >= 45 else 'low-score') %}
-                    {% set classe_badge = 'score-high' if score >= 75 else ('score-mid' if score >= 45 else 'score-low') %}
-                    {% set classe_bg = 'bg-high' if score >= 75 else ('bg-mid' if score >= 45 else 'bg-low') %}
+                    {% set score = cand.porcentagem_compatibilidade | int %}
+                    {% set classe_card = 'high-score' if score >= 70 else ('mid-score' if score >= 50 else 'low-score') %}
+                    {% set classe_badge = 'score-high' if score >= 70 else ('score-mid' if score >= 50 else 'score-low') %}
+                    {% set classe_bg = 'bg-high' if score >= 70 else ('bg-mid' if score >= 50 else 'bg-low') %}
 
                     <div class="match-card {{ classe_card }}">
                         <div class="match-header">
