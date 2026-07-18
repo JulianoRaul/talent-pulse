@@ -1161,61 +1161,63 @@ def analisar_vaga(id_vaga):
                             """, (id_vaga, c_id, c_compatibilidade, c_justificativa))
                         conn.commit()
 
-            except Exception as e:
-                print(f"Erro ao processar análise da vaga com Gemini: {e}")
-                flash("Houve um erro temporário ao gerar os novos matches da IA.", "error")
+                # 1. Tenta primeiramente filtrar os candidatos ideais (>= 70%)
+                novos_matches_exibir = [
+                    cand for cand in candidatos_analisados_ia 
+                    if int(cand.get('porcentagem_compatibilidade', 0)) >= 70
+                ]
 
-        # Recuperação final dos dados consolidados históricos
-        with get_db_connection() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute("""
-                    SELECT h.porcentagem_compatibilidade, h.justificativa, h.curriculo_id AS id_candidato, c.nome_candidato AS nome
-                    FROM historico_analises_vagas h
-                    JOIN curriculos c ON h.curriculo_id = c.id
-                    WHERE h.vaga_id = %s
-                    ORDER BY h.porcentagem_compatibilidade DESC
-                """, (id_vaga,))
-                historico_completo = cursor.fetchall()
+                # 2. Fallback: Se não houver nenhum >= 70%, pega os candidatos regulares (>= 50%)
+                if not novos_matches_exibir:
+                    novos_matches_exibir = [
+                        cand for cand in candidatos_analisados_ia 
+                        if int(cand.get('porcentagem_compatibilidade', 0)) >= 50
+                    ]
 
-        # Lógica de Fallback Estratégica
-        candidatos_alta_aderencia = [cand for cand in historico_completo if cand['porcentagem_compatibilidade'] >= 70]
-        
-        if len(candidatos_alta_aderencia) >= 3:
-            resultado_final = {"vaga_id": id_vaga, "candidatos_compativeis": candidatos_alta_aderencia}
+                # 3. Se ainda assim estiver vazio, define a mensagem de aviso customizada
+                if not novos_matches_exibir:
+                    mensagem_aviso = "Nenhum candidato avaliado cumpriu o mínimo exigido de competências ou requisitos para esta vaga."
+
+            except json.JSONDecodeError as jde:
+                print(f"[ERRO CRÍTICO] Falha ao decodificar JSON retornado pelo Gemini: {jde}")
+                flash("Erro ao processar estrutura de análise inteligente. Tente novamente.", "error")
+            except Exception as inner_e:
+                print(f"[ERRO CRÍTICO] Falha ao se comunicar ou salvar dados do Gemini: {inner_e}")
+                flash("Instabilidade na comunicação com a IA. Os candidatos não puderam ser triados.", "error")
         else:
-            candidatos_fallback = [cand for cand in historico_completo if cand['porcentagem_compatibilidade'] >= 40]
-            if len(candidatos_fallback) >= 3:
-                resultado_final = {"vaga_id": id_vaga, "candidatos_compativeis": candidatos_fallback}
-                mensagem_aviso = "Exibindo candidatos com aderência média (a partir de 40%) como alternativa, pois não atingimos o mínimo de 3 perfis com alta aderência (70%+)."
-            else:
-                resultado_final = {"vaga_id": id_vaga, "candidatos_compativeis": historico_completo}
-                if not historico_completo:
-                    mensagem_aviso = "Nenhum candidato mapeado para esta vaga até o momento."
-                else:
-                    mensagem_aviso = "Exibindo todos os perfis disponíveis devido à escassez de dados qualificados para os critérios ideais da vaga."
+            # Caso nenhum candidato cadastrado tenha passado do pré-filtro local estático
+            mensagem_aviso = "Nenhum candidato avaliado cumpriu o mínimo exigido de competências ou requisitos para esta vaga."
 
-        return render_template('match_ia.html', vaga=vaga, resultado=resultado_final, mensagem_aviso=mensagem_aviso)
-
+        return render_template(
+            'analise.html', 
+            vaga=vaga, 
+            resultado={"vaga_id": id_vaga, "candidatos_compativeis": novos_matches_exibir},
+            mensagem_aviso=mensagem_aviso
+        )
+        
     except Exception as e:
-        print(f"Erro crítico no fluxo da rota de análise: {e}")
-        flash("Ocorreu um erro inesperado ao processar o ranking.", "error")
+        print(f"Erro geral na análise de vagas: {e}")
+        flash("Ocorreu um erro interno ao processar a inteligência artificial.", "error")
         return redirect(url_for('listar_vagas'))
 
+# ==============================================================================
+# HISTÓRICO DE CANDIDATOS ANALISADOS POR VAGA (MATCH >= 70%)
+# ==============================================================================
 @app.route('/vagas/<int:id_vaga>/historico', methods=['GET'])
 @login_required
-def historico_vaga_json(id_vaga):
+def historico_vaga(id_vaga):
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute("SELECT id, titulo FROM vagas WHERE id = %s AND empresa_id = %s", (id_vaga, current_user.empresa_id))
+                cursor.execute("SELECT * FROM vagas WHERE id = %s AND empresa_id = %s", (id_vaga, current_user.empresa_id))
                 vaga = cursor.fetchone()
-                
+
                 if not vaga:
-                    return jsonify({"error": "Vaga não encontrada ou acesso negado."}), 403
+                    return jsonify({"error": "Vaga não encontrada ou acesso negado"}), 404
 
                 cursor.execute("""
-                    SELECT c.nome_candidato AS nome, c.localizacao, h.porcentagem_compatibilidade, h.justificativa,
-                           TO_CHAR(h.data_analise, 'DD/MM/YYYY HH24:MI') as data_analise
+                    SELECT h.porcentagem_compatibilidade, h.justificativa, h.data_analise, 
+                           c.id AS id_candidato, c.nome_candidato AS nome, c.localizacao
                     FROM historico_analises_vagas h
                     JOIN curriculos c ON h.curriculo_id = c.id
                     WHERE h.vaga_id = %s AND h.porcentagem_compatibilidade >= 70
@@ -1223,11 +1225,238 @@ def historico_vaga_json(id_vaga):
                 """, (id_vaga,))
                 historico = cursor.fetchall()
 
-        return jsonify({"vaga": vaga, "historico": historico})
+                for item in historico:
+                    if item['data_analise']:
+                        item['data_analise'] = item['data_analise'].strftime('%d/%m/%Y %H:%M')
+
+                return jsonify({"vaga": vaga, "historico": historico})
     except Exception as e:
-        print(f"Erro ao recuperar histórico da vaga {id_vaga}: {e}")
-        return jsonify({"error": "Erro interno do servidor."}), 500
+        print(f"Erro ao buscar histórico de vagas: {e}")
+        return jsonify({"error": "Erro interno ao buscar histórico de candidatos."}), 500
+
+# ==============================================================================
+# CONTROLE MASTER ADMINISTRATIVO 
+# ==============================================================================
+ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "pulse_admin_2026")
+
+@app.route('/master-admin/empresas', methods=['GET'])
+def admin_listar_empresas():
+    token = request.args.get('token')
+    if token != ADMIN_TOKEN:
+        return "Acesso não autorizado", 403
+        
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT e.id, e.nome_comercial, e.data_cadastro, e.status, e.data_expiracao, e.plano, e.limite_mensal,
+                           (SELECT COUNT(*) FROM usuarios u WHERE u.empresa_id = e.id) as qtd_usuarios,
+                           (SELECT COUNT(*) FROM curriculos c WHERE c.empresa_id = e.id) as qtd_curriculos,
+                           (SELECT COUNT(*) FROM vagas v WHERE v.empresa_id = e.id) as qtd_vagas
+                    FROM empresas e
+                    ORDER BY e.id DESC
+                """)
+                empresas = cursor.fetchall()
+                
+        html_admin = f"""
+        <html>
+        <head>
+            <title>Master Admin - TalentPulse</title>
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap" rel="stylesheet">
+            <style>
+                body {{ font-family: 'Inter', sans-serif; padding: 40px; background: #f8fafc; color: #334155; margin: 0; }}
+                .container {{ max-width: 1400px; margin: 0 auto; }}
+                h2 {{ color: #0f172a; font-weight: 700; margin-bottom: 6px; }}
+                p.subtitle {{ color: #64748b; font-size: 14px; margin-bottom: 24px; }}
+                table {{ width: 100%; border-collapse: collapse; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.02); border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; }}
+                th, td {{ padding: 14px 14px; text-align: left; font-size: 13px; border-bottom: 1px solid #e2e8f0; }}
+                th {{ background: #0f172a; color: white; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; font-size: 11px; }}
+                tr:last-child td {{ border-bottom: none; }}
+                tr:nth-child(even) {{ background: #f8fafc; }}
+                .badge {{ padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; text-transform: uppercase; }}
+                .badge-ativo {{ background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }}
+                .badge-bloqueado {{ background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }}
+                .badge-expirado {{ background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }}
+                .form-inline {{ display: flex; gap: 6px; align-items: center; margin: 0; }}
+                .input-days {{ width: 70px; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-weight: 500; text-align: center; }}
+                .select-plan {{ padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-weight: 500; }}
+                .btn-save {{ background: #4f46e5; color: white; border: none; padding: 7px 10px; cursor: pointer; border-radius: 6px; font-size: 12px; font-weight: 600; transition: background 0.15s; }}
+                .btn-save:hover {{ background: #4338ca; }}
+                .btn-toggle {{ background: #ffffff; color: #475569; border: 1px solid #cbd5e1; padding: 7px 10px; cursor: pointer; border-radius: 6px; font-size: 12px; font-weight: 600; transition: all 0.15s; }}
+                .btn-toggle:hover {{ background: #f1f5f9; color: #1e293b; border-color: #94a3b8; }}
+                .btn-delete {{ background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; padding: 7px 10px; cursor: pointer; border-radius: 6px; font-size: 12px; font-weight: 600; transition: all 0.15s; }}
+                .btn-delete:hover {{ background: #fee2e2; border-color: #f87171; }}
+                .actions-cell {{ display: flex; gap: 6px; align-items: center; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h2>Painel de Controle de Clientes (Tenants)</h2>
+                <p class="subtitle">Gerencie os contratos ativos, prazos de aluguel, tipos de planos e limites da plataforma TalentPulse.</p>
+                <table>
+                    <tr>
+                        <th>ID</th><th>Nome da Empresa</th><th>Cadastro</th><th>Status</th><th>Plano Atual</th><th>Limite</th><th>Expira Em</th><th>Aluguel (Dias)</th><th>Alterar Plano/Limite</th><th>Métricas</th><th>Ações</th>
+                    </tr>
+        """
+        for emp in empresas:
+            data_exp_formatada = "Sem limite"
+            status_badge = f'<span class="badge badge-ativo">Ativo</span>'
+            
+            if emp['status'] == 'bloqueado':
+                status_badge = f'<span class="badge badge-bloqueado">Bloqueado</span>'
+                
+            if emp['data_expiracao']:
+                data_exp_formatada = emp['data_expiracao'].strftime('%d/%m/%Y %H:%M')
+                if datetime.now() > emp['data_expiracao']:
+                    status_badge = f'<span class="badge badge-expirado">Expirado</span>'
+            
+            plano_str = str(emp['plano']).upper() if emp['plano'] else 'STARTER'
+            limite_num = emp['limite_mensal'] or 300
+            
+            html_admin += f"""
+                <tr>
+                    <td>{emp['id']}</td>
+                    <td><strong>{emp['nome_comercial']}</strong></td>
+                    <td>{emp['data_cadastro'].strftime('%d/%m/%Y')}</td>
+                    <td>{status_badge}</td>
+                    <td><span style="font-weight:600; color:#4f46e5;">{plano_str}</span></td>
+                    <td><strong>{limite_num}</strong> /mês</td>
+                    <td style="font-weight: 500; font-size: 12px; color: #475569;">{data_exp_formatada}</td>
+                    <td>
+                        <form class="form-inline" action="/master-admin/empresas/{emp['id']}/atualizar-prazo?token={token}" method="POST">
+                            <input class="input-days" type="number" name="dias" placeholder="+ Dias" required min="1">
+                            <button class="btn-save" type="submit">Adicionar</button>
+                        </form>
+                    </td>
+                    <td>
+                        <form class="form-inline" action="/master-admin/empresas/{emp['id']}/atualizar-plano?token={token}" method="POST">
+                            <select class="select-plan" name="plano">
+                                <option value="starter" {"selected" if plano_str == "STARTER" else ""}>Starter</option>
+                                <option value="pro" {"selected" if plano_str == "PRO" else ""}>Pro</option>
+                                <option value="premium" {"selected" if plano_str == "PREMIUM" else ""}>Premium</option>
+                            </select>
+                            <input class="input-days" type="number" name="limite" value="{limite_num}" required min="0" title="Limite de currículos por mês">
+                            <button class="btn-save" type="submit" style="background:#059669;">Salvar</button>
+                        </form>
+                    </td>
+                    <td style="color: #64748b; font-size:12px;">
+                        U: {emp['qtd_usuarios']} | C: {emp['qtd_curriculos']} | V: {emp['qtd_vagas']}
+                    </td>
+                    <td>
+                        <div class="actions-cell">
+                            <form action="/master-admin/empresas/{emp['id']}/toggle-status?token={token}" method="POST" style="margin:0;">
+                                <button class="btn-toggle" type="submit">{"Bloquear" if emp['status'] == 'ativo' else "Ativar"}</button>
+                            </form>
+                            <form action="/master-admin/empresas/{emp['id']}/excluir?token={token}" method="POST" style="margin:0;" onsubmit="return confirm('ATENÇÃO CRÍTICA: Deletar esta empresa apagará TODOS os dados permanentemente. Confirmar?');">
+                                <button class="btn-delete" type="submit">Deletar</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+            """
+        html_admin += "</table></div></body></html>"
+        return Response(html_admin, mimetype='text/html')
+    except Exception as e:
+        return f"Erro ao carregar o painel administrativo: {e}", 500
+
+@app.route('/master-admin/empresas/<int:id_empresa>/atualizar-prazo', methods=['POST'])
+def admin_atualizar_prazo(id_empresa):
+    token = request.args.get('token')
+    if token != ADMIN_TOKEN:
+        return "Acesso não autorizado", 403
+        
+    dias = int(request.form.get('dias', 0))
+    if dias <= 0:
+        return "Quantidade de dias inválida", 400
+        
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("SELECT data_expiracao FROM empresas WHERE id = %s", (id_empresa,))
+                emp = cursor.fetchone()
+                
+                base_calculo = datetime.now()
+                if emp and emp['data_expiracao'] and emp['data_expiracao'] > datetime.now():
+                    base_calculo = emp['data_expiracao']
+                    
+                nova_data_limite = base_calculo + timedelta(days=dias)
+                
+                cursor.execute("""
+                    UPDATE empresas 
+                    SET data_expiracao = %s, status = 'ativo' 
+                    WHERE id = %s
+                """, (nova_data_limite, id_empresa))
+                conn.commit()
+                
+        return redirect(f"/master-admin/empresas?token={token}")
+    except Exception as e:
+        return f"Erro ao estender prazo da licença: {e}", 500
+
+@app.route('/master-admin/empresas/<int:id_empresa>/atualizar-plano', methods=['POST'])
+def admin_atualizar_plano(id_empresa):
+    token = request.args.get('token')
+    if token != ADMIN_TOKEN:
+        return "Acesso não autorizado", 403
+        
+    plano = request.form.get('plano', 'starter').strip().lower()
+    limite = int(request.form.get('limite', 300))
+    
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    UPDATE empresas 
+                    SET plano = %s, limite_mensal = %s 
+                    WHERE id = %s
+                """, (plano, limite, id_empresa))
+                conn.commit()
+                
+        return redirect(f"/master-admin/empresas?token={token}")
+    except Exception as e:
+        return f"Erro ao atualizar o plano da empresa: {e}", 500
+
+@app.route('/master-admin/empresas/<int:id_empresa>/toggle-status', methods=['POST'])
+def admin_toggle_status(id_empresa):
+    token = request.args.get('token')
+    if token != ADMIN_TOKEN:
+        return "Acesso não autorizado", 403
+        
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("SELECT status FROM empresas WHERE id = %s", (id_empresa,))
+                emp = cursor.fetchone()
+                
+                if emp:
+                    novo_status = 'bloqueado' if emp['status'] == 'ativo' else 'ativo'
+                    cursor.execute("UPDATE empresas SET status = %s WHERE id = %s", (novo_status, id_empresa))
+                    conn.commit()
+                    
+        return redirect(f"/master-admin/empresas?token={token}")
+    except Exception as e:
+        return f"Erro ao alterar status da licença: {e}", 500
+
+@app.route('/master-admin/empresas/<int:id_empresa>/excluir', methods=['POST'])
+def admin_excluir_empresa(id_empresa):
+    token = request.args.get('token')
+    if token != ADMIN_TOKEN:
+        return "Acesso não autorizado", 403
+        
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM empresas WHERE id = %s", (id_empresa,))
+                conn.commit()
+                
+        return f"""
+        <div style="font-family: sans-serif; padding: 40px; text-align: center;">
+            <h3 style="color: #16a34a;">Empresa ID {id_empresa} e todos os seus dados associados foram excluídos com sucesso do banco!</h3>
+            <br>
+            <a href='/master-admin/empresas?token={token}' style="display: inline-block; background: #0f172a; color: white; text-decoration: none; padding: 10px 20px; border-radius: 4px;">Voltar ao Painel</a>
+        </div>
+        """
+    except Exception as e:
+        return f"Erro ao deletar empresa: {e}", 500
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(debug=True)
