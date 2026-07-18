@@ -1249,6 +1249,9 @@ def historico_vaga(id_vaga):
 # ==============================================================================
 # CHAT INTERATIVO COM IA (CONTEXTUALIZADO E ISOLADO POR TENANT)
 # ==============================================================================
+# ==============================================================================
+# CHAT INTERATIVO COM IA (CORRIGIDO)
+# ==============================================================================
 @app.route('/chat', methods=['GET'])
 @login_required
 def renderizar_chat():
@@ -1289,7 +1292,7 @@ def enviar_mensagem_chat():
         return jsonify({"error": "A mensagem não pode estar vazia."}), 400
         
     try:
-        # 1. Salva a mensagem que o recrutador acabou de enviar
+        # 1. Salva a mensagem do usuário
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute("""
@@ -1297,9 +1300,9 @@ def enviar_mensagem_chat():
                     VALUES (%s, %s, 'usuario', %s)
                 """, (current_user.empresa_id, current_user.id, mensagem_usuario))
                 
-                # 2. Resgata as últimas 15 mensagens (CORRIGIDO: Sintaxe SQL limpa e explícita)
+                # 2. Resgata histórico para contexto
                 cursor.execute("""
-                    SELECT remetente, mensagem FROM (
+                    SELECT remetente, mensagem, data_envio FROM (
                         SELECT remetente, mensagem, data_envio 
                         FROM mensagens_chat 
                         WHERE empresa_id = %s 
@@ -1310,21 +1313,19 @@ def enviar_mensagem_chat():
                 mensagens_anteriores = cursor.fetchall()
                 conn.commit()
 
-        # 3. Formata as mensagens de histórico para o Gemini
+        # 3. Formata histórico para Gemini
         historico_gemini = []
         for msg in mensagens_anteriores:
-            role = "user" if msg[0] == 'usuario' else "model"
-            historico_gemini.append(types.Content(role=role, parts=[types.Part.from_text(text=msg[1])]))
+            role = "user" if msg['remetente'] == 'usuario' else "model"
+            historico_gemini.append(types.Content(role=role, parts=[types.Part.from_text(text=msg['mensagem'])]))
 
         system_instruction = (
-            f"Você é a Vanessa, assistente virtual exclusiva de People Analytics e Recrutamento do ecossistema TalentPulse.\n"
-            f"Você está respondendo ao usuário corporativo '{current_user.nome}' da empresa de ID: {current_user.empresa_id}.\n"
-            "Seu papel é ajudar o recrutador a analisar perfis de candidatos, otimizar descrições de vagas, "
-            "sugerir perguntas para entrevistas e dar conselhos de contratação.\n"
-            "Seja profissional, estratégica, objetiva e muito prestativa."
+            f"Você é a Vanessa, assistente virtual do TalentPulse. "
+            f"Usuário: {current_user.nome} (Empresa ID: {current_user.empresa_id}). "
+            "Ajude com análise de currículos, vagas e recrutamento."
         )
 
-        # 4. Faz a requisição ao Gemini 2.5
+        # 4. Processamento IA
         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=historico_gemini,
@@ -1334,9 +1335,9 @@ def enviar_mensagem_chat():
             )
         )
         
-        resposta_ia = response.text.strip() if response.text else "Não consegui processar uma resposta no momento."
+        resposta_ia = response.text.strip() if response.text else "Não consegui processar uma resposta."
 
-        # 5. Registra a resposta oficial gerada pela IA no banco de dados
+        # 5. Salva resposta da IA
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute("""
@@ -1348,24 +1349,8 @@ def enviar_mensagem_chat():
         return jsonify({"resposta": resposta_ia})
 
     except Exception as e:
-        # IMPORTANTE: Isso vai printar o erro exato no terminal do seu servidor para você ver caso falhe por outra razão
         print(f"[ERRO NO CHAT]: {e}")
-        return jsonify({"error": "Erro interno ao processar a resposta do assistente virtual."}), 500
-        # 5. Registra a resposta oficial gerada pela IA no banco de dados
-        with get_db_connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute("""
-                    INSERT INTO mensagens_chat (empresa_id, usuario_id, remetente, mensagem)
-                    VALUES (%s, NULL, 'ia', %s)
-                """, (current_user.empresa_id, resposta_ia))
-                conn.commit()
-
-        return jsonify({"resposta": resposta_ia})
-
-    except Exception as e:
-        print(f"Erro na rota de processamento do chat: {e}")
-        return jsonify({"error": "Erro interno ao processar a resposta do assistente virtual."}), 500
-
+        return jsonify({"error": "Erro interno ao processar a resposta da IA."}), 500
 # ==============================================================================
 # CONTROLE MASTER ADMINISTRATIVO 
 # ==============================================================================
