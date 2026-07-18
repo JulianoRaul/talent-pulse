@@ -1247,11 +1247,10 @@ def historico_vaga(id_vaga):
         return jsonify({"error": "Erro interno ao buscar histórico de candidatos."}), 500
 
 # ==============================================================================
-# CHAT INTERATIVO COM IA (CONTEXTUALIZADO E ISOLADO POR TENANT)
+# CHAT INTERATIVO COM IA (CORRIGIDO E ROBUSTO)
 # ==============================================================================
-# ==============================================================================
-# CHAT INTERATIVO COM IA (CORRIGIDO)
-# ==============================================================================
+import re
+
 @app.route('/chat', methods=['GET'])
 @login_required
 def renderizar_chat():
@@ -1264,17 +1263,12 @@ def historico_chat():
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute("""
-                    SELECT remetente, mensagem, data_envio 
+                    SELECT remetente, mensagem, TO_CHAR(data_envio, 'DD/MM HH24:MI') as data_envio 
                     FROM mensagens_chat 
                     WHERE empresa_id = %s 
                     ORDER BY data_envio ASC
                 """, (current_user.empresa_id,))
-                historico = cursor.fetchall()
-                
-                for msg in historico:
-                    if msg['data_envio']:
-                        msg['data_envio'] = msg['data_envio'].strftime('%d/%m %H:%M')
-                return jsonify(historico)
+                return jsonify(cursor.fetchall())
     except Exception as e:
         print(f"Erro ao buscar histórico do chat: {e}")
         return jsonify({"error": "Erro ao carregar mensagens."}), 500
@@ -1302,7 +1296,7 @@ def enviar_mensagem_chat():
                 
                 # 2. Resgata histórico para contexto
                 cursor.execute("""
-                    SELECT remetente, mensagem, data_envio FROM (
+                    SELECT remetente, mensagem FROM (
                         SELECT remetente, mensagem, data_envio 
                         FROM mensagens_chat 
                         WHERE empresa_id = %s 
@@ -1322,7 +1316,7 @@ def enviar_mensagem_chat():
         system_instruction = (
             f"Você é a Vanessa, assistente virtual do TalentPulse. "
             f"Usuário: {current_user.nome} (Empresa ID: {current_user.empresa_id}). "
-            "Ajude com análise de currículos, vagas e recrutamento."
+            "Ajude com análise de currículos, vagas e recrutamento. Responda apenas com texto puro, sem blocos de código."
         )
 
         # 4. Processamento IA
@@ -1335,7 +1329,10 @@ def enviar_mensagem_chat():
             )
         )
         
-        resposta_ia = response.text.strip() if response.text else "Não consegui processar uma resposta."
+        # Limpeza robusta da resposta da IA
+        resposta_bruta = response.text if response.text else "Não consegui processar uma resposta."
+        # Remove blocos Markdown (```json, ```text, ```, etc)
+        resposta_limpa = re.sub(r'```[a-zA-Z]*', '', resposta_bruta).replace('```', '').strip()
 
         # 5. Salva resposta da IA
         with get_db_connection() as conn:
@@ -1343,10 +1340,10 @@ def enviar_mensagem_chat():
                 cursor.execute("""
                     INSERT INTO mensagens_chat (empresa_id, usuario_id, remetente, mensagem)
                     VALUES (%s, NULL, 'ia', %s)
-                """, (current_user.empresa_id, resposta_ia))
+                """, (current_user.empresa_id, resposta_limpa))
                 conn.commit()
 
-        return jsonify({"resposta": resposta_ia})
+        return jsonify({"resposta": resposta_limpa})
 
     except Exception as e:
         print(f"[ERRO NO CHAT]: {e}")
