@@ -1297,7 +1297,7 @@ def enviar_mensagem_chat():
                     VALUES (%s, %s, 'usuario', %s)
                 """, (current_user.empresa_id, current_user.id, mensagem_usuario))
                 
-                # 2. Resgata as últimas 15 mensagens trocadas da empresa para dar memória ao chat
+                # 2. Resgata as últimas 15 mensagens (CORRIGIDO: Sintaxe SQL limpa e explícita)
                 cursor.execute("""
                     SELECT remetente, mensagem FROM (
                         SELECT remetente, mensagem, data_envio 
@@ -1305,26 +1305,26 @@ def enviar_mensagem_chat():
                         WHERE empresa_id = %s 
                         ORDER BY data_envio DESC 
                         LIMIT 15
-                    ) sub ORDER BY data_envio ASC
+                    ) AS subquery_chat ORDER BY data_envio ASC
                 """, (current_user.empresa_id,))
                 mensagens_anteriores = cursor.fetchall()
                 conn.commit()
 
-        # 3. Formata as mensagens de histórico no formato de Roles aceitos pelo google-genai
+        # 3. Formata as mensagens de histórico para o Gemini
         historico_gemini = []
         for msg in mensagens_anteriores:
             role = "user" if msg[0] == 'usuario' else "model"
             historico_gemini.append(types.Content(role=role, parts=[types.Part.from_text(text=msg[1])]))
 
         system_instruction = (
-            f"Você é o assistente virtual exclusivo de People Analytics e Recrutamento do ecossistema TalentPulse.\n"
-            f"Você está respondendo ao usuário corporativo '{current_user.nome}' de ID da empresa inquilina: {current_user.empresa_id}.\n"
-            "Seu papel é ajudar o recrutador a analisar perfis de candidatos, otimizar ou estruturar descrições de vagas, "
-            "sugerir perguntas para entrevistas e dar conselhos estratégicos de recrutamento.\n"
-            "Seja profissional, estratégico, objetivo e altamente prestativo."
+            f"Você é a Vanessa, assistente virtual exclusiva de People Analytics e Recrutamento do ecossistema TalentPulse.\n"
+            f"Você está respondendo ao usuário corporativo '{current_user.nome}' da empresa de ID: {current_user.empresa_id}.\n"
+            "Seu papel é ajudar o recrutador a analisar perfis de candidatos, otimizar descrições de vagas, "
+            "sugerir perguntas para entrevistas e dar conselhos de contratação.\n"
+            "Seja profissional, estratégica, objetiva e muito prestativa."
         )
 
-        # 4. Faz a requisição ao Gemini utilizando o SDK atualizado (gemini-2.5-flash)
+        # 4. Faz a requisição ao Gemini 2.5
         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=historico_gemini,
@@ -1336,6 +1336,21 @@ def enviar_mensagem_chat():
         
         resposta_ia = response.text.strip() if response.text else "Não consegui processar uma resposta no momento."
 
+        # 5. Registra a resposta oficial gerada pela IA no banco de dados
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO mensagens_chat (empresa_id, usuario_id, remetente, mensagem)
+                    VALUES (%s, NULL, 'ia', %s)
+                """, (current_user.empresa_id, resposta_ia))
+                conn.commit()
+
+        return jsonify({"resposta": resposta_ia})
+
+    except Exception as e:
+        # IMPORTANTE: Isso vai printar o erro exato no terminal do seu servidor para você ver caso falhe por outra razão
+        print(f"[ERRO NO CHAT]: {e}")
+        return jsonify({"error": "Erro interno ao processar a resposta do assistente virtual."}), 500
         # 5. Registra a resposta oficial gerada pela IA no banco de dados
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
