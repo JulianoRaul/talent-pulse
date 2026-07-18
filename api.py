@@ -277,55 +277,35 @@ def extrair_texto_docx(dados_bytes):
     except Exception as e:
         return ""
 
-# [OTIMIZAÇÃO 1: REDUÇÃO DE TOKENS E LIMPEZA LOCAL DE TEXTO]
 def otimizar_texto_ia(texto):
-    """
-    Remove quebras de linha excessivas, espaços duplicados e limita a entrada
-    a um teto de 8000 caracteres, economizando muito volume de tokens de entrada.
-    """
     if not texto:
         return ""
-    # Remove espaços em branco consecutivos e tabulações excessivas
     texto_limpo = re.sub(r'[ \t]+', ' ', texto)
-    # Minimiza saltos de linhas repetitivos
     texto_limpo = re.sub(r'\n+', '\n', texto_limpo)
     return texto_limpo.strip()[:8000]
 
-# [OTIMIZAÇÃO 2: PRÉ-FILTRO LOCAL SEM CUSTO]
 def pre_filtro_compatibilidade(requisitos_vaga, descricao_vaga, titulo_vaga, texto_curriculo):
-    """
-    Calcula a interseção de palavras-chave entre as exigências e o currículo do candidato.
-    Se a intersecção de termos técnicos for nula ou muito baixa, evita chamar a API.
-    """
     texto_comparativo_vaga = f"{requisitos_vaga or ''} {descricao_vaga or ''} {titulo_vaga or ''}"
-    
     vaga_normalizada = remover_acentos(texto_comparativo_vaga)
     curriculo_normalizado = remover_acentos(texto_curriculo)
     
     palavras_vaga = set(vaga_normalizada.split())
     palavras_curriculo = set(curriculo_normalizado.split())
     
-    # Remove termos gramaticais comuns de baixo valor semântico
     stop_words = {
         'e', 'o', 'a', 'os', 'as', 'de', 'do', 'da', 'em', 'para', 'com', 'que', 'em', 'um', 'uma',
         'para', 'por', 'sobre', 'sob', 'atras', 'entre', 'com', 'sem', 'no', 'na', 'nos', 'nas'
     }
-    
     palavras_vaga -= stop_words
     palavras_curriculo -= stop_words
     
-    # Filtra apenas palavras relevantes (com comprimento superior a 2 caracteres)
     palavras_vaga = {p for p in palavras_vaga if len(p) > 2}
     palavras_curriculo = {p for p in palavras_curriculo if len(p) > 2}
     
-    # Verifica quantas palavras-chave exigidas pela vaga aparecem no currículo
     coincidencias = palavras_vaga.intersection(palavras_curriculo)
-    
-    # Se não houver ao menos 2 palavras correspondentes, o candidato é considerado incompatível localmente
     if len(coincidencias) < 2:
         return False
     return True
-
 
 def estruturar_curriculo_com_ia(texto_bruto):
     if not texto_bruto or not texto_bruto.strip():
@@ -336,9 +316,7 @@ def estruturar_curriculo_com_ia(texto_bruto):
             "whatsapp": "", "areas_profissionais": ["Geral"]
         }
     
-    # [OTIMIZAÇÃO 1 APLICADA AQUI]
     texto_limitado = otimizar_texto_ia(texto_bruto)
-    
     if not client:
         return {
             "nome": "Sem Chave API", "idade": "Não Informado", "sexo": "Não Informado",
@@ -402,7 +380,6 @@ def estruturar_curriculo_com_ia(texto_bruto):
                     "whatsapp": limpar_caracteres_invalidos(str(dados.get("whatsapp"))),
                     "areas_profissionais": [limpar_caracteres_invalidos(str(a)) for a in dados.get("areas_profissionais", ["Geral"])]
                 }
-                
         except Exception as e:
             print(f"[AVISO] Tentativa {tentativa + 1} de {max_tentativas} falhou devido a instabilidade (Erro: {e})")
             if tentativa < max_tentativas - 1:
@@ -744,7 +721,6 @@ def excluir(id_candidato):
 @login_required
 def analise_retro_candidato(id_candidato):
     try:
-        # 1. Verifica se já existe uma análise para este currículo salva em cache no Banco
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute("""
@@ -758,7 +734,6 @@ def analise_retro_candidato(id_candidato):
                     vagas_disponiveis = cursor.fetchall()
 
                     analise_retro = cached_data['dados_json']
-                    
                     vaga_recomendada_id = None
                     vaga_recomendada_titulo = None
 
@@ -782,7 +757,6 @@ def analise_retro_candidato(id_candidato):
 
                     return jsonify(analise_retro)
 
-        # Se não houver cache, gera a análise via API da Google Gemini
         if not client:
             return jsonify({"error": "Gemini API Key não está configurada."}), 500
 
@@ -800,7 +774,6 @@ def analise_retro_candidato(id_candidato):
                 cursor.execute("SELECT id, titulo, descricao FROM vagas WHERE empresa_id = %s", (current_user.empresa_id,))
                 vagas_disponiveis = cursor.fetchall()
 
-        # Prompt Executivo de Negócios
         system_instruction = (
             "Você é um especialista sênior em People Analytics e Recrutamento de Alta Performance.\n"
             "Sua tarefa é analisar o perfil profissional do candidato e preencher o schema JSON com dados realistas e corporativos.\n\n"
@@ -814,7 +787,6 @@ def analise_retro_candidato(id_candidato):
             "NUNCA use termos lúdicos de RPG, jogos ou fantasia."
         )
 
-        # [OTIMIZAÇÃO 1: Limpeza local do input do prompt histórico para reduzir tokens]
         conteudo_otimizado = otimizar_texto_ia(candidato['conteudo'])
         prompt_conteudo = f"Candidato: {candidato['nome']}\nPerfil Técnico: {candidato['hard_skills']}\nComportamental: {candidato['soft_skills']}\nHistórico: {conteudo_otimizado}"
 
@@ -834,7 +806,6 @@ def analise_retro_candidato(id_candidato):
         if not analise_retro.get("habilidades_especiais") and analise_retro.get("habilities_especiais"):
             analise_retro["habilidades_especiais"] = analise_retro["habilities_especiais"]
 
-        # Grava o resultado no cache do banco para nunca mais analisar este currículo
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute("""
@@ -1002,7 +973,6 @@ def editar_vaga(id_vaga):
         if not vaga:
             flash("Vaga não encontrada ou acesso não autorizado.", "error")
             return redirect(url_for('listar_vagas'))
-
     except Exception as e:
         print(f"Erro ao buscar vaga para edição: {e}")
         flash("Erro ao carregar dados da vaga.", "error")
@@ -1062,7 +1032,7 @@ def listar_vagas():
     return render_template('vagas.html', vagas=vagas_disponiveis)
 
 # ==============================================================================
-# MATCH INTELIGENTE OTIMIZADO CONTRA CUSTOS E RATE-LIMIT DA CAMADA GRATUITA
+# MATCH INTELIGENTE OTIMIZADO COM LÓGICA DE FALLBACK ATUALIZADA
 # ==============================================================================
 @app.route('/vagas/<int:id_vaga>/analise', methods=['GET'])
 @login_required
@@ -1102,20 +1072,16 @@ def analisar_vaga(id_vaga):
                 
                 todos_candidatos_vaga = cursor.fetchall()
 
-        # [OTIMIZAÇÃO 2: APLICANDO PRÉ-FILTRO DE COMPATIBILIDADE LOCAL]
         candidatos_para_analise = []
         candidatos_rejeitados_localmente = []
 
         for c in todos_candidatos_vaga:
-            # Texto combinado para o pré-filtro estático local
             texto_curriculo_completo = f"{c['conteudo']} {c['hard_skills'] or ''} {c['soft_skills'] or ''} {c['formacao'] or ''}"
-            
             if pre_filtro_compatibilidade(vaga['requisitos'], vaga['descricao'], vaga['titulo'], texto_curriculo_completo):
                 candidatos_para_analise.append(c)
             else:
                 candidatos_rejeitados_localmente.append(c)
 
-        # Salva imediatamente candidatos rejeitados no banco como Baixa Compatibilidade (10%), sem gastar nada da API
         if candidatos_rejeitados_localmente:
             with get_db_connection() as conn:
                 with conn.cursor() as cursor:
@@ -1128,15 +1094,14 @@ def analisar_vaga(id_vaga):
                     conn.commit()
 
         novos_matches_exibir = []
+        mensagem_aviso = None
 
-        # Só chama a IA do Gemini se restarem candidatos qualificados que passaram no pré-filtro
         if candidatos_para_analise:
             dados_candidatos_prompt = []
             for c in candidatos_para_analise:
                 dados_candidatos_prompt.append({
                     "id_candidato": c['id'],
                     "nome": c['nome'] or "Sem Nome",
-                    # [OTIMIZAÇÃO 1: Limpeza local nos campos de input para economia de tokens]
                     "perfil_resumido": f"Skills Técnicas: {otimizar_texto_ia(c['hard_skills'])}. Comportamental: {otimizar_texto_ia(c['soft_skills'])}. Idiomas: {c['idiomas']}. Formação: {otimizar_texto_ia(c['formacao'])}"
                 })
 
@@ -1157,8 +1122,6 @@ def analisar_vaga(id_vaga):
             )
 
             try:
-                # [OTIMIZAÇÃO 3: RATE LIMITING CONTROLADO PARA A CAMADA GRATUITA DO GEMINI]
-                # Insere um pequeno delay caso requisições em lote tenham sido executadas muito recentemente
                 time.sleep(3)
 
                 response = client.models.generate_content(
@@ -1198,9 +1161,22 @@ def analisar_vaga(id_vaga):
                             """, (id_vaga, c_id, c_compatibilidade, c_justificativa))
                         conn.commit()
 
-                for cand in candidatos_analisados_ia:
-                    if int(cand.get('porcentagem_compatibilidade', 0)) >= 70:
-                        novos_matches_exibir.append(cand)
+                # 1. Tenta primeiramente filtrar os candidatos ideais (>= 70%)
+                novos_matches_exibir = [
+                    cand for cand in candidatos_analisados_ia 
+                    if int(cand.get('porcentagem_compatibilidade', 0)) >= 70
+                ]
+
+                # 2. Fallback: Se não houver nenhum >= 70%, pega os candidatos regulares (>= 50%)
+                if not novos_matches_exibir:
+                    novos_matches_exibir = [
+                        cand for cand in candidatos_analisados_ia 
+                        if int(cand.get('porcentagem_compatibilidade', 0)) >= 50
+                    ]
+
+                # 3. Se ainda assim estiver vazio, define a mensagem de aviso customizada
+                if not novos_matches_exibir:
+                    mensagem_aviso = "Nenhum candidato avaliado cumpriu o mínimo exigido de competências ou requisitos para esta vaga."
 
             except json.JSONDecodeError as jde:
                 print(f"[ERRO CRÍTICO] Falha ao decodificar JSON retornado pelo Gemini: {jde}")
@@ -1208,14 +1184,21 @@ def analisar_vaga(id_vaga):
             except Exception as inner_e:
                 print(f"[ERRO CRÍTICO] Falha ao se comunicar ou salvar dados do Gemini: {inner_e}")
                 flash("Instabilidade na comunicação com a IA. Os candidatos não puderam ser triados.", "error")
+        else:
+            # Caso nenhum candidato cadastrado tenha passado do pré-filtro local estático
+            mensagem_aviso = "Nenhum candidato avaliado cumpriu o mínimo exigido de competências ou requisitos para esta vaga."
 
-        return render_template('analise.html', vaga=vaga, resultado={"vaga_id": id_vaga, "candidatos_compativeis": novos_matches_exibir})
+        return render_template(
+            'analise.html', 
+            vaga=vaga, 
+            resultado={"vaga_id": id_vaga, "candidatos_compativeis": novos_matches_exibir},
+            mensagem_aviso=mensagem_aviso
+        )
         
     except Exception as e:
         print(f"Erro geral na análise de vagas: {e}")
         flash("Ocorreu um erro interno ao processar a inteligência artificial.", "error")
         return redirect(url_for('listar_vagas'))
-
 
 # ==============================================================================
 # HISTÓRICO DE CANDIDATOS ANALISADOS POR VAGA (MATCH >= 70%)
@@ -1247,14 +1230,12 @@ def historico_vaga(id_vaga):
                         item['data_analise'] = item['data_analise'].strftime('%d/%m/%Y %H:%M')
 
                 return jsonify({"vaga": vaga, "historico": historico})
-
     except Exception as e:
         print(f"Erro ao buscar histórico de vagas: {e}")
         return jsonify({"error": "Erro interno ao buscar histórico de candidatos."}), 500
 
-
 # ==============================================================================
-# CONTROLE MASTER ADMINISTRATIVO (GERENCIAMENTO DE TENANTS / CANCELAMENTOS E DIAS)
+# CONTROLE MASTER ADMINISTRATIVO 
 # ==============================================================================
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "pulse_admin_2026")
 
