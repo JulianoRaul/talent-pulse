@@ -606,7 +606,7 @@
             display: flex;
             align-items: center;
             gap: 12px;
-                }
+        }
 
         .modern-title-icon {
             background: #eff6ff;
@@ -839,7 +839,7 @@
         }
 
         /* ==============================================================================
-           [NOVO] ESTILOS DO CHATBOT FLUTUANTE VANESSA
+           ESTILOS DO CHATBOT FLUTUANTE VANESSA
            ============================================================================== */
         .vanessa-chat-widget {
             position: fixed;
@@ -1405,9 +1405,7 @@
         </div>
     </div>
 
-    <!-- ==============================================================================
-       [NOVO] WIDGET DO CHATBOT VANESSA
-       ============================================================================== -->
+    <!-- WIDGET DO CHATBOT VANESSA -->
     <div class="vanessa-chat-widget">
         <div class="vanessa-chat-box" id="vanessa-chat-box">
             <div class="vanessa-chat-header">
@@ -1530,7 +1528,7 @@
                     content.style.display = 'block';
 
                     document.getElementById('m-nome-candidato').innerText = nomeCandidato;
-                    document.getElementById('m-cargo-nivel').innerText = `${data.titulo_classe} • Nível ${data.nivel}`;
+                    document.getElementById('m-cargo-nivel').innerText = `${data.titulo_classe} • Nível ${data.level}`;
                     
                     const fitTecnico = data.vida_hp || 85; 
                     const fitCultural = data.mana_mp || 80;
@@ -1647,9 +1645,7 @@
             document.getElementById('historico-vaga-overlay').classList.remove('active');
         }
 
-        /* ==============================================================================
-           [NOVO] LOGICA JAVASCRIPT DO CHATBOT VANESSA
-           ============================================================================== */
+        /* LOGICA JAVASCRIPT DO CHATBOT VANESSA */
         function toggleVanessaChat() {
             const chatBox = document.getElementById('vanessa-chat-box');
             chatBox.classList.toggle('active');
@@ -1672,7 +1668,6 @@
             appendVanessaMsg(text, 'user');
             inputEl.value = '';
 
-            // Endpoint assíncrono conectado diretamente com o back do Flask
             fetch('/chat-vanessa', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
