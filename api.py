@@ -1249,7 +1249,35 @@ def historico_vaga(id_vaga):
 # ==============================================================================
 # CHAT INTERATIVO COM IA (CORRIGIDO E ROBUSTO)
 # ==============================================================================
-import re
+import re # Certifique-se de ter essa importação no topo do seu arquivo
+
+@app.route('/chat-vanessa', methods=['POST'])
+@login_required
+def chat_vanessa():
+    data = request.json
+    mensagem_usuario = data.get('mensagem')
+    
+    try:
+        # Chama a IA para responder
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=mensagem_usuario,
+            config=types.GenerateContentConfig(
+                system_instruction="Você é Vanessa, assistente da TalentPulse. Seja breve, profissional e direta. Responda apenas texto puro, sem blocos de código markdown."
+            )
+        )
+        
+        # 1. Pega o texto da resposta
+        resposta_bruta = response.text or "Desculpe, não consegui processar sua mensagem."
+        
+        # 2. Limpeza extra: Remove qualquer bloco de markdown que a IA possa ter enviado
+        resposta_limpa = re.sub(r'```[a-zA-Z]*', '', resposta_bruta).replace('```', '').strip()
+        
+        return jsonify({"resposta": resposta_limpa})
+        
+    except Exception as e:
+        print(f"Erro na IA: {e}") # Importante para debugar no console do servidor
+        return jsonify({"resposta": "Ocorreu um erro técnico na comunicação com a IA."}), 500
 
 @app.route('/chat', methods=['GET'])
 @login_required
