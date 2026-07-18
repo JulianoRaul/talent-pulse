@@ -1346,9 +1346,10 @@ def enviar_mensagem_chat():
 
         return jsonify({"resposta": resposta_ia})
 
-    except Exception as e:
-        print(f"[ERRO NO CHAT VANESSA]: {e}")
-        return jsonify({"resposta": "Desculpe, ocorreu uma instabilidade na minha rede corporativa."}), 500
+except Exception as e:
+        # Isso vai imprimir o erro real no terminal onde o Flask está rodando
+        print(f"[ERRO DEBUG]: {str(e)}") 
+        return jsonify({"resposta": "Desculpe, estou com dificuldades técnicas no momento."}), 500
 # ==============================================================================
 # CONTROLE MASTER ADMINISTRATIVO 
 # ==============================================================================
