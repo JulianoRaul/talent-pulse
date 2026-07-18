@@ -606,7 +606,7 @@
             display: flex;
             align-items: center;
             gap: 12px;
-        }
+                }
 
         .modern-title-icon {
             background: #eff6ff;
@@ -788,7 +788,6 @@
             background-color: #1d4ed8;
         }
 
-        /* Estilização para a Tabela Histórica no Modal */
         .historico-tabela {
             width: 100%;
             border-collapse: collapse;
@@ -818,7 +817,6 @@
         .score-alto { background-color: #d1fae5; color: #065f46; }
         .score-medio { background-color: #fef3c7; color: #92400e; }
 
-        /* [NOVO] ANIMAÇÕES DA SPLASH SCREEN */
         @keyframes pulse-logo {
             0%, 100% {
                 transform: scale(1);
@@ -839,11 +837,182 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+
+        /* ==============================================================================
+           [NOVO] ESTILOS DO CHATBOT FLUTUANTE VANESSA
+           ============================================================================== */
+        .vanessa-chat-widget {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .vanessa-chat-btn {
+            background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
+            color: #ffffff;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+            cursor: pointer;
+            border: none;
+            outline: none;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .vanessa-chat-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 16px rgba(79, 70, 229, 0.4);
+        }
+
+        .vanessa-chat-box {
+            width: 360px;
+            height: 480px;
+            background: #ffffff;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            margin-bottom: 12px;
+            animation: fadeIn 0.25s ease;
+        }
+
+        .vanessa-chat-box.active {
+            display: flex;
+        }
+
+        .vanessa-chat-header {
+            background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+            padding: 16px;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .vanessa-chat-profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .vanessa-chat-avatar {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .vanessa-chat-info h5 {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .vanessa-chat-info p {
+            font-size: 11px;
+            color: #94a3b8;
+        }
+
+        .vanessa-chat-close {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        .vanessa-chat-close:hover {
+            color: #ffffff;
+        }
+
+        .vanessa-chat-messages {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .vanessa-msg {
+            max-width: 80%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 13px;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        .vanessa-msg.bot {
+            background: #ffffff;
+            color: #334155;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .vanessa-msg.user {
+            background: #4f46e5;
+            color: #ffffff;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .vanessa-chat-input-area {
+            padding: 12px;
+            background: #ffffff;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            gap: 8px;
+        }
+
+        .vanessa-chat-input {
+            flex: 1;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .vanessa-chat-input:focus {
+            border-color: #4f46e5;
+        }
+
+        .vanessa-chat-send {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0 14px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .vanessa-chat-send:hover {
+            background: #4338ca;
+        }
     </style>
 </head>
 <body>
 
-    <!-- [NOVO] SPLASH SCREEN (Tela de Carregamento Inicial)[cite: 7] -->
+    <!-- SPLASH SCREEN -->
     <div id="splash-screen" style="
         position: fixed;
         top: 0;
@@ -1236,17 +1405,43 @@
         </div>
     </div>
 
+    <!-- ==============================================================================
+       [NOVO] WIDGET DO CHATBOT VANESSA
+       ============================================================================== -->
+    <div class="vanessa-chat-widget">
+        <div class="vanessa-chat-box" id="vanessa-chat-box">
+            <div class="vanessa-chat-header">
+                <div class="vanessa-chat-profile">
+                    <div class="vanessa-chat-avatar">V</div>
+                    <div class="vanessa-chat-info">
+                        <h5>Vanessa</h5>
+                        <p>Assistente Virtual TalentPulse</p>
+                    </div>
+                </div>
+                <button class="vanessa-chat-close" onclick="toggleVanessaChat()">✕</button>
+            </div>
+            <div class="vanessa-chat-messages" id="vanessa-chat-messages">
+                <div class="vanessa-msg bot">
+                    Olá! Eu sou a <strong>Vanessa</strong>, assistente corporativa da TalentPulse. Como posso te ajudar com a triagem de candidatos hoje?
+                </div>
+            </div>
+            <div class="vanessa-chat-input-area">
+                <input type="text" id="vanessa-chat-input" class="vanessa-chat-input" placeholder="Digite sua mensagem..." onkeypress="handleVanessaKey(event)">
+                <button class="vanessa-chat-send" onclick="sendVanessaMessage()">Enviar</button>
+            </div>
+        </div>
+        <button class="vanessa-chat-btn" onclick="toggleVanessaChat()">
+            💬
+        </button>
+    </div>
+
     <script>
-        /* [NOVO] MONITORAMENTO E REMOÇÃO SUAVE DA SPLASH SCREEN[cite: 7] */
         window.addEventListener('load', () => {
             const splash = document.getElementById('splash-screen');
             if (splash) {
-                // Mantém a tela visível por 1.2 segundos para garantir o impacto visual[cite: 7]
                 setTimeout(() => {
                     splash.style.opacity = '0';
                     splash.style.visibility = 'hidden';
-                    
-                    // Remove totalmente o elemento do DOM após o término da transição CSS[cite: 7]
                     setTimeout(() => {
                         splash.remove();
                     }, 600);
@@ -1427,7 +1622,6 @@
 
                     data.historico.forEach(c => {
                         const tr = document.createElement('tr');
-                        
                         const scoreClass = c.porcentagem_compatibilidade >= 85 ? 'score-alto' : 'score-medio';
 
                         tr.innerHTML = `
@@ -1451,6 +1645,56 @@
 
         function fecharModalHistorico() {
             document.getElementById('historico-vaga-overlay').classList.remove('active');
+        }
+
+        /* ==============================================================================
+           [NOVO] LOGICA JAVASCRIPT DO CHATBOT VANESSA
+           ============================================================================== */
+        function toggleVanessaChat() {
+            const chatBox = document.getElementById('vanessa-chat-box');
+            chatBox.classList.toggle('active');
+            if (chatBox.classList.contains('active')) {
+                document.getElementById('vanessa-chat-input').focus();
+            }
+        }
+
+        function handleVanessaKey(event) {
+            if (event.key === 'Enter') {
+                sendVanessaMessage();
+            }
+        }
+
+        function sendVanessaMessage() {
+            const inputEl = document.getElementById('vanessa-chat-input');
+            const text = inputEl.value.trim();
+            if (!text) return;
+
+            appendVanessaMsg(text, 'user');
+            inputEl.value = '';
+
+            // Endpoint assíncrono conectado diretamente com o back do Flask
+            fetch('/chat-vanessa', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mensagem: text })
+            })
+            .then(res => res.json())
+            .then(data => {
+                appendVanessaMsg(data.resposta, 'bot');
+            })
+            .catch(err => {
+                console.error(err);
+                appendVanessaMsg('Desculpe, ocorreu uma instabilidade na minha rede corporativa.', 'bot');
+            });
+        }
+
+        function appendVanessaMsg(text, sender) {
+            const container = document.getElementById('vanessa-chat-messages');
+            const msgEl = document.createElement('div');
+            msgEl.className = `vanessa-msg ${sender}`;
+            msgEl.innerHTML = text.replace(/\n/g, '<br>');
+            container.appendChild(msgEl);
+            container.scrollTop = container.scrollHeight;
         }
     </script>
 </body>
