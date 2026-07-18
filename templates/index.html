@@ -1660,7 +1660,7 @@
             }
         }
 
-      function sendVanessaMessage() {
+ function sendVanessaMessage() {
     const inputEl = document.getElementById('vanessa-chat-input');
     const text = inputEl.value.trim();
     if (!text) return;
@@ -1675,12 +1675,14 @@
     })
     .then(res => res.json())
     .then(data => {
-        // Correção aqui: limpando eventuais blocos de markdown que a IA envia
-        let respostaLimpa = data.resposta;
-        if (typeof respostaLimpa === 'string') {
-            respostaLimpa = respostaLimpa.replace(/```json/g, '').replace(/```/g, '').trim();
+        let resposta = data.resposta;
+        // Limpeza robusta contra blocos markdown
+        if (typeof resposta === 'string') {
+            resposta = resposta.replace(/```json/g, '')
+                               .replace(/```/g, '')
+                               .trim();
         }
-        appendVanessaMsg(respostaLimpa, 'bot');
+        appendVanessaMsg(resposta, 'bot');
     })
     .catch(err => {
         console.error("Erro no chat:", err);
