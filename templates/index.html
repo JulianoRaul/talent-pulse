@@ -1660,28 +1660,33 @@
             }
         }
 
-        function sendVanessaMessage() {
-            const inputEl = document.getElementById('vanessa-chat-input');
-            const text = inputEl.value.trim();
-            if (!text) return;
+      function sendVanessaMessage() {
+    const inputEl = document.getElementById('vanessa-chat-input');
+    const text = inputEl.value.trim();
+    if (!text) return;
 
-            appendVanessaMsg(text, 'user');
-            inputEl.value = '';
+    appendVanessaMsg(text, 'user');
+    inputEl.value = '';
 
-            fetch('/chat-vanessa', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mensagem: text })
-            })
-            .then(res => res.json())
-            .then(data => {
-                appendVanessaMsg(data.resposta, 'bot');
-            })
-            .catch(err => {
-                console.error(err);
-                appendVanessaMsg('Desculpe, ocorreu uma instabilidade na minha rede corporativa.', 'bot');
-            });
+    fetch('/chat-vanessa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mensagem: text })
+    })
+    .then(res => res.json())
+    .then(data => {
+        // Correção aqui: limpando eventuais blocos de markdown que a IA envia
+        let respostaLimpa = data.resposta;
+        if (typeof respostaLimpa === 'string') {
+            respostaLimpa = respostaLimpa.replace(/```json/g, '').replace(/```/g, '').trim();
         }
+        appendVanessaMsg(respostaLimpa, 'bot');
+    })
+    .catch(err => {
+        console.error("Erro no chat:", err);
+        appendVanessaMsg('Desculpe, a conexão com o servidor falhou.', 'bot');
+    });
+}
 
         function appendVanessaMsg(text, sender) {
             const container = document.getElementById('vanessa-chat-messages');
