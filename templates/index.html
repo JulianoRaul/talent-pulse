@@ -9,6 +9,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght=300;400;500;600;700;800&display=swap" rel="stylesheet">
     
     <style>
+        .vanessa-avatar-img {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid rgba(255,255,255,0.2);
         * {
             margin: 0;
             padding: 0;
@@ -1405,12 +1411,14 @@
         </div>
     </div>
 
-    <!-- WIDGET DO CHATBOT VANESSA -->
-    <div class="vanessa-chat-widget">
+   <div class="vanessa-chat-widget">
         <div class="vanessa-chat-box" id="vanessa-chat-box">
             <div class="vanessa-chat-header">
                 <div class="vanessa-chat-profile">
-                    <div class="vanessa-chat-avatar">V</div>
+                    <!-- Avatar adicionado aqui -->
+                    <div class="vanessa-chat-avatar">
+                        <img src="https://i.pravatar.cc/100?u=vanessa" alt="Vanessa" class="vanessa-avatar-img">
+                    </div>
                     <div class="vanessa-chat-info">
                         <h5>Vanessa</h5>
                         <p>Assistente Virtual TalentPulse</p>
@@ -1661,36 +1669,34 @@
         }
 
 function sendVanessaMessage() {
-    const inputEl = document.getElementById('vanessa-chat-input');
-    const text = inputEl.value.trim();
-    if (!text) return;
+            const inputEl = document.getElementById('vanessa-chat-input');
+            const text = inputEl.value.trim();
+            if (!text) return;
 
-    appendVanessaMsg(text, 'user');
-    inputEl.value = '';
+            appendVanessaMsg(text, 'user');
+            inputEl.value = '';
 
-    fetch('/chat-vanessa', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mensagem: text })
-    })
-    .then(res => res.json())
-    .then(data => {
-        let resposta = data.resposta;
-        
-        // Melhoria: Limpeza robusta contra blocos markdown e formatação JSON
-        if (typeof resposta === 'string') {
-            resposta = resposta.replace(/```json/g, '')
-                               .replace(/```python/g, '')
-                               .replace(/```/g, '')
-                               .trim();
+            fetch('/chat-vanessa', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mensagem: text })
+            })
+            .then(res => res.json())
+            .then(data => {
+                let resposta = data.resposta;
+                if (typeof resposta === 'string') {
+                    resposta = resposta.replace(/```json/g, '')
+                                       .replace(/```python/g, '')
+                                       .replace(/```/g, '')
+                                       .trim();
+                }
+                appendVanessaMsg(resposta, 'bot');
+            })
+            .catch(err => {
+                console.error("Erro no chat:", err);
+                appendVanessaMsg('Desculpe, a conexão com o servidor falhou.', 'bot');
+            });
         }
-        appendVanessaMsg(resposta, 'bot');
-    })
-    .catch(err => {
-        console.error("Erro no chat:", err);
-        appendVanessaMsg('Desculpe, a conexão com o servidor falhou.', 'bot');
-    });
-}
 
         function appendVanessaMsg(text, sender) {
             const container = document.getElementById('vanessa-chat-messages');
