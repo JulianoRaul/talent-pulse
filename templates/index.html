@@ -1660,7 +1660,7 @@
             }
         }
 
- function sendVanessaMessage() {
+function sendVanessaMessage() {
     const inputEl = document.getElementById('vanessa-chat-input');
     const text = inputEl.value.trim();
     if (!text) return;
@@ -1676,9 +1676,11 @@
     .then(res => res.json())
     .then(data => {
         let resposta = data.resposta;
-        // Limpeza robusta contra blocos markdown
+        
+        // Melhoria: Limpeza robusta contra blocos markdown e formatação JSON
         if (typeof resposta === 'string') {
             resposta = resposta.replace(/```json/g, '')
+                               .replace(/```python/g, '')
                                .replace(/```/g, '')
                                .trim();
         }
