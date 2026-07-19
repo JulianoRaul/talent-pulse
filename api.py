@@ -1257,33 +1257,51 @@ def chat_vanessa():
     data = request.json
     mensagem_usuario = data.get('mensagem', '').strip()
     
-    # --- LÓGICA DE BUSCA DE CANDIDATOS ---
-    # Verifica se o usuário mencionou termos relacionados a Vendas e Informática
-    termo_vendas = any(t in mensagem_usuario.lower() for t in ["vendas", "vendedor", "comercial"])
-    termo_inf = any(t in mensagem_usuario.lower() for t in ["informatica", "ti", "computador"])
-    
-    if termo_vendas and termo_inf:
-        try:
-            with get_db_connection() as conn:
-                with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                    # Busca candidatos que tenham 'vendas' ou 'informatica' nas skills ou formação
-                    cursor.execute("""
-                        SELECT nome_candidato, hard_skills, formacao 
-                        FROM curriculos 
-                        WHERE empresa_id = %s 
-                        AND (hard_skills ILIKE '%vendas%' OR hard_skills ILIKE '%informatica%' OR formacao ILIKE '%informatica%')
-                        LIMIT 3
-                    """, (current_user.empresa_id,))
-                    candidatos = cursor.fetchall()
-            
-            if candidatos:
-                lista_formatada = "\n".join([f"- {c['nome_candidato']} (Skills: {c['hard_skills']})" for c in candidatos])
-                return jsonify({"resposta": f"Encontrei estes candidatos com perfil em vendas e informática:\n{lista_formatada}"})
-            else:
-                return jsonify({"resposta": "Não encontrei candidatos com esse perfil específico na base."})
-        except Exception as e:
-            print(f"Erro na busca via chat: {e}")
+    # 1. Tenta buscar os dados no banco
+    candidatos_texto = ""
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT nome_candidato, hard_skills, experiencia_anos, resumo 
+                    FROM curriculos 
+                    WHERE empresa_id = %s 
+                    AND (hard_skills ILIKE '%vendas%' OR hard_skills ILIKE '%informatica%')
+                    ORDER BY experiencia_anos DESC
+                    LIMIT 3
+                """, (current_user.empresa_id,))
+                candidatos = cursor.fetchall()
+                
+                if candidatos:
+                    # Formata os dados para o Gemini
+                    candidatos_texto = "Aqui estão os candidatos encontrados:\n"
+                    for c in candidatos:
+                        candidatos_texto += f"- Nome: {c['nome_candidato']}, Experiência: {c['experiencia_anos']} anos, Skills: {c['hard_skills']}. Resumo: {c['resumo']}\n"
+    except Exception as e:
+        print(f"Erro no banco: {e}")
 
+    # 2. Envia os dados para o Gemini com uma System Instruction clara
+    try:
+        system_prompt = f"""
+        Você é a Vanessa, assistente da TalentPulse. 
+        Seu objetivo é analisar os dados abaixo e responder ao usuário de forma natural e profissional.
+        
+        Dados de candidatos encontrados no sistema:
+        {candidatos_texto if candidatos_texto else "Nenhum candidato encontrado com os critérios."}
+        
+        Se houver candidatos, apresente-os de forma persuasiva. Se não, explique que não achou e sugira ajustar os filtros.
+        """
+        
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=mensagem_usuario,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt
+            )
+        )
+        return jsonify({"resposta": response.text})
+    except Exception as e:
+        return jsonify({"resposta": "Desculpe, estou com instabilidade técnica no momento."})
     # --- FLUXO PADRÃO (SE NÃO FOR BUSCA ESPECÍFICA) ---
     try:
         response = client.models.generate_content(
