@@ -1405,34 +1405,36 @@
         </div>
     </div>
 
-    <!-- WIDGET DO CHATBOT VANESSA -->
-    <div class="vanessa-chat-widget">
-        <div class="vanessa-chat-box" id="vanessa-chat-box">
-            <div class="vanessa-chat-header">
-                <div class="vanessa-chat-profile">
-                    <div class="vanessa-chat-avatar">V</div>
-                    <div class="vanessa-chat-info">
-                        <h5>Vanessa</h5>
-                        <p>Assistente Virtual TalentPulse</p>
-                    </div>
+ <!-- WIDGET DO CHATBOT VANESSA ATUALIZADO -->
+<div class="vanessa-chat-widget">
+    <div class="vanessa-chat-box" id="vanessa-chat-box">
+        <div class="vanessa-chat-header">
+            <div class="vanessa-chat-profile">
+                <!-- Avatar da Vanessa aplicado aqui -->
+                <div class="vanessa-chat-avatar" style="background: none; overflow: hidden; padding: 0;">
+                    <img src="vanessa_avatar.png.png" alt="Vanessa" style="width: 100%; height: 100%; object-fit: cover;">
                 </div>
-                <button class="vanessa-chat-close" onclick="toggleVanessaChat()">✕</button>
-            </div>
-            <div class="vanessa-chat-messages" id="vanessa-chat-messages">
-                <div class="vanessa-msg bot">
-                    Olá! Eu sou a <strong>Vanessa</strong>, assistente corporativa da TalentPulse. Como posso te ajudar com a triagem de candidatos hoje?
+                <div class="vanessa-chat-info">
+                    <h5>Vanessa</h5>
+                    <p>Assistente Virtual TalentPulse</p>
                 </div>
             </div>
-            <div class="vanessa-chat-input-area">
-                <input type="text" id="vanessa-chat-input" class="vanessa-chat-input" placeholder="Digite sua mensagem..." onkeypress="handleVanessaKey(event)">
-                <button class="vanessa-chat-send" onclick="sendVanessaMessage()">Enviar</button>
+            <button class="vanessa-chat-close" onclick="toggleVanessaChat()">✕</button>
+        </div>
+        <div class="vanessa-chat-messages" id="vanessa-chat-messages">
+            <div class="vanessa-msg bot">
+                Olá! Eu sou a <strong>Vanessa</strong>, assistente corporativa da TalentPulse. Como posso te ajudar com a triagem de candidatos hoje?
             </div>
         </div>
-        <button class="vanessa-chat-btn" onclick="toggleVanessaChat()">
-            💬
-        </button>
+        <div class="vanessa-chat-input-area">
+            <input type="text" id="vanessa-chat-input" class="vanessa-chat-input" placeholder="Digite sua mensagem..." onkeypress="handleVanessaKey(event)">
+            <button class="vanessa-chat-send" onclick="sendVanessaMessage()">Enviar</button>
+        </div>
     </div>
-
+    <button class="vanessa-chat-btn" onclick="toggleVanessaChat()">
+        💬
+    </button>
+</div>
     <script>
         window.addEventListener('load', () => {
             const splash = document.getElementById('splash-screen');
