@@ -1257,46 +1257,45 @@ def chat_vanessa():
     data = request.json
     mensagem_usuario = data.get('mensagem', '').strip()
     
-    # --- LÓGICA DE DETECÇÃO DE INTENÇÃO DE BUSCA ---
-    # Se o usuário pedir o "mais experiente" (ex: vendedor com mais experiência)
-    if "mais" in mensagem_usuario.lower() and "experiencia" in mensagem_usuario.lower():
+    # --- LÓGICA DE BUSCA DE CANDIDATOS ---
+    # Verifica se o usuário mencionou termos relacionados a Vendas e Informática
+    termo_vendas = any(t in mensagem_usuario.lower() for t in ["vendas", "vendedor", "comercial"])
+    termo_inf = any(t in mensagem_usuario.lower() for t in ["informatica", "ti", "computador"])
+    
+    if termo_vendas and termo_inf:
         try:
             with get_db_connection() as conn:
                 with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                    # Busca candidatos (assumindo que "experiência" pode ser inferida por dados ou cadastro)
-                    # Ajuste a consulta conforme a sua estrutura real de banco
+                    # Busca candidatos que tenham 'vendas' ou 'informatica' nas skills ou formação
                     cursor.execute("""
-                        SELECT nome_candidato, formacao, hard_skills 
+                        SELECT nome_candidato, hard_skills, formacao 
                         FROM curriculos 
                         WHERE empresa_id = %s 
-                        ORDER BY id DESC LIMIT 1
+                        AND (hard_skills ILIKE '%vendas%' OR hard_skills ILIKE '%informatica%' OR formacao ILIKE '%informatica%')
+                        LIMIT 3
                     """, (current_user.empresa_id,))
-                    candidato = cursor.fetchone()
+                    candidatos = cursor.fetchall()
             
-            if candidato:
-                resposta_final = f"O profissional com o perfil mais recente/destacado é {candidato['nome_candidato']}. Formação: {candidato['formacao']}. Skills: {candidato['hard_skills']}."
-                return jsonify({"resposta": resposta_final})
+            if candidatos:
+                lista_formatada = "\n".join([f"- {c['nome_candidato']} (Skills: {c['hard_skills']})" for c in candidatos])
+                return jsonify({"resposta": f"Encontrei estes candidatos com perfil em vendas e informática:\n{lista_formatada}"})
+            else:
+                return jsonify({"resposta": "Não encontrei candidatos com esse perfil específico na base."})
         except Exception as e:
             print(f"Erro na busca via chat: {e}")
 
-    # --- FLUXO PADRÃO (SE NÃO FOR BUSCA) ---
+    # --- FLUXO PADRÃO (SE NÃO FOR BUSCA ESPECÍFICA) ---
     try:
         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=mensagem_usuario,
             config=types.GenerateContentConfig(
-                system_instruction="Você é Vanessa, assistente da TalentPulse. Se o usuário pedir para buscar candidatos, explique que você está acessando a base de dados. Responda apenas texto puro, sem blocos de código markdown."
+                system_instruction="Você é Vanessa. Se a pergunta for sobre triagem, tente responder com base no contexto ou oriente sobre como filtrar."
             )
         )
-        
-        resposta_bruta = response.text or "Desculpe, não consegui processar."
-        resposta_limpa = re.sub(r'```[a-zA-Z]*', '', resposta_bruta).replace('```', '').strip()
-        
-        return jsonify({"resposta": resposta_limpa})
-        
+        return jsonify({"resposta": response.text})
     except Exception as e:
-        print(f"Erro na IA: {e}")
-        return jsonify({"resposta": "Ocorreu um erro técnico na comunicação com a IA."}), 500
+        return jsonify({"resposta": "Desculpe, estou com instabilidade técnica."})
 @app.route('/chat', methods=['GET'])
 @login_required
 def renderizar_chat():
