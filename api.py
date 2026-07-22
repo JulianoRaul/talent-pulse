@@ -69,7 +69,8 @@ def get_db_connection():
         if url_conexao.startswith("postgres://"):
             url_conexao = url_conexao.replace("postgres://", "postgresql://", 1)
         try:
-            return psycopg2.connect(url_conexao)
+            # Adiciona options ou força sslmode se necessário
+            return psycopg2.connect(url_conexao, sslmode='require')
         except Exception as e:
             url_limpa = url_conexao.split('?')[0]
             parsed = urlparse(url_limpa)
