@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Candidatura para {{ vaga.titulo }} - TalentPulse</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
+        body { background: #f8fafc; color: #334155; padding: 40px 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .container { background: #ffffff; max-width: 600px; width: 100%; padding: 32px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        h1 { font-size: 22px; color: #0f172a; margin-bottom: 8px; font-weight: 700; }
+        .vaga-desc { font-size: 14px; color: #64748b; margin-bottom: 24px; line-height: 1.5; }
+        .tabs { display: flex; gap: 12px; margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; }
+        .tab-btn { background: none; border: none; font-size: 14px; font-weight: 600; color: #64748b; cursor: pointer; padding: 6px 12px; border-radius: 6px; transition: all 0.2s; }
+        .tab-btn.active { background: #eff6ff; color: #2563eb; }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; font-size: 12px; font-weight: 600; color: #475569; text-transform: uppercase; margin-bottom: 6px; }
+        input, textarea { width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.2s; }
+        input:focus, textarea:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+        .btn-submit { width: 100%; background: #2563eb; color: #white; border: none; padding: 12px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.2s; margin-top: 10px; }
+        .btn-submit:hover { background: #1d4ed8; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{{ vaga.titulo }}</h1>
+        <p class="vaga-desc">{{ vaga.descricao }}</p>
+
+        <div class="tabs">
+            <button type="button" class="tab-btn active" onclick="mudarModo('upload', this)">📄 Enviar Currículo (PDF/DOCX)</button>
+            <button type="button" class="tab-btn" onclick="mudarModo('manual', this)">✍️ Preenchimento Manual</button>
+        </div>
+
+        <form action="" method="POST" enctype="multipart/form-data" id="form-candidatura">
+            <input type="hidden" name="tipo_envio" id="tipo_envio" value="upload">
+
+            <div class="form-group">
+                <label>Nome Completo *</label>
+                <input type="text" name="nome" required placeholder="Ex: João da Silva">
+            </div>
+
+            <div class="form-group">
+                <label>E-mail *</label>
+                <input type="email" name="email" required placeholder="seu@email.com">
+            </div>
+
+            <div class="form-group">
+                <label>WhatsApp *</label>
+                <input type="text" name="whatsapp" required placeholder="(11) 99999-9999">
+            </div>
+
+            <div class="form-group">
+                <label>Localização (Cidade/Estado) *</label>
+                <input type="text" name="localizacao" required placeholder="Ex: São Paulo, SP">
+            </div>
+
+            <!-- SEÇÃO DE UPLOAD -->
+            <div id="secao-upload" class="form-group">
+                <label>Arquivo do Currículo (PDF ou DOCX) *</label>
+                <input type="file" name="file" accept=".pdf,.docx">
+            </div>
+
+            <!-- SEÇÃO MANUAL -->
+            <div id="secao-manual" class="hidden">
+                <div class="form-group">
+                    <label>Formação Acadêmica</label>
+                    <input type="text" name="formacao" placeholder="Ex: Graduação em Ciência da Computação">
+                </div>
+                <div class="form-group">
+                    <label>Experiência Profissional Resumida</label>
+                    <textarea name="experiencia" rows="3" placeholder="Descreva suas últimas experiências..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Principais Habilidades (Hard/Soft Skills)</label>
+                    <input type="text" name="habilidades" placeholder="Ex: Python, React, Trabalho em Equipe">
+                </div>
+            </div>
+
+            <button type="submit" class="btn-submit">Enviar Candidatura</button>
+        </form>
+    </div>
+
+    <script>
+        function mudarModo(modo, btn) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            document.getElementById('tipo_envio').value = modo;
+            if (modo === 'upload') {
+                document.getElementById('secao-upload').classList.remove('hidden');
+                document.getElementById('secao-manual').classList.add('hidden');
+            } else {
+                document.getElementById('secao-upload').classList.add('hidden');
+                document.getElementById('secao-manual').classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
