@@ -160,6 +160,11 @@ def init_db():
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS beneficios TEXT;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS remuneracao TEXT;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS expediente TEXT;')
+                
+                # Adiciona a coluna de token de compartilhamento público se ainda não existir
+                cursor.execute("""
+                    ALTER TABLE vagas ADD COLUMN IF NOT EXISTS token_compartilhamento TEXT UNIQUE;
+                """)
 
                 # 5. Tabela de Cache de Análise Inteligente do Currículo
                 cursor.execute('''
@@ -195,32 +200,12 @@ def init_db():
                         data_envio TIMESTAMP DEFAULT (timezone('America/Sao_Paulo', NOW()))
                     );
                 ''')
-                def init_db():
-    with get_db_connection() as conn:
-        with conn.cursor() as cursor:
-            # ... (criação de outras tabelas e da tabela vagas)
-            
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS vagas (
-                    id SERIAL PRIMARY KEY,
-                    empresa_id INTEGER,
-                    titulo TEXT,
-                    descricao TEXT
-                    -- outros campos da sua tabela...
-                );
-            """)
-            
-            # ⬇️ COLOCE AQUI: Adiciona a coluna se ela ainda não existir
-            cursor.execute("""
-                ALTER TABLE vagas ADD COLUMN IF NOT EXISTS token_compartilhamento TEXT UNIQUE;
-            """)
                 
                 conn.commit()
     except Exception as e:
         print(f"Erro ao inicializar o banco de dados: {e}")
 
 init_db()
-
 # ==============================================================================
 # CONFIGURAÇÃO DO GOOGLE GEMINI AI & SCHEMAS DE RETORNO
 # ==============================================================================
