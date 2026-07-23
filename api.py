@@ -144,7 +144,7 @@ def init_db():
                     );
                 ''')
 
-           # 4. Tabela de Vagas
+          # 4. Tabela de Vagas
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS vagas (
                         id SERIAL PRIMARY KEY,
@@ -157,18 +157,24 @@ def init_db():
                     );
                 ''')
                 
-                # Garante que a coluna 'atividades' exista com o nome correto (corrige o 'actividades' antigo)
+                # Garante a existência de todas as colunas necessárias na tabela vagas
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS atividades TEXT;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS beneficios TEXT;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS remuneracao TEXT;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS expediente TEXT;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS token_compartilhamento TEXT UNIQUE;')
                 
-                # Se por acaso a coluna antiga 'actividades' com 'c' existir, copia os dados ou remove/renomeia:
+                # Bloco seguro para renomear 'actividades' para 'atividades' apenas se ambas existirem ou se necessário
                 cursor.execute('''
                     DO $$ 
                     BEGIN 
-                        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='vagas' and column_name='actividades') THEN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='vagas' and column_name='actividades'
+                        ) AND NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='vagas' and column_name='atividades'
+                        ) THEN
                             ALTER TABLE vagas RENAME COLUMN actividades TO atividades;
                         END IF;
                     END $$;
