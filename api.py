@@ -1264,7 +1264,156 @@ def historico_vaga(id_vaga):
     except Exception as e:
         print(f"Erro ao buscar histórico de vagas: {e}")
         return jsonify({"error": "Erro interno ao buscar histórico de candidatos."}), 500
+# ==============================================================================
+# ROTA PÚBLICA DE INSCRIÇÃO NA VAGA (COMPARTILHAMENTO)
+# ==============================================================================
+@app.route('/vaga/candidatar/<token>', methods=['GET', 'POST'])
+def pagina_candidatura_publica(token):
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("SELECT * FROM vagas WHERE token_compartilhamento = %s", (token,))
+                vaga = cursor.fetchone()
+                
+                if not vaga:
+                    # Se a vaga antiga não tiver token, gera um retroativamente
+                    cursor.execute("SELECT * FROM vagas WHERE id::text = %s", (token,))
+                    vaga = cursor.fetchone()
+                    if not vaga:
+                        return render_template('erro_vaga.html', mensagem="Vaga não encontrada ou link expirado."), 404
 
+        if request.method == 'POST':
+            # Identificar se foi preenchimento manual ou upload de arquivo
+            tipo_envio = request.form.get('tipo_envio', 'upload')
+            
+            nome = request.form.get('nome', '').strip()
+            email = request.form.get('email', '').strip()
+            whatsapp = request.form.get('whatsapp', '').strip()
+            localizacao = request.form.get('localizacao', '').strip()
+            
+            texto_bruto = ""
+            nome_arquivo = "candidatura_manual.txt"
+            arquivo_b64 = ""
+            
+            if tipo_envio == 'upload':
+                arquivo = request.files.get('file')
+                if arquivo and arquivo.filename != '':
+                    nome_original = arquivo.filename
+                    extensao = nome_original.rsplit('.', 1)[1].lower() if '.' in nome_original else ''
+                    if extensao in ['pdf', 'docx']:
+                        dados_bytes = arquivo.read()
+                        arquivo_b64 = base64.b64encode(dados_bytes).decode('utf-8')
+                        nome_arquivo = nome_original
+                        if extensao == 'pdf':
+                            texto_bruto = extrair_texto_pdf(dados_bytes)
+                        else:
+                            texto_bruto = extrair_texto_docx(dados_bytes)
+            else:
+                # Monta texto estruturado com os dados do formulário manual
+                formacao = request.form.get('formacao', '')
+                experiencia = request.form.get('experiencia', '')
+                habilidades = request.form.get('habilidades', '')
+                texto_bruto = f"Nome: {nome}\nE-mail: {email}\nWhatsApp: {whatsapp}\nLocalização: {localizacao}\nFormação: {formacao}\nExperiência: {experiencia}\nHabilidades: {habilidades}"
+
+            if not texto_bruto.strip():
+                flash("Por favor, preencha o formulário ou envie um currículo válido.", "error")
+                return redirect(request.url)
+
+            # Processa com a IA do TalentPulse
+            dados_ia = estruturar_curriculo_com_ia(texto_bruto)
+            if nome: 
+                dados_ia['nome'] = nome  # Prioriza o nome preenchido manualmente se houver
+            if whatsapp:
+                dados_ia['whatsapp'] = whatsapp
+            if localizacao:
+                dados_ia['localizacao'] = localizacao
+
+            # Salva no banco de dados vinculado à empresa dona da vaga
+            with get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        INSERT INTO curriculos (
+                            empresa_id, nome_arquivo, conteudo, nome_candidato, idade, sexo, 
+                            localizacao, formacao, cursos, habilidades, hard_skills, soft_skills, idiomas, arquivo_binario, whatsapp, areas_profissionais
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        RETURNING id
+                    """, (
+                        vaga['empresa_id'],
+                        nome_arquivo, 
+                        texto_bruto, 
+                        dados_ia['nome'], 
+                        dados_ia['idade'], 
+                        dados_ia['sexo'],
+                        dados_ia['localizacao'], 
+                        dados_ia['formacao'], 
+                        dados_ia['cursos'], 
+                        dados_ia['hard_skills'], 
+                        dados_ia['hard_skills'], 
+                        dados_ia['soft_skills'], 
+                        dados_ia['idiomas'], 
+                        arquivo_b64,
+                        dados_ia['whatsapp'],
+                        dados_ia['areas_profissionais']
+                    ))
+                    novo_curriculo_id = cursor.fetchone()[0]
+
+                    # Cálculo dinâmico de match por IA para a vaga pública
+                    compatibilidade = 50  # Valor padrão de segurança caso a IA falhe
+                    justificativa = "Candidato submetido via link público. Análise de compatibilidade realizada pelo sistema."
+
+                    if client:
+                        try:
+                            prompt_match = (
+                                f"VAGA ALVO:\n"
+                                f"Título: {vaga.get('titulo', '')}\n"
+                                f"Descrição: {vaga.get('descricao', '')}\n"
+                                f"Requisitos: {vaga.get('requisitos', '')}\n\n"
+                                f"CANDIDATO:\n"
+                                f"Nome: {dados_ia['nome']}\n"
+                                f"Hard Skills: {dados_ia['hard_skills']}\n"
+                                f"Soft Skills: {dados_ia['soft_skills']}\n"
+                                f"Formação: {dados_ia['formacao']}\n"
+                                f"Conteúdo Geral: {otimizar_texto_ia(texto_bruto)}"
+                            )
+
+                            class MatchUnico(BaseModel):
+                                porcentagem_compatibilidade: int
+                                justificativa: str
+
+                            response = client.models.generate_content(
+                                model='gemini-2.5-flash',
+                                contents=prompt_match,
+                                config=types.GenerateContentConfig(
+                                    response_mime_type="application/json",
+                                    response_schema=MatchUnico,
+                                    system_instruction="Você é um Headhunter sênior. Avalie o fit deste candidato para a vaga e retorne a porcentagem (0 a 100) e uma justificativa clara.",
+                                    temperature=0.2
+                                )
+                            )
+                            
+                            texto_resp = response.text.strip() if response.text else "{}"
+                            dados_match = json.loads(texto_resp)
+                            compatibilidade = int(dados_match.get("porcentagem_compatibilidade", 50))
+                            justificativa = str(dados_match.get("justificativa", justificativa))
+                        except Exception as ai_err:
+                            print(f"[AVISO] Erro ao calcular match dinâmico na vaga pública: {ai_err}")
+
+                    cursor.execute("""
+                        INSERT INTO historico_analises_vagas (vaga_id, curriculo_id, porcentagem_compatibilidade, justificativa)
+                        VALUES (%s, %s, %s, %s)
+                        ON CONFLICT (vaga_id, curriculo_id) DO UPDATE 
+                        SET porcentagem_compatibilidade = EXCLUDED.porcentagem_compatibilidade,
+                            justificativa = EXCLUDED.justificativa
+                    """, (vaga['id'], novo_curriculo_id, compatibilidade, justificativa))
+                    
+                    conn.commit()
+
+            return render_template('sucesso_candidatura.html', vaga=vaga)
+
+        return render_template('candidatar_vaga.html', vaga=vaga)
+    except Exception as e:
+        print(f"Erro na candidatura pública: {e}")
+        return render_template('erro_vaga.html', mensagem="Ocorreu um erro ao processar sua candidatura."), 500
 # ==============================================================================
 # CHAT INTERATIVO COM IA (CORRIGIDO E ROBUSTO)
 # ==============================================================================
