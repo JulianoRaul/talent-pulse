@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Editar Vaga - TalentPulse</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
         body { background-color: #f8fafc; color: #334155; padding: 40px; }
@@ -14,6 +14,9 @@
         .form-control { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; color: #334155; background-color: #ffffff; transition: border-color 0.15s ease; }
         .form-control:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
         textarea.form-control { height: 100px; resize: vertical; }
+        .share-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 24px; }
+        .share-title { font-size: 13px; font-weight: 600; color: #0f172a; margin-bottom: 6px; }
+        .share-desc { font-size: 13px; color: #64748b; margin-bottom: 12px; }
         .btn-submit { background: #4f46e5; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%; font-size: 15px; margin-top: 10px; transition: background 0.2s; }
         .btn-submit:hover { background: #4338ca; }
         .back-link { display: inline-block; margin-top: 16px; color: #64748b; font-size: 14px; text-decoration: none; }
@@ -23,37 +26,24 @@
 <body>
     <div class="box">
         <h2>Editar Vaga: {{ vaga.titulo }}</h2>
+
+        <!-- Bloco de Compartilhamento no Topo para Fácil Acesso -->
+        <div class="share-box">
+            <div class="share-title">🔗 Link Público de Compartilhamento</div>
+            <p class="share-desc">Compartilhe este link nas redes sociais, WhatsApp ou LinkedIn para que os candidatos enviem seus currículos diretamente:</p>
+            <div style="display: flex; gap: 8px;">
+                <input type="text" id="link-vaga" readonly value="{{ request.host_url }}vaga/candidatar/{{ vaga.token_compartilhamento or vaga.id }}" class="form-control" style="background: #ffffff;">
+                <button type="button" onclick="copiarLinkVaga()" style="background: #2563eb; color: white; border: none; padding: 0 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background 0.15s ease;">Copiar Link</button>
+            </div>
+        </div>
+
         <form method="POST" action="{{ url_for('editar_vaga', id_vaga=vaga.id) }}">
             
             <div class="form-group">
                 <label>Título da Vaga</label>
                 <input type="text" name="titulo" class="form-control" value="{{ vaga.titulo }}" required>
             </div>
-            <div class="card" style="margin-top: 24px;">
-    <div class="card-title">🔗 Link Público de Compartilhamento</div>
-    <p style="font-size: 13px; color: #64748b; margin-bottom: 16px;">
-        Compartilhe este link nas redes sociais, WhatsApp ou LinkedIn para que os candidatos enviem seus currículos diretamente para esta vaga:
-    </p>
-    
-    <div style="display: flex; gap: 8px;">
-        <input type="text" id="link-vaga" readonly value="{{ request.host_url }}vaga/candidatar/{{ vaga.token_compartilhamento or vaga.id }}" style="flex: 1; padding: 10px 14px; font-size: 13px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; color: #334155;">
-        <button type="button" onclick="copiarLinkVaga()" style="background: #2563eb; color: white; border: none; padding: 0 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s ease;">Copiar Link</button>
-    </div>
-</div>
 
-<script>
-    function copiarLinkVaga() {
-        const input = document.getElementById('link-vaga');
-        input.select();
-        input.setSelectionRange(0, 99999); // Para dispositivos móveis
-        navigator.clipboard.writeText(input.value).then(() => {
-            alert('Link copiado para a área de transferência com sucesso!');
-        }).catch(() => {
-            document.execCommand('copy');
-            alert('Link copiado!');
-        });
-    }
-</script>
             <div class="form-group">
                 <label>Localização / Modelo</label>
                 <input type="text" name="localizacao" class="form-control" value="{{ vaga.localizacao or '' }}">
@@ -91,7 +81,23 @@
 
             <button type="submit" class="btn-submit">Salvar Alterações</button>
         </form>
+        
         <a href="{{ url_for('listar_vagas') }}" class="back-link">← Cancelar e Voltar</a>
     </div>
+
+    <!-- Script movido para o final da página -->
+    <script>
+        function copiarLinkVaga() {
+            const input = document.getElementById('link-vaga');
+            input.select();
+            input.setSelectionRange(0, 99999); // Para dispositivos móveis
+            navigator.clipboard.writeText(input.value).then(() => {
+                alert('Link copiado para a área de transferência com sucesso!');
+            }).catch(() => {
+                document.execCommand('copy');
+                alert('Link copiado!');
+            });
+        }
+    </script>
 </body>
 </html>
