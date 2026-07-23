@@ -144,7 +144,7 @@ def init_db():
                     );
                 ''')
 
-                # 4. Tabela de Vagas
+           # 4. Tabela de Vagas
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS vagas (
                         id SERIAL PRIMARY KEY,
@@ -156,15 +156,23 @@ def init_db():
                         data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     );
                 ''')
-                cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS actividades TEXT;')
+                
+                # Garante que a coluna 'atividades' exista com o nome correto (corrige o 'actividades' antigo)
+                cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS atividades TEXT;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS beneficios TEXT;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS remuneracao TEXT;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS expediente TEXT;')
+                cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS token_compartilhamento TEXT UNIQUE;')
                 
-                # Adiciona a coluna de token de compartilhamento público se ainda não existir
-                cursor.execute("""
-                    ALTER TABLE vagas ADD COLUMN IF NOT EXISTS token_compartilhamento TEXT UNIQUE;
-                """)
+                # Se por acaso a coluna antiga 'actividades' com 'c' existir, copia os dados ou remove/renomeia:
+                cursor.execute('''
+                    DO $$ 
+                    BEGIN 
+                        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='vagas' and column_name='actividades') THEN
+                            ALTER TABLE vagas RENAME COLUMN actividades TO atividades;
+                        END IF;
+                    END $$;
+                ''')
 
                 # 5. Tabela de Cache de Análise Inteligente do Currículo
                 cursor.execute('''
