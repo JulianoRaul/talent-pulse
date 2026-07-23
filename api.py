@@ -338,6 +338,41 @@ def pre_filtro_compatibilidade(requisitos_vaga, descricao_vaga, titulo_vaga, tex
         return False
     return True
 
+def validar_se_e_curriculo(texto_bruto):
+    if not client or not texto_bruto or not texto_bruto.strip():
+        return True
+    
+    try:
+        prompt_validacao = (
+            "Analise o texto abaixo extraído de um arquivo enviado por um candidato. "
+            "Determine se ele contém informações características de um currículo profissional "
+            "(como histórico profissional, formação acadêmica, habilidades ou dados de contato voltados a emprego). "
+            "Se for um boleto, fatura, recibo, manual técnico, comprovante de pagamento ou qualquer documento que NÃO seja um currículo, retorne false.\n\n"
+            f"TEXTO EXTRAÍDO:\n{texto_bruto[:3000]}"
+        )
+
+        class ValidacaoCurriculo(BaseModel):
+            is_curriculo: bool
+            motivo: str
+
+        resp_val = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt_validacao,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=ValidacaoCurriculo,
+                system_instruction="Você é um validador rigoroso de documentos de RH.",
+                temperature=0.0
+            )
+        )
+        
+        texto_resp = resp_val.text.strip() if resp_val.text else "{}"
+        dados_val = json.loads(texto_resp)
+        return dados_val.get("is_curriculo", True)
+    except Exception as val_err:
+        print(f"[AVISO] Erro na validação de currículo: {val_err}")
+        return True
+
 def estruturar_curriculo_com_ia(texto_bruto):
     if not texto_bruto or not texto_bruto.strip():
         return {
@@ -345,6 +380,16 @@ def estruturar_curriculo_com_ia(texto_bruto):
             "localizacao": "Manual necessário", "formacao": "Texto vazio.",
             "cursos": "Nenhum", "hard_skills": "Nenhuma", "soft_skills": "Nenhuma", "idiomas": "Não informado",
             "whatsapp": "", "areas_profissionais": ["Geral"]
+        }
+    
+    # Validação inicial para garantir que o arquivo enviado é realmente um currículo
+    if not validar_se_e_curriculo(texto_bruto):
+        return {
+            "nome": "Documento Inválido", "idade": "Não Informado", "sexo": "Não Informado",
+            "localizacao": "Não Aplicável", "formacao": "O arquivo enviado não é um currículo válido (ex: boleto ou fatura).",
+            "cursos": "Nenhum", "hard_skills": "Nenhuma", "soft_skills": "Nenhuma", "idiomas": "Não informado",
+            "whatsapp": "", "areas_profissionais": ["Geral"],
+            "documento_invalido": True
         }
     
     texto_limitado = otimizar_texto_ia(texto_bruto)
