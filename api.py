@@ -219,6 +219,22 @@ def init_db():
     except Exception as e:
         print(f"Erro ao inicializar o banco de dados: {e}")
 
+            # 8. Na tabela historico_analises_vagas dentro de init_db():
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS historico_analises_vagas (
+        id SERIAL PRIMARY KEY,
+        vaga_id INTEGER REFERENCES vagas(id) ON DELETE CASCADE,
+        curriculo_id INTEGER REFERENCES curriculos(id) ON DELETE CASCADE,
+        porcentagem_compatibilidade INTEGER NOT NULL,
+        justificativa TEXT NOT NULL,
+        status_kanban TEXT DEFAULT 'triagem',
+        data_analise TIMESTAMP DEFAULT (timezone('America/Sao_Paulo', NOW())),
+        UNIQUE(vaga_id, curriculo_id)
+    );
+''')
+# Garante a coluna caso a tabela já exista
+cursor.execute("ALTER TABLE historico_analises_vagas ADD COLUMN IF NOT EXISTS status_kanban TEXT DEFAULT 'triagem';")
+
 init_db()
 # ==============================================================================
 # CONFIGURAÇÃO DO GOOGLE GEMINI AI & SCHEMAS DE RETORNO
@@ -1720,6 +1736,86 @@ def pagina_candidatura_publica(token):
     except Exception as e:
         print(f"Erro na candidatura pública: {e}")
         return render_template('erro_vaga.html', mensagem="Ocorreu um erro ao processar sua candidatura."), 500
+
+# ==============================================================================
+# KANBAN DE CONTRATAÇÃO (HISTÓRICO DE STATUS DOS CANDIDATOS)
+# ==============================================================================
+@app.route('/vagas/<int:id_vaga>/kanban', methods=['GET'])
+@login_required
+def kanban_vaga(id_vaga):
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("SELECT * FROM vagas WHERE id = %s AND empresa_id = %s", (id_vaga, current_user.empresa_id))
+                vaga = cursor.fetchone()
+                
+                if not vaga:
+                    flash("Vaga não encontrada ou acesso negado.", "error")
+                    return redirect(url_for('listar_vagas'))
+
+                # Busca todos os candidatos vinculados a esta vaga e seus status atuais
+                cursor.execute("""
+                    SELECT h.curriculo_id, h.porcentagem_compatibilidade, h.justificativa, 
+                           COALESCE(h.status_kanban, 'triagem') as status_kanban,
+                           c.nome_candidato AS nome, c.localizacao, c.whatsapp
+                    FROM historico_analises_vagas h
+                    JOIN curriculos c ON h.curriculo_id = c.id
+                    WHERE h.vaga_id = %s
+                """, (id_vaga,))
+                candidatos = cursor.fetchall()
+
+                # Organiza em colunas
+                colunas = {
+                    'triagem': [],
+                    'entrevista': [],
+                    'teste_tecnico': [],
+                    'aprovado': [],
+                    'reprovado': []
+                }
+
+                for c in candidatos:
+                    status = c['status_kanban']
+                    if status in colunas:
+                        colunas[status].append(c)
+                    else:
+                        colunas['triagem'].append(c)
+
+        return render_template('kanban.html', vaga=vaga, colunas=colunas)
+    except Exception as e:
+        print(f"Erro ao carregar Kanban: {e}")
+        flash("Erro ao carregar o painel Kanban da vaga.", "error")
+        return redirect(url_for('listar_vagas'))
+
+@app.route('/vagas/<int:id_vaga>/kanban/atualizar', methods=['POST'])
+@login_required
+def atualizar_status_kanban(id_vaga):
+    try:
+        dados = request.get_json() or {}
+        curriculo_id = dados.get('curriculo_id')
+        novo_status = dados.get('status')
+
+        status_validos = ['triagem', 'entrevista', 'teste_tecnico', 'aprovado', 'reprovado']
+        if novo_status not in status_validos:
+            return jsonify({"status": "erro", "mensagem": "Status inválido."}), 400
+
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                # Valida se a vaga pertence à empresa do usuário logado
+                cursor.execute("SELECT id FROM vagas WHERE id = %s AND empresa_id = %s", (id_vaga, current_user.empresa_id))
+                if not cursor.fetchone():
+                    return jsonify({"status": "erro", "mensagem": "Acesso negado."}), 403
+
+                cursor.execute("""
+                    UPDATE historico_analises_vagas
+                    SET status_kanban = %s
+                    WHERE vaga_id = %s AND curriculo_id = %s
+                """, (novo_status, id_vaga, curriculo_id))
+                conn.commit()
+
+        return jsonify({"status": "sucesso", "mensagem": "Status atualizado com sucesso!"})
+    except Exception as e:
+        print(f"Erro ao atualizar status no Kanban: {e}")
+        return jsonify({"status": "erro", "mensagem": "Erro interno ao atualizar status."}), 500
 # ==============================================================================
 # CONTROLE MASTER ADMINISTRATIVO 
 # ==============================================================================
