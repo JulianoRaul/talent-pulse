@@ -261,7 +261,17 @@ class ParecerRetroJogo(BaseModel):
     habilidades_especiais: list[str] 
     tipos_de_vagas_recomendadas: list[str] 
     resumo_narrativa: str 
+    
+class PerguntaEntrevista(BaseModel):
+    pergunta: str
+    objetivo: str
+    tipo: str  # Ex: "Técnica" ou "Comportamental"
 
+class RoteiroEntrevista(BaseModel):
+    candidato_nome: str
+    vaga_titulo: str
+    perguntas: list[PerguntaEntrevista]
+    
 # ==============================================================================
 # FUNÇÕES AUXILIARES DE TEXTO E FILTRAGEM DE CUSTO
 # ==============================================================================
@@ -1369,6 +1379,67 @@ def analisar_vaga(id_vaga):
         flash("Ocorreu um erro interno ao processar a inteligência artificial.", "error")
         return redirect(url_for('listar_vagas'))
 
+@app.route('/vagas/<int:id_vaga>/candidato/<int:id_candidato>/gerar-perguntas', methods=['GET'])
+@login_required
+def gerar_perguntas_entrevista(id_vaga, id_candidato):
+    if not client:
+        return jsonify({"error": "Integração com Inteligência Artificial não configurada."}), 500
+        
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                # Busca os dados da vaga
+                cursor.execute("SELECT * FROM vagas WHERE id = %s AND empresa_id = %s", (id_vaga, current_user.empresa_id))
+                vaga = cursor.fetchone()
+                
+                # Busca os dados do candidato e seu currículo
+                cursor.execute("""
+                    SELECT nome_candidato AS nome, hard_skills, soft_skills, formacao, conteudo 
+                    FROM curriculos WHERE id = %s AND empresa_id = %s
+                """, (id_candidato, current_user.empresa_id))
+                candidato = cursor.fetchone()
+                
+                if not vaga or not candidato:
+                    return jsonify({"error": "Vaga ou candidato não encontrados."}), 404
+
+        system_instruction = (
+            "Você é um Headhunter sênior e especialista em recrutamento e seleção.\n"
+            "Com base nas lacunas encontradas entre o currículo do candidato e os requisitos da vaga "
+            "(ou nas competências que ele diz ter), gere um roteiro personalizado de exatamente 5 perguntas "
+            "(técnicas ou comportamentais) para o recrutador fazer durante a entrevista.\n"
+            "As perguntas devem explorar pontos a esclarecer, fraquezas ou validação de competências críticas."
+        )
+
+        prompt_conteudo = (
+            f"VAGA ALVO:\n"
+            f"Título: {vaga['titulo']}\n"
+            f"Descrição: {vaga['descricao']}\n"
+            f"Requisitos: {vaga['requisitos']}\n\n"
+            f"CANDIDATO:\n"
+            f"Nome: {candidato['nome']}\n"
+            f"Hard Skills: {candidato['hard_skills']}\n"
+            f"Soft Skills: {candidato['soft_skills']}\n"
+            f"Formação: {candidato['formacao']}\n"
+            f"Resumo do Currículo: {otimizar_texto_ia(candidato['conteudo'])[:3000]}"
+        )
+
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt_conteudo,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=RoteiroEntrevista,
+                system_instruction=system_instruction,
+                temperature=0.3
+            )
+        )
+        
+        roteiro_json = json.loads(response.text.strip()) if response.text else {}
+        return jsonify(roteiro_json)
+
+    except Exception as e:
+        print(f"[ERRO] Geração de perguntas para entrevista: {e}")
+        return jsonify({"error": "Erro interno ao gerar o roteiro de perguntas."}), 500
 # ==============================================================================
 # HISTÓRICO DE CANDIDATOS ANALISADOS POR VAGA (MATCH >= 70%)
 # ==============================================================================
