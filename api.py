@@ -791,6 +791,98 @@ def excluir(id_candidato):
         return jsonify({"status": "erro", "mensagem": "Erro interno ao excluir o currículo"}), 500
 
 # ==============================================================================
+# PAINEL DE INDICADORES (DASHBOARD DE RH)
+# ==============================================================================
+@app.route('/dashboard', methods=['GET'])
+@login_required
+def dashboard_rh():
+    return render_template('dashboard.html')
+
+@app.route('/api/dashboard-stats', methods=['GET'])
+@login_required
+def dashboard_stats():
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                # 1. Total de currículos recebidos no mês atual
+                primeiro_dia_mes = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                cursor.execute("""
+                    SELECT COUNT(*) as total_mes 
+                    FROM curriculos 
+                    WHERE empresa_id = %s AND data_cadastro >= %s
+                """, (current_user.empresa_id, primeiro_dia_mes))
+                res_mes = cursor.fetchone()
+                total_mes = res_mes['total_mes'] if res_mes else 0
+
+                # Total geral no banco da empresa
+                cursor.execute("SELECT COUNT(*) as total_geral FROM curriculos WHERE empresa_id = %s", (current_user.empresa_id,))
+                res_geral = cursor.fetchone()
+                total_geral = res_geral['total_geral'] if res_geral else 0
+
+                # 2. Distribuição por área profissional (extraindo do array areas_profissionais)
+                cursor.execute("""
+                    SELECT unnest(areas_profissionais) as area, COUNT(*) as qtd
+                    FROM curriculos
+                    WHERE empresa_id = %s AND areas_profissionais IS NOT NULL
+                    GROUP BY area
+                    ORDER BY qtd DESC
+                """, (current_user.empresa_id,))
+                dist_areas = cursor.fetchall()
+
+                # 3. Média de idade
+                cursor.execute("""
+                    SELECT idade 
+                    FROM curriculos 
+                    WHERE empresa_id = %s AND idade IS NOT NULL AND idade != ''
+                """, (current_user.empresa_id,))
+                idades_raw = cursor.fetchall()
+                
+                soma_idades = 0
+                contador_idades = 0
+                for row in idades_raw:
+                    # Tenta extrair apenas os números da string de idade (ex: "33 anos", "33")
+                    match_nums = re.findall(r'\d+', row['idade'])
+                    if match_nums:
+                        idade_val = int(match_nums[0])
+                        if 16 <= idade_val <= 100: # Filtro de sanidade para evitar anos de nascimento (ex: 1990)
+                            soma_idades += idade_val
+                            contador_idades += 1
+                
+                media_idade = round(soma_idades / contador_idades, 1) if contador_idades > 0 else 0
+
+                # 4. Principais Hard Skills mais encontradas
+                cursor.execute("""
+                    SELECT hard_skills 
+                    FROM curriculos 
+                    WHERE empresa_id = %s AND hard_skills IS NOT NULL AND hard_skills != ''
+                """, (current_user.empresa_id,))
+                skills_rows = cursor.fetchall()
+
+                skills_contador = {}
+                for row in skills_rows:
+                    texto_skills = row['hard_skills']
+                    # Separa por vírgula ou ponto e vírgula
+                    lista_s = re.split(r'[,;]', texto_skills)
+                    for s in lista_s:
+                        s_limpa = s.strip().capitalize()
+                        if s_limpa and len(s_limpa) > 1:
+                            skills_contador[s_limpa] = skills_contador.get(s_limpa, 0) + 1
+
+                # Ordena e pega as top 6 hard skills
+                top_skills = sorted(skills_contador.items(), key=lambda x: x[1], reverse=True)[:6]
+
+                return jsonify({
+                    "total_mes": total_mes,
+                    "total_geral": total_geral,
+                    "media_idade": media_idade,
+                    "distribuicao_areas": [{"area": d['area'], "quantidade": d['qtd']} for d in dist_areas],
+                    "top_hard_skills": [{"skill": item[0], "quantidade": item[1]} for item in top_skills]
+                })
+    except Exception as e:
+        print(f"Erro ao buscar estatísticas do dashboard: {e}")
+        return jsonify({"error": "Erro interno ao processar indicadores."}), 500
+
+# ==============================================================================
 # ANÁLISE CORPORATIVA COM SISTEMA DE CACHE NO BANCO DE DADOS
 # ==============================================================================
 @app.route('/candidato/<int:id_candidato>/analise-retro', methods=['GET'])
