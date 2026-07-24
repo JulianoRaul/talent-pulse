@@ -838,9 +838,7 @@
             to { transform: rotate(360deg); }
         }
 
-        <a href="{{ url_for('dashboard_rh') }}" style="background: #0284c7; color: white; padding: 10px 16px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 6px;">
-    📊 Painel de Indicadores
-</a>
+     
         /* ==============================================================================
            ESTILOS DO CHATBOT FLUTUANTE VANESSA
            ============================================================================== */
@@ -1074,6 +1072,9 @@
             </div>
             
             <div class="topbar-actions">
+                   <a href="{{ url_for('dashboard_rh') }}" style="background: #0284c7; color: white; padding: 10px 16px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 6px;">
+    📊 Painel de Indicadores
+</a>
                 <span class="badge-empresa">🏢 {{ nome_empresa }}</span>
                 
                 <span class="badge-plano {{ plano_empresa.lower() }}">⭐ Plano {{ plano_empresa }}</span>
