@@ -144,7 +144,7 @@ def init_db():
                     );
                 ''')
 
-          # 4. Tabela de Vagas
+                # 4. Tabela de Vagas
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS vagas (
                         id SERIAL PRIMARY KEY,
@@ -157,14 +157,12 @@ def init_db():
                     );
                 ''')
                 
-                # Garante a existência de todas as colunas necessárias na tabela vagas
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS atividades TEXT;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS beneficios TEXT;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS remuneracao TEXT;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS expediente TEXT;')
                 cursor.execute('ALTER TABLE vagas ADD COLUMN IF NOT EXISTS token_compartilhamento TEXT UNIQUE;')
                 
-                # Bloco seguro para renomear 'actividades' para 'atividades' apenas se ambas existirem ou se necessário
                 cursor.execute('''
                     DO $$ 
                     BEGIN 
@@ -190,7 +188,7 @@ def init_db():
                     );
                 ''')
 
-                # 6. Tabela de Histórico de Match do Candidato na Vaga
+                # 6. Tabela de Histórico de Match do Candidato na Vaga (com status_kanban integrado)
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS historico_analises_vagas (
                         id SERIAL PRIMARY KEY,
@@ -198,18 +196,20 @@ def init_db():
                         curriculo_id INTEGER REFERENCES curriculos(id) ON DELETE CASCADE,
                         porcentagem_compatibilidade INTEGER NOT NULL,
                         justificativa TEXT NOT NULL,
+                        status_kanban TEXT DEFAULT 'triagem',
                         data_analise TIMESTAMP DEFAULT (timezone('America/Sao_Paulo', NOW())),
                         UNIQUE(vaga_id, curriculo_id)
                     );
                 ''')
+                cursor.execute("ALTER TABLE historico_analises_vagas ADD COLUMN IF NOT EXISTS status_kanban TEXT DEFAULT 'triagem';")
 
-                # 7. Tabela de Histórico do Chat Interativo IA (Isolado por Tenant)
+                # 7. Tabela de Histórico do Chat Interativo IA
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS mensagens_chat (
                         id SERIAL PRIMARY KEY,
                         empresa_id INTEGER REFERENCES empresas(id) ON DELETE CASCADE,
                         usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
-                        remetente TEXT NOT NULL, -- 'usuario' ou 'ia'
+                        remetente TEXT NOT NULL,
                         mensagem TEXT NOT NULL,
                         data_envio TIMESTAMP DEFAULT (timezone('America/Sao_Paulo', NOW()))
                     );
@@ -219,22 +219,7 @@ def init_db():
     except Exception as e:
         print(f"Erro ao inicializar o banco de dados: {e}")
 
-            # 8. Na tabela historico_analises_vagas dentro de init_db():
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS historico_analises_vagas (
-        id SERIAL PRIMARY KEY,
-        vaga_id INTEGER REFERENCES vagas(id) ON DELETE CASCADE,
-        curriculo_id INTEGER REFERENCES curriculos(id) ON DELETE CASCADE,
-        porcentagem_compatibilidade INTEGER NOT NULL,
-        justificativa TEXT NOT NULL,
-        status_kanban TEXT DEFAULT 'triagem',
-        data_analise TIMESTAMP DEFAULT (timezone('America/Sao_Paulo', NOW())),
-        UNIQUE(vaga_id, curriculo_id)
-    );
-''')
-# Garante a coluna caso a tabela já exista
-cursor.execute("ALTER TABLE historico_analises_vagas ADD COLUMN IF NOT EXISTS status_kanban TEXT DEFAULT 'triagem';")
-
+# Chamada única da função no final do script
 init_db()
 # ==============================================================================
 # CONFIGURAÇÃO DO GOOGLE GEMINI AI & SCHEMAS DE RETORNO
