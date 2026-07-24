@@ -1508,11 +1508,13 @@ def chat_vanessa():
     except Exception as e:
         print(f"Erro no banco: {e}")
 
-    # 2. Envia os dados para o Gemini com uma System Instruction clara
+    # 2. Envia os dados para o Gemini com uma System Instruction clara e restrita ao sistema
     try:
         system_prompt = f"""
-        Você é a Vanessa, assistente da TalentPulse. 
-        Seu objetivo é analisar os dados abaixo e responder ao usuário de forma natural e profissional.
+        Você é a Vanessa, assistente virtual exclusiva do sistema TalentPulse. 
+        Seu único objetivo é ajudar o usuário com as funcionalidades do sistema, rotas, manuseio do funil Kanban, gestão de vagas e análise dos dados abaixo.
+        
+        REGRA RÍGIDA: Recuse educadamente qualquer assunto que fuja do escopo do aplicativo TalentPulse.
         
         Dados de candidatos encontrados no sistema:
         {candidatos_texto if candidatos_texto else "Nenhum candidato encontrado com os critérios."}
@@ -1530,18 +1532,20 @@ def chat_vanessa():
         return jsonify({"resposta": response.text})
     except Exception as e:
         return jsonify({"resposta": "Desculpe, estou com instabilidade técnica no momento."})
+    
     # --- FLUXO PADRÃO (SE NÃO FOR BUSCA ESPECÍFICA) ---
     try:
         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=mensagem_usuario,
             config=types.GenerateContentConfig(
-                system_instruction="Você é Vanessa. Se a pergunta for sobre triagem, tente responder com base no contexto ou oriente sobre como filtrar."
+                system_instruction="Você é a Vanessa, assistente exclusiva do TalentPulse. Ajude estritamente com dúvidas sobre as funcionalidades do sistema, rotas, triagem e funil Kanban. Recuse qualquer assunto externo."
             )
         )
         return jsonify({"resposta": response.text})
     except Exception as e:
         return jsonify({"resposta": "Desculpe, estou com instabilidade técnica."})
+
 @app.route('/chat', methods=['GET'])
 @login_required
 def renderizar_chat():
@@ -1604,10 +1608,17 @@ def enviar_mensagem_chat():
             role = "user" if msg['remetente'] == 'usuario' else "model"
             historico_gemini.append(types.Content(role=role, parts=[types.Part.from_text(text=msg['mensagem'])]))
 
+        # System Instruction restrita e focada nas funcionalidades do sistema
         system_instruction = (
-            f"Você é a Vanessa, assistente virtual do TalentPulse. "
-            f"Usuário: {current_user.nome} (Empresa ID: {current_user.empresa_id}). "
-            "Ajude com análise de currículos, vagas e recrutamento. Responda apenas com texto puro, sem blocos de código."
+            f"Você é a Vanessa, assistente virtual oficial e exclusiva do sistema TalentPulse. "
+            f"Usuário atual: {current_user.nome} (Empresa ID: {current_user.empresa_id}). "
+            "SEU ESCOPO DE ATUAÇÃO É RESTRITO: Você deve ajudar o usuário exclusivamente com dúvidas sobre as "
+            "funcionalidades do sistema, rotas de navegação, orientações de uso (como gerenciar vagas, currículos, "
+            "gerar perguntas de IA e controlar o funil Kanban).\n"
+            "REGRAS OBRIGATÓRIAS:\n"
+            "1. NUNCA responda a perguntas sobre assuntos gerais, conversas fiadas fora do sistema, programação externa, receitas ou temas que não pertençam à plataforma TalentPulse.\n"
+            "2. Se o usuário perguntar algo fora do ecossistema do sistema, recuse educadamente e oriente-o sobre como você pode ajudá-lo dentro do aplicativo.\n"
+            "3. Responda apenas com texto puro, sem blocos de código."
         )
 
         # 4. Processamento IA
@@ -1622,7 +1633,6 @@ def enviar_mensagem_chat():
         
         # Limpeza robusta da resposta da IA
         resposta_bruta = response.text if response.text else "Não consegui processar uma resposta."
-        # Remove blocos Markdown (```json, ```text, ```, etc)
         resposta_limpa = re.sub(r'```[a-zA-Z]*', '', resposta_bruta).replace('```', '').strip()
 
         # 5. Salva resposta da IA
