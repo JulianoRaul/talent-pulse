@@ -7,3 +7,4 @@ pypdf
 docx2txt
 psycopg2-binary
 gunicorn
+mercadopago==2.2.1
